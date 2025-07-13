@@ -771,7 +771,7 @@ describe("Safe Transaction Functions", () => {
 					hash: txHash,
 				});
 				expect(receipt.status).toBe("success");
-				expect(receipt.to).toBe(safeAddress);
+				expect(receipt.to?.toLowerCase()).toBe(safeAddress.toLowerCase());
 			});
 
 			it("should provide raw transaction data", async () => {
