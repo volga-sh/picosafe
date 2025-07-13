@@ -14,6 +14,8 @@ const SAFE_ABI = [
 	"function execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures) payable returns (bool success)",
 	"function domainSeparator() view returns (bytes32)",
 	"function getMessageHash(bytes message) view returns (bytes32)",
+	"function isValidSignature(bytes32 _dataHash, bytes _signature) view returns (bytes4)",
+	"function approvedHashes(address, bytes32) view returns (uint256)",
 	"event SafeSetup(address indexed initiator, address[] owners, uint256 threshold, address initializer, address fallbackHandler)",
 ] as const;
 

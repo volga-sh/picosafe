@@ -141,6 +141,77 @@ type SafeMessage = {
 	message: Hex;
 };
 
+/**
+ * Signature type classification for Safe signature verification
+ * @enum {string}
+ * @property {string} ecdsa - Standard ECDSA signature from externally owned account
+ * @property {string} contract - EIP-1271 signature from smart contract wallet
+ * @property {string} approved - Pre-approved transaction hash (no signature data)
+ */
+type SignatureType = "ecdsa" | "contract" | "approved";
+
+/**
+ * Parameters for on-chain Safe signature verification
+ * @property {Address} safeAddress - Address of the Safe contract to verify signatures against
+ * @property {Hex} dataHash - Hash of the data that was signed (typically from getTransactionHash)
+ * @property {Hex} data - Original transaction data (required for signature encoding)
+ * @property {readonly SafeSignature[]} signatures - Array of signatures to verify
+ * @property {bigint} requiredSignatures - Minimum number of valid signatures required (Safe threshold)
+ */
+type VerifySafeSignaturesParams = {
+	safeAddress: Address;
+	dataHash: Hex;
+	data: Hex;
+	signatures: readonly SafeSignature[];
+	requiredSignatures: bigint;
+};
+
+/**
+ * Parameters for off-chain Safe signature verification with minimal on-chain calls
+ * @property {Address} safeAddress - Address of the Safe contract
+ * @property {bigint} chainId - Chain ID for EIP-712 domain separator calculation
+ * @property {Hex} dataHash - Hash of the data that was signed
+ * @property {Hex} data - Original transaction data
+ * @property {readonly SafeSignature[]} signatures - Array of signatures to verify
+ * @property {readonly Address[]} owners - Array of current Safe owners for validation
+ * @property {bigint} threshold - Safe threshold (minimum required signatures)
+ */
+type VerifySafeSignaturesOffchainParams = {
+	safeAddress: Address;
+	chainId: bigint;
+	dataHash: Hex;
+	data: Hex;
+	signatures: readonly SafeSignature[];
+	owners: readonly Address[];
+	threshold: bigint;
+};
+
+/**
+ * Detailed information about individual signature validation
+ * @property {Address} signer - Address of the signature creator
+ * @property {boolean} isValid - Whether this signature is cryptographically valid
+ * @property {SignatureType} type - Type of signature (ecdsa/contract/approved)
+ * @property {string} error - Error message if validation failed (optional)
+ */
+type SignatureValidationDetail = {
+	signer: Address;
+	isValid: boolean;
+	type: SignatureType;
+	error?: string;
+};
+
+/**
+ * Comprehensive result of off-chain signature verification
+ * @property {boolean} isValid - Whether all signatures meet the threshold requirement
+ * @property {number} validSignatures - Count of valid signatures found
+ * @property {Array<SignatureValidationDetail>} details - Detailed results for each signature
+ */
+type SignatureVerificationResult = {
+	isValid: boolean;
+	validSignatures: number;
+	details: Array<SignatureValidationDetail>;
+};
+
 export { Operation };
 export type {
 	MetaTransaction,
@@ -152,4 +223,9 @@ export type {
 	PicoSafeRpcBlockIdentifier,
 	FullSafeTransaction,
 	Prettify,
+	SignatureType,
+	VerifySafeSignaturesParams,
+	VerifySafeSignaturesOffchainParams,
+	SignatureValidationDetail,
+	SignatureVerificationResult,
 };
