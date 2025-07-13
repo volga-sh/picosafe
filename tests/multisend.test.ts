@@ -63,7 +63,7 @@ describe("encodeMultiSendCall", () => {
 					"0x",
 				],
 			);
-			
+
 			const expected = encodeFunctionData({
 				abi: parseAbi(["function multiSend(bytes transactions) payable"]),
 				functionName: "multiSend",
@@ -136,7 +136,7 @@ describe("encodeMultiSendCall", () => {
 				["uint8", "address", "uint256", "uint256", "bytes"],
 				[Operation.Call, transaction.to, transaction.value, dataLength, data],
 			);
-			
+
 			const expected = encodeFunctionData({
 				abi: parseAbi(["function multiSend(bytes transactions) payable"]),
 				functionName: "multiSend",
@@ -169,7 +169,7 @@ describe("encodeMultiSendCall", () => {
 					transaction.data,
 				],
 			);
-			
+
 			const expected = encodeFunctionData({
 				abi: parseAbi(["function multiSend(bytes transactions) payable"]),
 				functionName: "multiSend",
@@ -256,7 +256,7 @@ describe("encodeMultiSendCall", () => {
 					longData,
 				],
 			);
-			
+
 			const expected = encodeFunctionData({
 				abi: parseAbi(["function multiSend(bytes transactions) payable"]),
 				functionName: "multiSend",
@@ -279,7 +279,7 @@ describe("encodeMultiSendCall", () => {
 				["uint8", "address", "uint256", "uint256", "bytes"],
 				[Operation.Call, transaction.to, transaction.value, 1n, "0x01"],
 			);
-			
+
 			const expected = encodeFunctionData({
 				abi: parseAbi(["function multiSend(bytes transactions) payable"]),
 				functionName: "multiSend",
@@ -304,10 +304,10 @@ describe("encodeMultiSendCall", () => {
 
 			// Should be a multiSend function call with selector 0x8d80ff0a
 			expect(encoded.slice(0, 10)).toBe("0x8d80ff0a");
-			
+
 			// Verify length is reasonable - function selector (4 bytes) + offset (32 bytes) + length (32 bytes) + data
 			// Each tx should be at least 85 bytes encoded
-			expect(encoded.length).toBeGreaterThan(10 + 64 + 64 + (85 * 2 * 100)); // 2 hex chars per byte
+			expect(encoded.length).toBeGreaterThan(10 + 64 + 64 + 85 * 2 * 100); // 2 hex chars per byte
 		});
 
 		it("should preserve exact addresses with checksums", () => {
@@ -324,7 +324,7 @@ describe("encodeMultiSendCall", () => {
 
 			// Should be a multiSend function call
 			expect(encoded.slice(0, 10)).toBe("0x8d80ff0a");
-			
+
 			// The address should be preserved exactly as provided within the encoded data
 			expect(encoded.toLowerCase()).toContain(
 				checksummedAddress.toLowerCase().slice(2),
@@ -345,7 +345,7 @@ describe("encodeMultiSendCall", () => {
 				["uint8", "address", "uint256", "uint256", "bytes"],
 				[Operation.Call, transaction.to, maxUint256, 0n, "0x"],
 			);
-			
+
 			const expected = encodeFunctionData({
 				abi: parseAbi(["function multiSend(bytes transactions) payable"]),
 				functionName: "multiSend",
@@ -406,10 +406,10 @@ describe("encodeMultiSendCall", () => {
 
 			// Verify structure
 			expect(encoded.startsWith("0x")).toBe(true);
-			
+
 			// Should be a multiSend function call with selector 0x8d80ff0a
 			expect(encoded.slice(0, 10)).toBe("0x8d80ff0a");
-			
+
 			// Verify reasonable length (function selector + data offset + data length + packed transactions)
 			expect(encoded.length).toBeGreaterThan((4 + 32 + 32 + 170) * 2); // At least 238 bytes encoded
 
@@ -441,7 +441,7 @@ describe("encodeMultiSendCall", () => {
 
 			// Should be a multiSend function call with selector 0x8d80ff0a
 			expect(encoded.slice(0, 10)).toBe("0x8d80ff0a");
-			
+
 			// Verify all addresses are included within the encoded data
 			recipients.forEach((address) => {
 				expect(encoded.toLowerCase()).toContain(address.toLowerCase().slice(2));

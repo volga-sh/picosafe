@@ -10,7 +10,7 @@
  * Tests use fuzz-like random testing to ensure robustness across diverse inputs.
  */
 
-import { type Address, getAddress, type Hex } from "viem";
+import { getAddress, type Hex } from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PARSED_SAFE_ABI } from "../src/abis";
 import { deploySafeAccount } from "../src/deployment";
