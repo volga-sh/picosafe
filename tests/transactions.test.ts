@@ -13,7 +13,6 @@
 import {
 	type Address,
 	checksumAddress,
-	type EIP1193Provider,
 	encodeFunctionData,
 	type Hex,
 	parseAbiItem,
@@ -23,6 +22,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { encodeMultiSendCall, SAFE_STORAGE_SLOTS } from "../src";
 import { deploySafeAccount } from "../src/deployment";
+import { calculateSafeTransactionHash } from "../src/eip712";
 import { V141_ADDRESSES } from "../src/safe-contracts";
 import {
 	buildSafeTransaction,
@@ -31,16 +31,14 @@ import {
 } from "../src/transactions";
 import type {
 	EIP1193ProviderWithRequestFn,
-	FullSafeTransaction,
 	MetaTransaction,
 	SafeSignature,
 } from "../src/types";
 import { Operation } from "../src/types";
 import { EMPTY_BYTES, ZERO_ADDRESS } from "../src/utilities/constants";
+import { getChainId } from "../src/utilities/eip1193-provider";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress, randomBytesHex } from "./utils";
-import { getChainId } from "../src/utilities/eip1193-provider";
-import { calculateSafeTransactionHash } from "../src/eip712";
 
 describe("Safe Transaction Functions", () => {
 	const clients = createClients();
