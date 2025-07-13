@@ -10,7 +10,13 @@
  * Tests run against a local Anvil blockchain with real Safe contracts deployed.
  */
 
-import { type Address, encodeFunctionData, type Hex, parseEther } from "viem";
+import {
+	type Address,
+	type EIP1193Provider,
+	encodeFunctionData,
+	type Hex,
+	parseEther,
+} from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deploySafeAccount } from "../src/deployment";
 import { V141_ADDRESSES } from "../src/safe-contracts";
@@ -19,7 +25,11 @@ import {
 	executeSafeTransaction,
 	signSafeTransaction,
 } from "../src/transactions";
-import type { MetaTransaction, SafeSignature } from "../src/types";
+import type {
+	FullSafeTransaction,
+	MetaTransaction,
+	SafeSignature,
+} from "../src/types";
 import { Operation } from "../src/types";
 import { EMPTY_BYTES, ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
@@ -751,12 +761,17 @@ describe("Safe Transaction Functions", () => {
 						if (method === "eth_accounts") {
 							return [];
 						}
-						return publicClient.request({ method } as any);
+						return publicClient.request({ method } as Parameters<
+							typeof publicClient.request
+						>[0]);
 					},
 				};
 
 				await expect(
-					signSafeTransaction(providerWithoutAccount as any, transaction),
+					signSafeTransaction(
+						providerWithoutAccount as EIP1193Provider,
+						transaction,
+					),
 				).rejects.toThrow("No signer address provided and no accounts found");
 			});
 
@@ -808,7 +823,10 @@ describe("Safe Transaction Functions", () => {
 				);
 
 				// Test with null chainId that would cause toString() to fail
-				const invalidChainIdTx = { ...validTransaction, chainId: null } as any;
+				const invalidChainIdTx = {
+					...validTransaction,
+					chainId: null,
+				} as unknown as FullSafeTransaction;
 				await expect(
 					signSafeTransaction(walletClient, invalidChainIdTx),
 				).rejects.toThrow();
@@ -817,13 +835,13 @@ describe("Safe Transaction Functions", () => {
 				const invalidValueTx = {
 					...validTransaction,
 					value: "not a bigint",
-				} as any;
+				} as unknown as FullSafeTransaction;
 				await expect(
 					signSafeTransaction(walletClient, invalidValueTx),
 				).rejects.toThrow();
 
 				// Test with completely empty object missing all required fields
-				const emptyTx = {} as any;
+				const emptyTx = {} as unknown as FullSafeTransaction;
 				await expect(
 					signSafeTransaction(walletClient, emptyTx),
 				).rejects.toThrow();
