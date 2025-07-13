@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code (claude.ai/code) for ef
 
 ## Project Overview
 
-PicoSafe is a minimalist TypeScript SDK for Safe Smart Account contracts (v1.4.1+). The SDK follows a one-action-one-function principle, providing a simple API for Safe operations without managing keys or connections.
+PicoSafe is a minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.4.1+). The SDK follows a one-action-one-function principle, providing a simple API for Safe operations without managing keys or connections.
 
 ## Key Commands
 
