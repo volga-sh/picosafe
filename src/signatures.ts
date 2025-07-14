@@ -264,9 +264,10 @@ type VerifySafeSignaturesParams = {
  * @param params.dataHash - The hash of the data that was signed (transaction hash or message hash)
  * @param params.data - The original data that was signed (used for EIP-1271 validation)
  * @param params.signatures - Array of signatures to verify or encoded signatures hex
- * @param params.requiredSignatures - Number of valid signatures required (must be <= threshold)
+ * @param params.requiredSignatures - Number of valid signatures required (must be > 0 and <= threshold)
  * @param params.block - Optional block number or tag to use for the RPC call
  * @returns Promise that resolves to true if signatures are valid, false otherwise
+ * @throws {Error} If requiredSignatures is <= 0
  * @example
  * ```typescript
  * import { checkNSignatures, buildSafeTransaction, calculateSafeTransactionHash } from "picosafe";
@@ -301,6 +302,13 @@ async function checkNSignatures(
 	safeAddress: Address,
 	params: VerifySafeSignaturesParams,
 ): Promise<boolean> {
+	if (params.requiredSignatures <= 0n) {
+		throw new Error("Required signatures must be greater than 0");
+	}
+
+	// We skip additional runtime validation checks (e.g., validating addresses, signature formats)
+	// because the Safe contract's checkNSignatures function will handle all validation
+	// and revert if signatures are invalid, which we catch and return as false
 	const encodedSignatures = isHex(params.signatures)
 		? params.signatures
 		: encodeSafeSignatures(params.signatures);
@@ -367,8 +375,9 @@ type VerifySafeSignaturesOffchainParams = {
  * @param params.data - The original data that was signed
  * @param params.signatures - Array of signatures to verify or encoded signatures hex
  * @param params.owners - Array of Safe owner addresses
- * @param params.threshold - Number of valid signatures required
+ * @param params.threshold - Number of valid signatures required (must be > 0 and <= number of owners)
  * @returns Detailed verification result with per-signature validation details
+ * @throws {Error} If threshold is <= 0 or greater than the number of owners
  * @example
  * ```typescript
  * import { verifySafeSignaturesOffchain } from "picosafe";
@@ -398,6 +407,19 @@ async function checkSafeSignaturesOffchain(
 	safeAddress: Address,
 	params: VerifySafeSignaturesOffchainParams,
 ): Promise<SignatureVerificationResult> {
+	if (params.threshold <= 0n) {
+		throw new Error("Threshold must be greater than 0");
+	}
+
+	if (params.threshold > BigInt(params.owners.length)) {
+		throw new Error(
+			`Threshold ${params.threshold} cannot exceed number of owners ${params.owners.length}`,
+		);
+	}
+
+	// We skip additional runtime validation checks (e.g., validating owner addresses, signature formats)
+	// because invalid signatures will simply fail verification below and be marked as invalid
+	// in the detailed results, without throwing errors
 	const signatures = Array.isArray(params.signatures)
 		? params.signatures
 		: decodeSafeSignatureBytes(params.signatures as Hex);
@@ -637,10 +659,10 @@ function decodeSafeSignatureBytes(
 
 		if (v === 0) {
 			// Dynamic signature - extract signer and offset
- 			const signer = checksumAddress(`0x${signatureData.slice(24, 64)}`);
- 			const dynamicOffset =
--				Number.parseInt(signatureData.slice(40, 104), 16) * 2;
-+				Number.parseInt(signatureData.slice(64, 128), 16) * 2;
+			const signer = checksumAddress(`0x${signatureData.slice(24, 64)}`);
+			const dynamicOffset =
+				-Number.parseInt(signatureData.slice(40, 104), 16) * 2;
+			+Number.parseInt(signatureData.slice(64, 128), 16) * 2;
 
 			// Check if dynamicOffset is within bounds
 			if (dynamicOffset >= data.length) {
