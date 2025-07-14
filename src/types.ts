@@ -50,6 +50,7 @@ enum Operation {
  * @property {Address} to - Target address to send the transaction to
  * @property {bigint} value - Amount of ETH to send (in wei)
  * @property {Hex} data - Encoded transaction data (function selector + parameters)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/Executor.sol#L21
  */
 type MetaTransaction = {
 	to: Address;
@@ -66,6 +67,7 @@ type MetaTransaction = {
  * @property {Address} gasToken - Token address for gas payment (0x0 = ETH)
  * @property {Address} refundReceiver - Address to receive gas payment (0x0 = tx.origin)
  * @property {bigint} nonce - Safe account nonce to prevent replay attacks
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L139
  */
 type SafeTransactionData = MetaTransaction & {
 	operation: Operation;
@@ -122,16 +124,49 @@ type SafeConfig = {
 };
 
 /**
+ * Unidentified Safe signature structure.
+ * Used when the signature is decoded from the signature bytes and the signer recovery hasn't been
+ * performed yet.
+ *
+ * @property {Hex} data - Signature data
+ */
+type UnidentifiedSafeSignature = {
+	data: Hex;
+};
+
+/**
+ * A signature from a EOA signer
+ *
+ * @property {Address} signer - Address of the signer
+ * @property {Hex} data - Signature data
+ * @property {boolean} dynamic - boolean to indicate that the signature data has to be treated as a dynamic part
+ */
+type SafeEOASignature = {
+	signer: Address;
+	data: Hex;
+	dynamic?: false;
+};
+
+/**
+ * A signature from a Smart Contract signer
+ *
+ * @property {Address} signer - Address of the signer
+ * @property {Hex} data - Signature data
+ * @property {boolean} dynamic - boolean to indicate that the signature data has to be treated as a dynamic part
+ */
+type SafeContractSignature = {
+	signer: Address;
+	data: Hex;
+	dynamic: true;
+};
+
+/**
  * Safe-specific signature structure (same as Signature but used for clarity in Safe contexts)
  * @property {Address} signer - Address of the signer
  * @property {Hex} data - Signature data including the signature type suffix
  * @property {boolean} dynamic - Whether the signature includes dynamic part (e.g., EIP-1271)
  */
-type SafeSignature = {
-	signer: Address;
-	data: Hex;
-	dynamic?: boolean;
-};
+type SafeSignature = SafeEOASignature | SafeContractSignature;
 
 /**
  * Safe message structure for EIP-191/1271 message signing
@@ -142,76 +177,35 @@ type SafeMessage = {
 };
 
 /**
- * Parameters for on-chain signature verification using Safe's checkNSignatures
- * @property {Address} safeAddress - The Safe contract address
- * @property {Hex} dataHash - The hash of the data that was signed
- * @property {Hex} data - The original data that was signed
- * @property {readonly SafeSignature[]} signatures - Array of signatures to verify
- * @property {bigint} requiredSignatures - Number of valid signatures required
+ * Signature type suffix used by Safe contracts (last byte of every 65-byte signature).
+ *
+ * A Safe signature is always **65 bytes** long and is encoded as:
+ * `{ 64-byte constant data }{ 1-byte signatureType }`.
+ * The interpretation of the first 64 bytes depends on the value of `signatureType`:
+ *
+ * | Value | Enum member      | Constant layout                                           | Typical source               |
+ * | ----- | ---------------- | --------------------------------------------------------- | ---------------------------- |
+ * | `0`   | `EIP712`         | `{ r (32) | s (32) | v (1) }`                             | `signTypedData` / EIP-712    |
+ * | `1`   | `CONTRACT`       | `{ verifier (32) | dataOffset (32) | 0 }` + dynamic bytes  | EIP-1271 contract            |
+ * | `2`   | `APPROVED_HASH`  | `{ validator (32) | ignored (32) | 1 }`                   | `approveHash` / tx sender    |
+ * | `3`   | `ETH_SIGN`       | `{ r (32) | s (32) | ECDSA v+4 (1) }`                     | `eth_sign` / `personal_sign` |
+ *
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
  */
-type VerifySafeSignaturesParams = {
-	safeAddress: Address;
-	dataHash: Hex;
-	data: Hex;
-	signatures: readonly SafeSignature[];
-	requiredSignatures: bigint;
-};
+enum SignatureType {
+	EIP712 = 0,
+	CONTRACT = 1,
+	APPROVED_HASH = 2,
+	ETH_SIGN = 3,
+}
 
-/**
- * Parameters for off-chain signature verification with minimal on-chain calls
- * @property {Address} safeAddress - The Safe contract address
- * @property {bigint} chainId - The chain ID for domain separator calculation
- * @property {Hex} dataHash - The hash of the data that was signed
- * @property {Hex} data - The original data that was signed
- * @property {readonly SafeSignature[]} signatures - Array of signatures to verify
- * @property {readonly Address[]} owners - Array of Safe owner addresses
- * @property {bigint} threshold - Number of valid signatures required
- */
-type VerifySafeSignaturesOffchainParams = {
-	safeAddress: Address;
-	chainId: bigint;
-	dataHash: Hex;
-	data: Hex;
-	signatures: readonly SafeSignature[];
-	owners: readonly Address[];
-	threshold: bigint;
-};
-
-/**
- * Signature type enumeration
- */
-type SignatureType = "ecdsa" | "contract" | "approved";
-
-/**
- * Detailed validation result for a single signature
- * @property {Address} signer - The address that created the signature
- * @property {boolean} isValid - Whether the signature is valid
- * @property {SignatureType} type - The type of signature (ecdsa/contract/approved)
- * @property {string} error - Error message if signature is invalid
- */
-type SignatureValidationDetails = {
-	signer: Address;
-	isValid: boolean;
-	type: SignatureType;
-	error?: string;
-};
-
-/**
- * Result of off-chain signature verification
- * @property {boolean} isValid - Whether enough valid signatures were found
- * @property {number} validSignatures - Number of valid signatures found
- * @property {SignatureValidationDetails[]} details - Per-signature validation details
- */
-type SignatureVerificationResult = {
-	isValid: boolean;
-	validSignatures: number;
-	details: SignatureValidationDetails[];
-};
-
-export { Operation };
+export { Operation, SignatureType };
 export type {
 	MetaTransaction,
 	SafeTransactionData,
+	SafeEOASignature,
+	SafeContractSignature,
+	UnidentifiedSafeSignature,
 	SafeSignature,
 	SafeMessage,
 	SafeConfig,
@@ -219,9 +213,4 @@ export type {
 	PicoSafeRpcBlockIdentifier,
 	FullSafeTransaction,
 	Prettify,
-	VerifySafeSignaturesParams,
-	VerifySafeSignaturesOffchainParams,
-	SignatureType,
-	SignatureValidationDetails,
-	SignatureVerificationResult,
 };
