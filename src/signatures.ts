@@ -575,7 +575,7 @@ async function verifySafeSignaturesOffchain(
 function decodeSafeSignatureBytes(
 	encodedSignatures: Hex,
 ): (UnidentifiedSafeSignature | SafeContractSignature)[] {
-	const signatures: (UnidentifiedSafeSignature | SafeSignature)[] = [];
+	const signatures: (UnidentifiedSafeSignature | SafeContractSignature)[] = [];
 	const data = encodedSignatures.slice(2); // Remove 0x prefix
 
 	// First pass: decode static parts and identify dynamic signatures
