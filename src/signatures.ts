@@ -9,6 +9,7 @@ import {
 import { PARSED_SAFE_ABI } from "./abis.js";
 import type {
 	EIP1193ProviderWithRequestFn,
+	PicoSafeRpcBlockIdentifier,
 	SafeContractSignature,
 	SafeSignature,
 	UnidentifiedSafeSignature,
@@ -23,16 +24,31 @@ import { concatHex, padStartHex } from "./utilities/encoding.js";
 type SafeSignaturesParam = readonly SafeSignature[] | Hex;
 
 /**
- * Encodes multiple signatures into the Safe signature format.
+ * Encodes multiple signatures into the Safe signature format
  *
  * Combines multiple signatures into a single hex string, sorted by signer
  * address in ascending order. This format is required by Safe contracts for
  * transaction execution with multiple signers.
  *
- * Supports two signature types:
- * - Standard ECDSA signatures (65 bytes): r (32) + s (32) + v (1)
- * - Dynamic signatures (e.g., EIP-1271 contract signatures): Variable length with
- *   a 65-byte header pointing to dynamic data appended at the end
+ * Encoding format:
+ * - Static part: All 65-byte signature entries concatenated
+ * - Dynamic part: Variable-length data appended after static part
+ *
+ * For standard signatures (ECDSA or pre-approved):
+ * - 65 bytes containing signature data directly: r (32) + s (32) + v (1)
+ * - v determines signature type: 1 for pre-approved, 27/28 for eth_sign, 31/32 for EIP-712
+ *
+ * For contract signatures (EIP-1271):
+ * - Static part (65 bytes):
+ *   - Bytes 0-32: Signer address padded to 32 bytes
+ *   - Bytes 32-64: Offset to dynamic data (relative to start of signatures)
+ *   - Byte 64: v = 0 (signature type identifier)
+ * - Dynamic part (at specified offset):
+ *   - Bytes 0-32: Length of signature data
+ *   - Remaining bytes: Actual signature data for EIP-1271 validation
+ *
+ * The Safe contract requires signatures to be sorted by signer address to
+ * prevent duplicates and ensure deterministic ordering.
  *
  * @param signatures - Array of signature objects to encode
  * @param signatures[].signer - The address of the account that created this signature
@@ -56,7 +72,8 @@ type SafeSignaturesParam = readonly SafeSignature[] | Hex;
  *     data: "0x" + "b".repeat(64) + "1c" // 65 bytes
  *   }
  * ]);
- * // Returns: "0x" + sorted concatenated signatures
+ * // Signatures sorted by signer address (ascending)
+ * // Returns: "0x" + signature2 + signature1 (if address2 < address1)
  * ```
  *
  * @example
@@ -78,26 +95,26 @@ type SafeSignaturesParam = readonly SafeSignature[] | Hex;
  * ```typescript
  * import { encodeSafeSignatures } from "picosafe";
  *
- * // Encode with a dynamic/contract signature (EIP-1271)
+ * // Encode mixed signature types including contract signature
  * const encoded = encodeSafeSignatures([
  *   {
  *     signer: "0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5",
- *     data: "0x" + "a".repeat(64) + "1b", // Standard ECDSA
+ *     data: "0x" + "a".repeat(64) + "1b", // Standard ECDSA (v=27)
  *     dynamic: false
  *   },
  *   {
  *     signer: "0x5678901234567890123456789012345678901234", // Contract wallet
- *     data: "0x" + "c".repeat(130), // Dynamic signature data
+ *     data: "0x" + "c".repeat(130), // Dynamic signature data for EIP-1271
  *     dynamic: true
  *   }
  * ]);
- * // Returns encoded signatures with dynamic data appended at the end
+ * // Returns: static part (130 bytes) + dynamic part (length + data)
+ * // Contract signature encoded as: padded address + offset + 0x00
  * ```
  */
 function encodeSafeSignatures(signatures: readonly SafeSignature[]): Hex {
 	const ECDSA_SIGNATURE_LENGTH = 65;
 
-	// Sort signatures by signer address (required by Safe contracts)
 	const sortedSignatures = [...signatures].sort((a, b) =>
 		a.signer.toLowerCase().localeCompare(b.signer.toLowerCase()),
 	);
@@ -136,52 +153,43 @@ function encodeSafeSignatures(signatures: readonly SafeSignature[]): Hex {
 }
 
 /**
- * Determines the type of a Safe signature
+ * Determines the type of a Safe signature based on its v value
+ *
+ * Safe signatures are differentiated by their v value:
+ * - v = 0: Contract signature (EIP-1271) - signer is a smart contract
+ * - v = 1: Pre-approved hash - hash was approved via approveHash()
+ * - v = 27/28: ECDSA signature with EIP-712 (structured data)
+ * - v = 31/32: ECDSA signature with eth_sign (adjusted v = 27/28 + 4)
+ *
  * @param signature - The signature to analyze
- * @returns The signature type (ecdsa, contract, or approved)
+ * @returns The signature type (EIP712, ETH_SIGN, CONTRACT, or APPROVED_HASH)
+ * @throws {Error} If ECDSA signature has invalid length or v value was unknown
  */
 function parseSignatureType(signature: SafeSignature): SignatureType {
+	// Dynamic (EIP-1271) signatures are identified separately
 	if (signature.dynamic) {
 		return SignatureType.CONTRACT;
 	}
 
+	// All static (ECDSA / approved hash) signatures must be 65 bytes (0x + 128/130 hex chars)
 	if (signature.data.length !== 130 && signature.data.length !== 132) {
 		throw new Error("Invalid ECDSA signature length");
 	}
 
 	const vByte = BigInt(signature.data.slice(-2));
-	if (vByte === 1n) {
-		return SignatureType.APPROVED_HASH;
+
+	switch (vByte) {
+		case 1n:
+			return SignatureType.APPROVED_HASH;
+		case 27n:
+		case 28n:
+			return SignatureType.EIP712;
+		case 31n:
+		case 32n:
+			return SignatureType.ETH_SIGN;
+		default:
+			throw new Error("Invalid signature type");
 	}
-
-	if (vByte > 30n) {
-		return SignatureType.ETH_SIGN;
-	}
-
-	return SignatureType.EIP712;
-}
-
-/**
- * Extracts r, s, v components from an ECDSA signature
- * @param signature - The hex signature (65 bytes)
- * @returns Object with r, s, v components
- */
-function extractSignatureComponents(signature: Hex): {
-	r: Hex;
-	s: Hex;
-	v: bigint;
-} {
-	if (!isHex(signature) || signature.length !== 132) {
-		// 0x + 130 hex chars = 65 bytes
-		throw new Error("Invalid ECDSA signature length");
-	}
-
-	const data = signature.slice(2);
-	const r = `0x${data.slice(0, 64)}` as Hex;
-	const s = `0x${data.slice(64, 128)}` as Hex;
-	const v = BigInt(`0x${data.slice(128, 130)}`);
-
-	return { r, s, v };
 }
 
 /**
@@ -223,34 +231,64 @@ type VerifySafeSignaturesParams = {
 	data: Hex;
 	signatures: SafeSignaturesParam;
 	requiredSignatures: bigint;
+	block?: PicoSafeRpcBlockIdentifier;
 };
 
 /**
- * Verifies Safe signatures using the Safe contract's checkNSignatures function
+ * Verifies Safe signatures by calling the Safe contract's checkNSignatures function on-chain
  *
  * This function calls the Safe contract's checkNSignatures method to verify
- * that the provided signatures are valid for the given data hash. The function
- * will revert if the signatures are invalid or insufficient.
+ * that the provided signatures are valid for the given data hash. The Safe contract
+ * performs comprehensive validation including:
+ *
+ * - ECDSA signature recovery and verification
+ * - EIP-1271 contract signature validation
+ * - Pre-approved hash checking
+ * - Owner validation and ordering checks
+ * - Duplicate signer prevention
+ *
+ * The function gracefully handles reverts - if the Safe contract reverts (invalid
+ * signatures), this function returns false rather than throwing.
+ *
+ * Signature validation rules enforced by Safe:
+ * - Signers must be current Safe owners
+ * - Signers must be ordered by address (ascending)
+ * - No duplicate signers allowed
+ * - Contract signatures (v=0) call isValidSignature on the signer
+ * - Pre-validated signatures (v=1) check approvedHashes mapping
+ * - ECDSA signatures use ecrecover with appropriate hash handling
  *
  * @param provider - EIP-1193 provider to interact with the blockchain
  * @param safeAddress - Address of the Safe contract
  * @param params - Verification parameters
- * @param params.dataHash - The hash of the data that was signed
- * @param params.data - The original data that was signed
+ * @param params.dataHash - The hash of the data that was signed (transaction hash or message hash)
+ * @param params.data - The original data that was signed (used for EIP-1271 validation)
  * @param params.signatures - Array of signatures to verify or encoded signatures hex
- * @param params.requiredSignatures - Number of valid signatures required
+ * @param params.requiredSignatures - Number of valid signatures required (must be <= threshold)
+ * @param params.block - Optional block number or tag to use for the RPC call
  * @returns Promise that resolves to true if signatures are valid, false otherwise
  * @example
  * ```typescript
- * import { verifySafeSignatures } from "picosafe";
+ * import { checkNSignatures, buildSafeTransaction, calculateSafeTransactionHash } from "picosafe";
  *
- * // Verify signatures for a Safe transaction
- * const isValid = await verifySafeSignatures(provider, safeAddress, {
- *   dataHash: "0x...", // The transaction hash
- *   data: "0x...", // The transaction data
+ * // Build a Safe transaction
+ * const safeTx = buildSafeTransaction({
+ *   to: "0x742d35Cc6634C0532925a3b844Bc9e7595f8fA8e",
+ *   value: 0n,
+ *   data: "0x",
+ *   // ... other parameters
+ * });
+ *
+ * // Calculate transaction hash
+ * const txHash = await calculateSafeTransactionHash(provider, safeAddress, safeTx);
+ *
+ * // Verify signatures for the transaction
+ * const isValid = await checkNSignatures(provider, safeAddress, {
+ *   dataHash: txHash,
+ *   data: "0x", // Original data (empty for ETH transfer)
  *   signatures: [
- *     { signer: "0x...", data: "0x..." },
- *     { signer: "0x...", data: "0x..." }
+ *     { signer: "0x...", data: "0x..." }, // ECDSA signature
+ *     { signer: "0x...", data: "0x...", dynamic: true } // Contract signature
  *   ],
  *   requiredSignatures: 2n
  * });
@@ -258,17 +296,15 @@ type VerifySafeSignaturesParams = {
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
  */
-async function verifySafeSignatures(
+async function checkNSignatures(
 	provider: EIP1193ProviderWithRequestFn,
 	safeAddress: Address,
 	params: VerifySafeSignaturesParams,
 ): Promise<boolean> {
-	// Encode signatures if they're provided as SafeSignature array
 	const encodedSignatures = isHex(params.signatures)
 		? params.signatures
 		: encodeSafeSignatures(params.signatures);
 
-	// Encode the checkNSignatures call
 	const data = encodeFunctionData({
 		abi: PARSED_SAFE_ABI,
 		functionName: "checkNSignatures",
@@ -280,8 +316,8 @@ async function verifySafeSignatures(
 		],
 	});
 
+	// The call reverts if the signatures are invalid, so we catch the error and return false
 	try {
-		// Call the Safe contract - it will revert if signatures are invalid
 		await provider.request({
 			method: "eth_call",
 			params: [
@@ -289,12 +325,11 @@ async function verifySafeSignatures(
 					to: safeAddress,
 					data,
 				},
-				"latest",
+				params.block ?? "latest",
 			],
 		});
 		return true;
 	} catch {
-		// The contract reverted, signatures are invalid
 		return false;
 	}
 }
@@ -358,17 +393,15 @@ type VerifySafeSignaturesOffchainParams = {
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
  */
-async function verifySafeSignaturesOffchain(
+async function checkSafeSignaturesOffchain(
 	provider: EIP1193ProviderWithRequestFn,
 	safeAddress: Address,
 	params: VerifySafeSignaturesOffchainParams,
 ): Promise<SignatureVerificationResult> {
-	// Parse signatures
 	const signatures = Array.isArray(params.signatures)
 		? params.signatures
 		: decodeSafeSignatureBytes(params.signatures as Hex);
 
-	// Create owner lookup set for efficient checking
 	const ownerSet = new Set(params.owners.map((owner) => owner.toLowerCase()));
 
 	const details: SignatureValidationDetails[] = [];
@@ -466,10 +499,6 @@ async function verifySafeSignaturesOffchain(
 
 				case SignatureType.EIP712:
 				case SignatureType.ETH_SIGN: {
-					// Verify ECDSA signature off-chain
-					const { r, s, v } = extractSignatureComponents(signature.data);
-
-					// Determine which hash to use for recovery
 					const hashToRecover =
 						signatureType === SignatureType.ETH_SIGN
 							? messageHash
@@ -478,7 +507,7 @@ async function verifySafeSignaturesOffchain(
 					try {
 						const recoveredAddress = await recoverAddress({
 							hash: hashToRecover,
-							signature: { r, s, v },
+							signature: signature.data,
 						});
 
 						isValid = recoveredAddress.toLowerCase() === signerLower;
@@ -526,16 +555,26 @@ async function verifySafeSignaturesOffchain(
  * an array of signature objects. The encoded format consists of 65-byte chunks where
  * each chunk contains either a standard ECDSA signature or a pointer to dynamic data.
  *
- * For standard ECDSA signatures (v != 0):
+ * Signature Types by v value:
+ * - v = 0: Contract signature (EIP-1271)
+ * - v = 1: Pre-validated signature (approved hash)
+ * - v > 1: ECDSA signature (v = 27/28 for eth_sign, v = 31/32 for EIP-712)
+ *
+ * For standard ECDSA signatures (v > 1):
  * - The 65 bytes contain the signature data directly: r (32) + s (32) + v (1)
  * - Returns as UnidentifiedSafeSignature (data only, no signer address recovered)
  *
- * For dynamic signatures (v == 0):
- * - First 20 bytes: signer address (padded to 32 bytes)
- * - Next 32 bytes: offset to dynamic data section
- * - Last 1 byte: signature type (0 for dynamic)
- * - Dynamic data is appended after all static parts with format: length (32) + data
- * - Returns as SafeSignature with signer address extracted from the encoded data
+ * For contract signatures (v == 0):
+ * - Bytes 0-32: r = packed encoding of signer address (address(uint160(uint256(r))))
+ * - Bytes 32-64: s = offset to dynamic data section (must be >= requiredSignatures * 65)
+ * - Byte 64: v = 0 (signature type identifier)
+ * - Dynamic data located at offset s contains: length (32 bytes) + signature data
+ * - Returns as SafeSignature with signer address extracted from r
+ *
+ * For pre-validated signatures (v == 1):
+ * - Uses same 65-byte format as ECDSA but with v = 1
+ * - Indicates the hash was pre-approved by the signer
+ * - Returns as UnidentifiedSafeSignature
  *
  * Note: This function does NOT recover signer addresses for ECDSA signatures. It only
  * extracts the raw signature bytes. Signer recovery for ECDSA signatures must be done
@@ -553,8 +592,8 @@ async function verifySafeSignaturesOffchain(
  * const encoded = "0x" + "a".repeat(64) + "1b" + "b".repeat(64) + "1c";
  * const signatures = decodeSafeSignatureBytes(encoded);
  * // Returns: [
- * //   { data: "0x" + "a".repeat(64) + "1b" }, // No signer address
- * //   { data: "0x" + "b".repeat(64) + "1c" }  // No signer address
+ * //   { data: "0x" + "a".repeat(64) + "1b" }, // v=27, ECDSA signature
+ * //   { data: "0x" + "b".repeat(64) + "1c" }  // v=28, ECDSA signature
  * // ]
  * ```
  *
@@ -562,12 +601,21 @@ async function verifySafeSignaturesOffchain(
  * ```typescript
  * import { decodeSafeSignatureBytes } from "picosafe";
  *
- * // Decode signatures with dynamic/contract signature
- * const signatures = decodeSafeSignatureBytes(encodedHex);
- * // Returns array with both standard and dynamic signatures:
- * // [
- * //   { data: "0x..." }, // ECDSA - no signer recovered
- * //   { signer: "0x...", data: "0x...", dynamic: true } // Contract signature with signer
+ * // Decode signatures with contract signature (EIP-1271)
+ * // Example from Safe contracts documentation
+ * const encoded = "0x" +
+ *   "0000000000000000000000000000000000000000000000000000000000000001" + // r: signer address
+ *   "00000000000000000000000000000000000000000000000000000000000000c3" + // s: offset to dynamic data
+ *   "00" + // v: 0 for contract signature
+ *   "b".repeat(64) + "1c" + // another ECDSA signature
+ *   // Dynamic data at offset 0xc3 (195 bytes):
+ *   "0000000000000000000000000000000000000000000000000000000000000008" + // length: 8 bytes
+ *   "00000000deadbeef"; // signature data
+ *
+ * const signatures = decodeSafeSignatureBytes(encoded);
+ * // Returns: [
+ * //   { signer: "0x0000000000000000000000000000000000000001", data: "0x00000000deadbeef", dynamic: true },
+ * //   { data: "0x" + "b".repeat(64) + "1c" }
  * // ]
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
@@ -578,7 +626,6 @@ function decodeSafeSignatureBytes(
 	const signatures: (UnidentifiedSafeSignature | SafeContractSignature)[] = [];
 	const data = encodedSignatures.slice(2); // Remove 0x prefix
 
-	// First pass: decode static parts and identify dynamic signatures
 	let offset = 0;
 	const staticLength = 65 * 2; // 65 bytes in hex
 
@@ -590,7 +637,7 @@ function decodeSafeSignatureBytes(
 
 		if (v === 0) {
 			// Dynamic signature - extract signer and offset
-			const signerPadded = `0x${signatureData.slice(0, 40)}`;
+			const signer = checksumAddress(`0x${signatureData.slice(24, 64)}`);
 			const dynamicOffset =
 				Number.parseInt(signatureData.slice(40, 104), 16) * 2;
 
@@ -604,14 +651,14 @@ function decodeSafeSignatureBytes(
 			);
 
 			signatures.push({
-				signer: checksumAddress(`0x${signerPadded.slice(-40)}`),
-				data: `0x${dynamicData}` as Hex,
+				signer,
+				data: `0x${dynamicData}`,
 				dynamic: true,
 			});
 		} else {
-			// Standard ECDSA signature - extract from position
+			// Static signature - extract from position
 			signatures.push({
-				data: `0x${signatureData}` as Hex,
+				data: `0x${signatureData}`,
 			});
 		}
 
@@ -623,10 +670,10 @@ function decodeSafeSignatureBytes(
 
 export {
 	encodeSafeSignatures,
-	verifySafeSignatures,
-	verifySafeSignaturesOffchain,
+	decodeSafeSignatureBytes,
+	checkNSignatures,
+	checkSafeSignaturesOffchain,
 	parseSignatureType,
-	extractSignatureComponents,
 };
 
 export type {
