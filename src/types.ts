@@ -141,6 +141,73 @@ type SafeMessage = {
 	message: Hex;
 };
 
+/**
+ * Parameters for on-chain signature verification using Safe's checkNSignatures
+ * @property {Address} safeAddress - The Safe contract address
+ * @property {Hex} dataHash - The hash of the data that was signed
+ * @property {Hex} data - The original data that was signed
+ * @property {readonly SafeSignature[]} signatures - Array of signatures to verify
+ * @property {bigint} requiredSignatures - Number of valid signatures required
+ */
+type VerifySafeSignaturesParams = {
+	safeAddress: Address;
+	dataHash: Hex;
+	data: Hex;
+	signatures: readonly SafeSignature[];
+	requiredSignatures: bigint;
+};
+
+/**
+ * Parameters for off-chain signature verification with minimal on-chain calls
+ * @property {Address} safeAddress - The Safe contract address
+ * @property {bigint} chainId - The chain ID for domain separator calculation
+ * @property {Hex} dataHash - The hash of the data that was signed
+ * @property {Hex} data - The original data that was signed
+ * @property {readonly SafeSignature[]} signatures - Array of signatures to verify
+ * @property {readonly Address[]} owners - Array of Safe owner addresses
+ * @property {bigint} threshold - Number of valid signatures required
+ */
+type VerifySafeSignaturesOffchainParams = {
+	safeAddress: Address;
+	chainId: bigint;
+	dataHash: Hex;
+	data: Hex;
+	signatures: readonly SafeSignature[];
+	owners: readonly Address[];
+	threshold: bigint;
+};
+
+/**
+ * Signature type enumeration
+ */
+type SignatureType = "ecdsa" | "contract" | "approved";
+
+/**
+ * Detailed validation result for a single signature
+ * @property {Address} signer - The address that created the signature
+ * @property {boolean} isValid - Whether the signature is valid
+ * @property {SignatureType} type - The type of signature (ecdsa/contract/approved)
+ * @property {string} error - Error message if signature is invalid
+ */
+type SignatureValidationDetails = {
+	signer: Address;
+	isValid: boolean;
+	type: SignatureType;
+	error?: string;
+};
+
+/**
+ * Result of off-chain signature verification
+ * @property {boolean} isValid - Whether enough valid signatures were found
+ * @property {number} validSignatures - Number of valid signatures found
+ * @property {SignatureValidationDetails[]} details - Per-signature validation details
+ */
+type SignatureVerificationResult = {
+	isValid: boolean;
+	validSignatures: number;
+	details: SignatureValidationDetails[];
+};
+
 export { Operation };
 export type {
 	MetaTransaction,
@@ -152,4 +219,9 @@ export type {
 	PicoSafeRpcBlockIdentifier,
 	FullSafeTransaction,
 	Prettify,
+	VerifySafeSignaturesParams,
+	VerifySafeSignaturesOffchainParams,
+	SignatureType,
+	SignatureValidationDetails,
+	SignatureVerificationResult,
 };
