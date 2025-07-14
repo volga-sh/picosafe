@@ -145,8 +145,8 @@ function parseSignatureType(signature: SafeSignature): SignatureType {
 		return SignatureType.CONTRACT;
 	}
 
-	if (signature.data.length !== 65) {
-		throw new Error("Invalid signature length");
+	if (signature.data.length !== 130 && signature.data.length !== 132) {
+		throw new Error("Invalid ECDSA signature length");
 	}
 
 	const vByte = BigInt(signature.data.slice(-2));
