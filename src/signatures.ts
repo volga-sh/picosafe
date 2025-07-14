@@ -637,9 +637,10 @@ function decodeSafeSignatureBytes(
 
 		if (v === 0) {
 			// Dynamic signature - extract signer and offset
-			const signer = checksumAddress(`0x${signatureData.slice(24, 64)}`);
-			const dynamicOffset =
-				Number.parseInt(signatureData.slice(40, 104), 16) * 2;
+ 			const signer = checksumAddress(`0x${signatureData.slice(24, 64)}`);
+ 			const dynamicOffset =
+-				Number.parseInt(signatureData.slice(40, 104), 16) * 2;
++				Number.parseInt(signatureData.slice(64, 128), 16) * 2;
 
 			// Read dynamic data
 			const lengthOffset = dynamicOffset;
