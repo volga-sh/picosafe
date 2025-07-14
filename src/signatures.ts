@@ -642,10 +642,33 @@ function decodeSafeSignatureBytes(
 -				Number.parseInt(signatureData.slice(40, 104), 16) * 2;
 +				Number.parseInt(signatureData.slice(64, 128), 16) * 2;
 
+			// Check if dynamicOffset is within bounds
+			if (dynamicOffset >= data.length) {
+				throw new Error(
+					`Invalid signature: dynamicOffset ${dynamicOffset} exceeds data length ${data.length}`,
+				);
+			}
+
 			// Read dynamic data
 			const lengthOffset = dynamicOffset;
+
+			// Check if we can read the length (64 hex chars = 32 bytes)
+			if (lengthOffset + 64 > data.length) {
+				throw new Error(
+					`Invalid signature: cannot read length at offset ${lengthOffset}, data length is ${data.length}`,
+				);
+			}
+
 			const dataLength =
 				Number.parseInt(data.slice(lengthOffset, lengthOffset + 64), 16) * 2;
+
+			// Check if the calculated data range is within bounds
+			if (lengthOffset + 64 + dataLength > data.length) {
+				throw new Error(
+					`Invalid signature: data range [${lengthOffset + 64}, ${lengthOffset + 64 + dataLength}] exceeds data length ${data.length}`,
+				);
+			}
+
 			const dynamicData = data.slice(
 				lengthOffset + 64,
 				lengthOffset + 64 + dataLength,
