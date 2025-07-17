@@ -113,10 +113,33 @@ type FullSafeTransaction = Prettify<
 	}
 >;
 
+/**
+ * Static signature structure for standard ECDSA and pre-approved signatures
+ *
+ * Represents signatures that have a fixed 65-byte format and don't require
+ * dynamic data resolution. This includes:
+ * - ECDSA signatures (EIP-712 and eth_sign)
+ * - Pre-approved hash signatures
+ *
+ * @property {Address} signer - The address that created or is associated with this signature
+ * @property {Hex} data - The 65-byte signature data (r + s + v format)
+ */
 type StaticSignature = {
 	signer: Address;
 	data: Hex;
 };
+
+/**
+ * Dynamic signature structure for EIP-1271 contract signatures
+ *
+ * Represents signatures from smart contract wallets that implement EIP-1271.
+ * These signatures have variable length and require special encoding with
+ * offset pointers when combined with other signatures.
+ *
+ * @property {Address} signer - The contract address that will validate the signature
+ * @property {Hex} data - Variable-length signature data for the contract to validate
+ * @property {true} dynamic - Flag indicating this is a dynamic/contract signature
+ */
 type DynamicSignature = {
 	signer: Address;
 	data: Hex;
@@ -171,7 +194,35 @@ enum SignatureTypeVByte {
 }
 
 /**
- * Union type for signature parameters that can be either an array of PicosafeSignature objects or encoded hex
+ * Union type for signature parameters accepted by Safe signature functions
+ *
+ * Many Safe SDK functions that work with signatures accept this flexible type,
+ * allowing callers to provide signatures either as:
+ * - An array of {@link PicosafeSignature} objects (easier to construct and manipulate)
+ * - A hex-encoded string of concatenated signatures (as expected by Safe contracts)
+ *
+ * Functions accepting this type will automatically handle both formats appropriately.
+ *
+ * @example
+ * ```typescript
+ * import { checkNSignatures, encodeSafeSignaturesBytes } from "picosafe";
+ *
+ * // Pass as array of signature objects
+ * await checkNSignatures(provider, safeAddress, {
+ *   signatures: [
+ *     { signer: owner1, data: sig1 },
+ *     { signer: owner2, data: sig2 }
+ *   ],
+ *   // ... other params
+ * });
+ *
+ * // Or pass as encoded hex string
+ * const encoded = encodeSafeSignaturesBytes(signatures);
+ * await checkNSignatures(provider, safeAddress, {
+ *   signatures: encoded, // "0x..."
+ *   // ... other params
+ * });
+ * ```
  */
 type SafeSignaturesParam = readonly PicosafeSignature[] | Hex;
 

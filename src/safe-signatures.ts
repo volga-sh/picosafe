@@ -467,13 +467,41 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 }
 
 /**
- * Returns the SignatureTypeVByte corresponding to the last byte (v-byte)
- * of a Safe signature.
+ * Extracts and returns the signature type from the v-byte of a Safe signature
  *
- * @param signature - Signature hex string (0x-prefixed). For dynamic
- * signatures, pass the first 65-byte static part (header) that ends with
- * the v-byte.
- * @throws {Error} If the signature is too short or the v-byte is unknown.
+ * Safe signatures always end with a type byte (v-byte) that indicates how the
+ * signature should be validated. This function extracts that byte and returns
+ * the corresponding {@link SignatureTypeVByte} enum value.
+ *
+ * For standard 65-byte signatures, the v-byte is simply the last byte.
+ * For dynamic signatures (like EIP-1271), you should pass the 65-byte static
+ * header portion that contains the v-byte at position 64.
+ *
+ * @param signature - Hex-encoded signature (at least 65 bytes). Must include
+ *                    the v-byte as the last byte of the provided data.
+ * @returns The {@link SignatureTypeVByte} enum value corresponding to the v-byte
+ * @throws {Error} If signature is shorter than 65 bytes (130 hex chars)
+ * @throws {Error} If the v-byte value is not a recognized signature type
+ * @example
+ * ```typescript
+ * import { getSignatureTypeVByte, SignatureTypeVByte } from "picosafe";
+ *
+ * // EIP-712 signature with v=27
+ * const eip712Sig = "0x" + "a".repeat(64) + "1b"; // v=27
+ * const type1 = getSignatureTypeVByte(eip712Sig);
+ * console.log(type1 === SignatureTypeVByte.EIP712_RECID_1); // true
+ *
+ * // eth_sign signature with v=31
+ * const ethSignSig = "0x" + "b".repeat(64) + "1f"; // v=31
+ * const type2 = getSignatureTypeVByte(ethSignSig);
+ * console.log(type2 === SignatureTypeVByte.ETH_SIGN_RECID_1); // true
+ *
+ * // Contract signature header with v=0
+ * const contractSigHeader = "0x" + "00".repeat(64) + "00"; // v=0
+ * const type3 = getSignatureTypeVByte(contractSigHeader);
+ * console.log(type3 === SignatureTypeVByte.CONTRACT); // true
+ * ```
+ * @see {@link SignatureTypeVByte} for all possible signature types
  */
 function getSignatureTypeVByte(signature: Hex): SignatureTypeVByte {
 	if (signature.length < 130) {
@@ -506,8 +534,94 @@ type SafeConfigurationForValidation = {
 	owners?: Address[];
 };
 
-// this method should validate the signatures and also verify that the signers
-// are valid owners of the Safe
+/**
+ * Validates signatures and verifies signers are Safe owners with sufficient threshold
+ *
+ * This function performs complete Safe signature validation by:
+ * 1. Validating each signature cryptographically (ECDSA recovery, EIP-1271, or pre-approved)
+ * 2. Verifying that each valid signer is a current Safe owner
+ * 3. Checking that the number of valid owner signatures meets the Safe's threshold
+ *
+ * This is the recommended function for validating Safe signatures as it performs
+ * all necessary checks. For lower-level validation without owner checks, use
+ * `validateSignature` from signature-validation.ts.
+ *
+ * The function accepts signatures either as an array of {@link PicosafeSignature} objects
+ * or as an encoded hex string (which will be decoded automatically).
+ *
+ * @param provider - EIP-1193 provider to interact with the blockchain
+ * @param safeAddress - Address of the Safe contract
+ * @param validationParams - Parameters for signature validation
+ * @param validationParams.signatures - Array of signatures or encoded signatures hex
+ * @param validationParams.data - The original data that was signed
+ * @param validationParams.dataHash - The hash of the data
+ * @param safeConfig - Optional Safe configuration to avoid fetching from chain
+ * @param safeConfig.threshold - The minimum number of signatures required
+ * @param safeConfig.owners - Array of current Safe owner addresses
+ * @returns Promise resolving to validation results
+ * @returns result.valid - True if enough valid owner signatures are present
+ * @returns result.results - Array of individual signature validation results
+ * @example
+ * ```typescript
+ * import { validateSignaturesForSafe, calculateSafeTransactionHash, buildSafeTransaction } from "picosafe";
+ *
+ * // Build and hash a Safe transaction
+ * const safeTx = buildSafeTransaction({
+ *   to: recipient,
+ *   value: 0n,
+ *   data: "0x",
+ *   // ... other params
+ * });
+ * const txHash = await calculateSafeTransactionHash(provider, safeAddress, safeTx);
+ *
+ * // Validate signatures from multiple owners
+ * const signatures = [
+ *   { signer: owner1, data: await signTransaction(owner1, txHash) },
+ *   { signer: owner2, data: await signTransaction(owner2, txHash) },
+ *   { signer: smartWallet, data: contractSigData, dynamic: true }
+ * ];
+ *
+ * const validation = await validateSignaturesForSafe(
+ *   provider,
+ *   safeAddress,
+ *   {
+ *     signatures,
+ *     data: encodeSafeTransaction(safeTx),
+ *     dataHash: txHash
+ *   }
+ * );
+ *
+ * if (validation.valid) {
+ *   console.log('Signatures are valid and threshold is met');
+ *   // Can now execute the transaction
+ * } else {
+ *   console.log('Invalid signatures:', validation.results.filter(r => !r.valid));
+ * }
+ * ```
+ * @example
+ * ```typescript
+ * import { validateSignaturesForSafe, encodeSafeSignaturesBytes } from "picosafe";
+ *
+ * // Validate pre-encoded signatures
+ * const encodedSigs = encodeSafeSignaturesBytes(signatures);
+ * const validation = await validateSignaturesForSafe(
+ *   provider,
+ *   safeAddress,
+ *   {
+ *     signatures: encodedSigs, // Pass encoded hex instead of array
+ *     data: "0x",
+ *     dataHash: messageHash
+ *   },
+ *   {
+ *     // Optionally provide config to avoid chain calls
+ *     threshold: 2n,
+ *     owners: [owner1, owner2, owner3]
+ *   }
+ * );
+ * ```
+ * @see {@link validateSignature} for single signature validation
+ * @see {@link checkNSignatures} for on-chain validation via Safe contract
+ */
 async function validateSignaturesForSafe(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
