@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { encodeSafeSignaturesBytes } from "../src/safe-signatures";
-import type { SafeSignature } from "../src/types";
+import type { PicosafeSignature } from "../src/types";
 
 describe("encodeSafeSignaturesBytes", () => {
 	it("should encode single ECDSA signature", () => {
-		const signatures: SafeSignature[] = [
+		const signatures: PicosafeSignature[] = [
 			{
 				signer: "0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5",
 				data: `0x${"a".repeat(128)}1b`, // 65 bytes: r(32) + s(32) + v(1)
@@ -16,7 +16,7 @@ describe("encodeSafeSignaturesBytes", () => {
 	});
 
 	it("should sort signatures by signer address", () => {
-		const signatures: SafeSignature[] = [
+		const signatures: PicosafeSignature[] = [
 			{
 				signer: "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 				data: `0x${"b".repeat(128)}1c`,
@@ -33,11 +33,10 @@ describe("encodeSafeSignaturesBytes", () => {
 	});
 
 	it("should handle dynamic signatures", () => {
-		const signatures: SafeSignature[] = [
+		const signatures: PicosafeSignature[] = [
 			{
 				signer: "0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5",
 				data: `0x${"a".repeat(128)}1b`, // Standard ECDSA
-				dynamic: false,
 			},
 			{
 				signer: "0x0000000000000000000000000000000000000001",
@@ -71,14 +70,14 @@ describe("encodeSafeSignaturesBytes", () => {
 	});
 
 	it("should handle empty array", () => {
-		const signatures: SafeSignature[] = [];
+		const signatures: PicosafeSignature[] = [];
 		expect(() => encodeSafeSignaturesBytes(signatures)).toThrow(
 			"Cannot encode empty signatures array",
 		);
 	});
 
 	it("should handle multiple dynamic signatures", () => {
-		const signatures: SafeSignature[] = [
+		const signatures: PicosafeSignature[] = [
 			{
 				signer: "0x0000000000000000000000000000000000000001",
 				data: `0x${"a".repeat(200)}`, // 100 bytes

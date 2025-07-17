@@ -14,7 +14,6 @@ import {
 	type Address,
 	checksumAddress,
 	encodeFunctionData,
-	type Hex,
 	parseAbiItem,
 	parseEther,
 	recoverAddress,
@@ -32,7 +31,7 @@ import {
 import type {
 	EIP1193ProviderWithRequestFn,
 	MetaTransaction,
-	SafeSignature,
+	PicosafeSignature,
 } from "../src/types";
 import { Operation } from "../src/types";
 import { EMPTY_BYTES, ZERO_ADDRESS } from "../src/utilities/constants";
@@ -854,9 +853,9 @@ describe("Safe Transaction Functions", () => {
 					],
 				);
 
-				const invalidSignature: SafeSignature = {
+				const invalidSignature: PicosafeSignature = {
 					signer: walletClient.account.address,
-					data: `0x${"00".repeat(65)}` as Hex, // All zeros signature
+					data: `0x${"00".repeat(64)}1b`, // All zeros signature
 				};
 
 				const executeTx = await executeSafeTransaction(
