@@ -466,6 +466,35 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 	return signatures;
 }
 
+/**
+ * Returns the SignatureTypeVByte corresponding to the last byte (v-byte)
+ * of a Safe signature.
+ *
+ * @param signature - Signature hex string (0x-prefixed). For dynamic
+ * signatures, pass the first 65-byte static part (header) that ends with
+ * the v-byte.
+ * @throws {Error} If the signature is too short or the v-byte is unknown.
+ */
+function getSignatureTypeVByte(signature: Hex): SignatureTypeVByte {
+	if (signature.length < 130) {
+		throw new Error("Signature too short to determine v-byte");
+	}
+
+	const vByte = Number.parseInt(signature.slice(-2), 16);
+
+	switch (vByte) {
+		case SignatureTypeVByte.CONTRACT:
+		case SignatureTypeVByte.APPROVED_HASH:
+		case SignatureTypeVByte.EIP712_RECID_1:
+		case SignatureTypeVByte.EIP712_RECID_2:
+		case SignatureTypeVByte.ETH_SIGN_RECID_1:
+		case SignatureTypeVByte.ETH_SIGN_RECID_2:
+			return vByte;
+		default:
+			throw new Error(`Unknown signature v-byte: ${vByte}`);
+	}
+}
+
 type SignaturesValidationParams = {
 	signatures: SafeSignaturesParam;
 	data: Hex;
@@ -528,4 +557,5 @@ export {
 	checkNSignatures,
 	validateSignature,
 	validateSignaturesForSafe,
+	getSignatureTypeVByte,
 };

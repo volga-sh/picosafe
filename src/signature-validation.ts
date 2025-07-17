@@ -1,6 +1,7 @@
 import type { Address, Hex } from "viem";
 import { encodeFunctionData, hashMessage, recoverAddress } from "viem";
 import { PARSED_SAFE_ABI } from "./abis";
+import { getSignatureTypeVByte } from "./safe-signatures";
 import type {
 	DynamicSignature,
 	EIP1193ProviderWithRequestFn,
@@ -162,11 +163,7 @@ async function validateSignature(
 		return await isValidERC1271Signature(provider, signature, validationData);
 	}
 
-	if (signature.data.length !== 130) {
-		throw new Error("Invalid signature data length");
-	}
-
-	const vByte = Number.parseInt(signature.data.slice(-2), 16);
+	const vByte = getSignatureTypeVByte(signature.data);
 	switch (vByte) {
 		case SignatureTypeVByte.EIP712_RECID_1:
 		case SignatureTypeVByte.EIP712_RECID_2: {
