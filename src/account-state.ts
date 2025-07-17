@@ -1,7 +1,7 @@
 import type { Address, Hex, Quantity } from "viem";
 import type {
 	EIP1193ProviderWithRequestFn,
-	PicoSafeRpcBlockIdentifier,
+	PicosafeRpcBlockIdentifier,
 } from "./types";
 import { checksumAddress } from "./utilities/address";
 import { SENTINEL_NODE } from "./utilities/constants";
@@ -86,7 +86,7 @@ async function getStorageAt(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
 	storage: Readonly<{ slot: Quantity; length?: bigint }>,
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<Hex[]> {
 	const getStorageAtSelector = "0x5624b25b";
 	const callData: Hex = encodeWithSelector(
@@ -157,7 +157,7 @@ async function getStorageAt(
 async function getNonce(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<bigint> {
 	const [nonce] = await getStorageAt(
 		provider,
@@ -205,7 +205,7 @@ async function getNonce(
 async function getFallbackHandler(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<Address> {
 	const [fallbackHandler] = await getStorageAt(
 		provider,
@@ -250,7 +250,7 @@ async function getFallbackHandler(
 async function getOwnerCount(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<bigint> {
 	const [raw] = await getStorageAt(
 		provider,
@@ -293,7 +293,7 @@ async function getOwnerCount(
 async function getThreshold(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<bigint> {
 	const [raw] = await getStorageAt(
 		provider,
@@ -335,7 +335,7 @@ async function getThreshold(
 async function getGuard(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<Address> {
 	const [raw] = await getStorageAt(
 		provider,
@@ -377,7 +377,7 @@ async function getGuard(
 async function getSingleton(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<Address> {
 	const [raw] = await getStorageAt(
 		provider,
@@ -430,7 +430,7 @@ async function getSingleton(
 export async function getOwners(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<Address[]> {
 	// selector for `getOwners() returns(address[] memory)`
 	const getOwnersSelector = "0xa0e67e2b";
@@ -535,7 +535,7 @@ async function getModulesPaginated(
 		start = SENTINEL_NODE,
 		pageSize = 100,
 	}: Readonly<{ start?: Address; pageSize?: number }> = {},
-	block: PicoSafeRpcBlockIdentifier = "latest",
+	block: PicosafeRpcBlockIdentifier = "latest",
 ): Promise<{ modules: Address[]; next: Address }> {
 	const getModulesPaginatedSelector = "0xcc2f8452";
 	const data = encodeWithSelector(getModulesPaginatedSelector, start, pageSize);

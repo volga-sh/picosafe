@@ -194,6 +194,7 @@ The `npm test` command runs `./tests/scripts/run_tests.sh` which:
 - **Document edge cases**: Note any limitations, special behaviors, or requirements
 - **Type descriptions**: Even with TypeScript types, describe what values mean
 - **Reference Safe contracts**: For functions that call Safe smart contract methods, include a `@see` tag with a link to the specific function in the official Safe v1.4.1 contracts repository (e.g., `@see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L78`)
+- **Use @link for custom TypeScript types**: If JSDOC uses a custom typescript type, make sure it is included with a @link tag
 
 ### Export Conventions
 

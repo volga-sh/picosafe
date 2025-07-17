@@ -54,4 +54,10 @@ const EMPTY_BYTES = "0x";
  */
 const SENTINEL_NODE = "0x0000000000000000000000000000000000000001";
 
-export { ZERO_ADDRESS, EMPTY_BYTES, SENTINEL_NODE };
+/**
+ * Magic value returned by EIP-1271 (legacy with bytes data) contracts when a signature is valid.
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/Safe.sol#L100
+ */
+const EIP1271_MAGIC_VALUE = "0x20c13b0b";
+
+export { ZERO_ADDRESS, EMPTY_BYTES, SENTINEL_NODE, EIP1271_MAGIC_VALUE };

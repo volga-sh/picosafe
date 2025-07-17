@@ -5,14 +5,15 @@ import { getNonce } from "./account-state.js";
 import { getSafeEip712Domain, SAFE_TX_EIP712_TYPES } from "./eip712.js";
 import { encodeMultiSendCall } from "./multisend.js";
 import { V141_ADDRESSES } from "./safe-contracts.js";
-import { encodeSafeSignatures } from "./signatures.js";
-import {
-	type EIP1193ProviderWithRequestFn,
-	type FullSafeTransaction,
-	type MetaTransaction,
-	Operation,
-	type SafeSignature,
+import { encodeSafeSignaturesBytes } from "./safe-signatures.js";
+import type {
+	EIP1193ProviderWithRequestFn,
+	FullSafeTransaction,
+	MetaTransaction,
+	PicosafeSignature,
+	StaticSignature,
 } from "./types";
+import { Operation } from "./types.js";
 import { checksumAddress } from "./utilities/address.js";
 import { EMPTY_BYTES, ZERO_ADDRESS } from "./utilities/constants.js";
 import { getAccounts, getChainId } from "./utilities/eip1193-provider.js";
@@ -204,7 +205,7 @@ async function buildSafeTransaction(
  * @param transaction - Complete Safe transaction object to sign (must include safeAddress and chainId)
  * @param signerAddress - (optional) Address of the signer (must be connected to provider and be a Safe owner).
  *                        If not provided, the first available account from the provider will be used.
- * @returns SafeSignature object containing the signer address and signature data
+ * @returns {@link StaticSignature} object containing the signer address and static signature data
  * @throws {Error} If signing fails (e.g., user rejection, wallet doesn't support eth_signTypedData_v4)
  * @example
  * ```typescript
@@ -240,7 +241,7 @@ async function signSafeTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	transaction: Readonly<FullSafeTransaction>,
 	signerAddress?: Address,
-): Promise<SafeSignature> {
+): Promise<Readonly<StaticSignature>> {
 	// We convert the chain id to a string so it could be serialized to JSON
 	const domain = getSafeEip712Domain(
 		transaction.safeAddress,
@@ -343,9 +344,9 @@ async function signSafeTransaction(
 async function executeSafeTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	transaction: Readonly<FullSafeTransaction>,
-	signatures: readonly SafeSignature[],
+	signatures: readonly PicosafeSignature[],
 ): Promise<WrappedTransaction<void>> {
-	const encodedSignatures = encodeSafeSignatures(signatures);
+	const encodedSignatures = encodeSafeSignaturesBytes(signatures);
 
 	const data = encodeFunctionData({
 		abi: PARSED_SAFE_ABI,

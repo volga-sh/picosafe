@@ -566,10 +566,7 @@ describe("Account State Functions", () => {
 				owners: [walletClient.account.address],
 				threshold: 1n,
 			});
-			const txHash = await deployment.send();
-			await publicClient.waitForTransactionReceipt({
-				hash: txHash,
-			});
+			await deployment.send();
 
 			// Using SENTINEL_NODE as start address since Safe has no modules
 			// Any other address would cause GS105 error (Invalid owner address provided)
