@@ -182,7 +182,7 @@ type SafeMessage = {
  * | `31`  | `ETH_SIGN_RECID_1` | `{ r (32) | s (32) | ECDSA v+4 (1) }`                   | `eth_sign` / `personal_sign` |
  * | `32`  | `ETH_SIGN_RECID_2` | `{ r (32) | s (32) | ECDSA v+4 (1) }`                   | `eth_sign` / `personal_sign` |
  *
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L284
  */
 enum SignatureTypeVByte {
 	CONTRACT = 0,

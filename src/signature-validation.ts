@@ -1,6 +1,6 @@
 import type { Address, Hex } from "viem";
 import { encodeFunctionData, hashMessage, recoverAddress } from "viem";
-import { PARSED_SAFE_ABI } from "./abis";
+import { PARSED_ERC_1271_ABI, PARSED_SAFE_ABI } from "./abis";
 import { getSignatureTypeVByte } from "./safe-signatures";
 import type {
 	DynamicSignature,
@@ -145,44 +145,19 @@ async function isValidERC1271Signature(
 	signature: DynamicSignature,
 	validationData: { data: Hex } | { dataHash: Hex },
 ): Promise<SignatureValidationResult<DynamicSignature>> {
-	// Normalize any return value to a canonical 4-byte (bytes4) hex string
-	const normalizeBytes4 = (result: unknown): Hex | undefined => {
-		if (typeof result !== "string" || !result.startsWith("0x"))
-			return undefined;
-		// Empty return value ("0x") indicates "not implemented"; treat as undefined
-		if (result.length === 2) return "0x00000000";
-		return result as Hex;
-	};
-
-	// Helper to perform the eth_call
-	const callIsValid = async (calldata: Hex): Promise<Hex | undefined> => {
-		const raw = (await provider.request({
-			method: "eth_call",
-			params: [{ to: signature.signer, data: calldata }, "latest"],
-		})) as Hex;
-		return normalizeBytes4(raw);
-	};
-
-	// Determine which variant to call based on provided validationData
 	let calldata: Hex;
 	let expectedMagic: Hex;
 
 	if ("dataHash" in validationData) {
-		// bytes32 variant
 		calldata = encodeFunctionData({
-			abi: [
-				"function isValidSignature(bytes32 dataHash, bytes signature) view returns (bytes4)",
-			] as const,
+			abi: PARSED_ERC_1271_ABI,
 			functionName: "isValidSignature",
 			args: [validationData.dataHash, signature.data],
 		});
 		expectedMagic = MAGIC_VALUE_BYTES32;
 	} else {
-		// bytes variant
 		calldata = encodeFunctionData({
-			abi: [
-				"function isValidSignature(bytes data, bytes signature) view returns (bytes4)",
-			] as const,
+			abi: PARSED_ERC_1271_ABI,
 			functionName: "isValidSignature",
 			args: [validationData.data, signature.data],
 		});
@@ -192,8 +167,11 @@ async function isValidERC1271Signature(
 	let capturedError: Error | undefined;
 
 	try {
-		const result = await callIsValid(calldata);
-		if (result && result.toLowerCase() === expectedMagic.toLowerCase()) {
+		const result = await provider.request({
+			method: "eth_call",
+			params: [{ to: signature.signer, data: calldata }, "latest"],
+		});
+		if (result === expectedMagic) {
 			return {
 				valid: true,
 				validatedSigner: signature.signer,
@@ -202,13 +180,17 @@ async function isValidERC1271Signature(
 		}
 	} catch (err) {
 		if (err instanceof Error) capturedError = err;
+		else
+			capturedError = new Error(
+				`Unknown error while calling isValidSignature: ${err}`,
+			);
 	}
 
 	return {
 		valid: false,
 		validatedSigner: signature.signer,
 		signature,
-		error: capturedError ?? new Error("Invalid ERC1271 signature"),
+		error: capturedError,
 	};
 }
 

@@ -109,7 +109,7 @@ function encodeSafeSignaturesBytes(
 		throw new Error("Cannot encode empty signatures array");
 	}
 
-	const ECDSA_SIGNATURE_LENGTH = 65;
+	const ECDSA_SIGNATURE_LENGTH_BYTES = 65;
 
 	const sortedSignatures = [...signatures].sort((a, b) =>
 		a.signer.toLowerCase().localeCompare(b.signer.toLowerCase()),
@@ -124,7 +124,7 @@ function encodeSafeSignaturesBytes(
 		if ("dynamic" in signature && signature.dynamic) {
 			// Calculate offset for dynamic data
 			const dynamicOffset =
-				sortedSignatures.length * ECDSA_SIGNATURE_LENGTH +
+				sortedSignatures.length * ECDSA_SIGNATURE_LENGTH_BYTES +
 				dynamicPart.length / 2;
 
 			// Static part: signer address (32) + offset (32) + signature type (1)
@@ -140,9 +140,9 @@ function encodeSafeSignaturesBytes(
 			dynamicPart += concatHex(dataLength, signatureData).slice(2);
 		} else {
 			// Standard ECDSA signature - validate length (65 bytes = 130 hex chars)
-			if (signatureData.length !== 130) {
+			if (signatureData.length !== ECDSA_SIGNATURE_LENGTH_BYTES * 2) {
 				throw new Error(
-					`Invalid ECDSA signature length: expected 65 bytes (130 hex chars), got ${signatureData.length / 2} bytes`,
+					`Invalid ECDSA signature length: expected ${ECDSA_SIGNATURE_LENGTH_BYTES} bytes (${ECDSA_SIGNATURE_LENGTH_BYTES * 2} hex chars), got ${signatureData.length / 2} bytes (${signatureData.length} hex chars)`,
 				);
 			}
 			staticPart += signatureData;
