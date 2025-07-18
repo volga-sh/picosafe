@@ -119,6 +119,18 @@ All SDK methods must follow this design principle, returning both raw transactio
 6. **Simplicity**: Keep implementations straightforward and avoid over-engineering
 7. **Return checksummed addresses**: Any SDK function that returns Ethereum addresses **must** return them in their EIP-55 checksum form to ensure consistency and reduce typo-related bugs
 
+### API Design Philosophy
+
+Since this project is a library, our primary way of communicating with developers is through APIs, including elements such as function naming, abstractions, types, return values, and function parameters. We should spend time thinking about whether we've chosen the right concepts.
+
+**North Star Metric**: By reading the function name, developers should be able to guess what would be happening in the implementation. This means:
+
+- **Self-Descriptive Names**: Function names should clearly convey their purpose and effects
+- **Intuitive Abstractions**: Choose concepts that align with developer expectations
+- **Predictable Behavior**: Function behavior should match what the name suggests
+- **Consistent Patterns**: Similar operations should follow similar naming conventions
+- **Clear Parameter Names**: Parameters should be named to indicate their purpose and constraints
+
 ### Workflow Rules
 
 These rules ensure systematic, reliable development with clear purpose and continuous verification:
