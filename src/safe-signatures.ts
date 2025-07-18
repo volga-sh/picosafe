@@ -405,10 +405,10 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 			const dynamicOffset =
 				Number.parseInt(signatureData.slice(64, 128), 16) * 2;
 
-			// Check if dynamicOffset is within bounds
-			if (dynamicOffset >= data.length) {
+			// Check that dynamicOffset is within bounds to read the length field (32 bytes)
+			if (dynamicOffset + 64 > data.length) {
 				throw new Error(
-					`Invalid signature: dynamicOffset ${dynamicOffset} exceeds data length ${data.length}`,
+					`Invalid signature: dynamicOffset ${dynamicOffset} is out of bounds to read length, data length is ${data.length}`,
 				);
 			}
 
