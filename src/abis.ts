@@ -19,20 +19,26 @@ const SAFE_ABI = [
 	"event SafeSetup(address indexed initiator, address[] owners, uint256 threshold, address initializer, address fallbackHandler)",
 ] as const;
 
-const ERC_1271_ABI = [
+const ERC_1271_ABI_CURRENT = [
 	"function isValidSignature(bytes32 dataHash, bytes signature) view returns (bytes4 magicValue)",
+] as const;
+
+const ERC_1271_ABI_LEGACY = [
 	"function isValidSignature(bytes data, bytes signature) view returns (bytes4 magicValue)",
 ] as const;
 
 const PARSED_SAFE_PROXY_FACTORY_ABI = parseAbi(SAFE_PROXY_FACTORY_ABI);
 const PARSED_SAFE_ABI = parseAbi(SAFE_ABI);
-const PARSED_ERC_1271_ABI = parseAbi(ERC_1271_ABI);
+const PARSED_ERC_1271_ABI_CURRENT = parseAbi(ERC_1271_ABI_CURRENT);
+const PARSED_ERC_1271_ABI_LEGACY = parseAbi(ERC_1271_ABI_LEGACY);
 
 export {
 	SAFE_PROXY_FACTORY_ABI,
 	SAFE_ABI,
-	ERC_1271_ABI,
+	ERC_1271_ABI_CURRENT,
+	ERC_1271_ABI_LEGACY,
 	PARSED_SAFE_PROXY_FACTORY_ABI,
 	PARSED_SAFE_ABI,
-	PARSED_ERC_1271_ABI,
+	PARSED_ERC_1271_ABI_CURRENT,
+	PARSED_ERC_1271_ABI_LEGACY,
 };

@@ -1,6 +1,10 @@
 import type { Address, Hex } from "viem";
 import { encodeFunctionData, hashMessage, recoverAddress } from "viem";
-import { PARSED_ERC_1271_ABI, PARSED_SAFE_ABI } from "./abis";
+import {
+	PARSED_ERC_1271_ABI_CURRENT,
+	PARSED_ERC_1271_ABI_LEGACY,
+	PARSED_SAFE_ABI,
+} from "./abis";
 import { getSignatureTypeVByte } from "./safe-signatures";
 import type {
 	DynamicSignature,
@@ -13,7 +17,7 @@ import { SignatureTypeVByte } from "./types";
 type SignatureValidationResult<T> = Readonly<{
 	valid: boolean;
 	error?: Error;
-	validatedSigner: Address;
+	validatedSigner?: Address;
 	signature: T;
 }>;
 
@@ -36,6 +40,8 @@ type SignatureValidationResult<T> = Readonly<{
  * @returns result.valid - True if recovered signer matches expected signer
  * @returns result.validatedSigner - The address recovered from the signature
  * @returns result.signature - The original signature object
+ * @returns result.error - Error if the signature is invalid
+ * @throws {Error} If the signature is invalid (invalid r or s values)
  * @example
  * ```typescript
  * import { isValidECDSASignature, calculateSafeTransactionHash } from "picosafe";
@@ -54,18 +60,29 @@ type SignatureValidationResult<T> = Readonly<{
  * ```
  */
 async function isValidECDSASignature(
-	signature: StaticSignature,
+	signature: Readonly<StaticSignature>,
 	dataHash: Hex,
 ): Promise<SignatureValidationResult<StaticSignature>> {
-	const recoveredSigner = await recoverAddress({
-		hash: dataHash,
-		signature: signature.data,
-	});
+	let capturedError: Error | undefined;
+	let recoveredSigner: Address | undefined;
+	try {
+		recoveredSigner = await recoverAddress({
+			hash: dataHash,
+			signature: signature.data,
+		});
+	} catch (err) {
+		if (err instanceof Error) capturedError = err;
+		else
+			capturedError = new Error(
+				`Unknown error while calling recoverAddress: ${err}`,
+			);
+	}
 
 	return {
-		valid: recoveredSigner === signature.signer,
+		valid: capturedError === undefined && recoveredSigner === signature.signer,
 		validatedSigner: recoveredSigner,
 		signature,
+		error: capturedError,
 	};
 }
 
@@ -142,22 +159,22 @@ const MAGIC_VALUE_BYTES = "0x20c13b0b" as const; // bytes4(keccak256("isValidSig
  */
 async function isValidERC1271Signature(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	signature: DynamicSignature,
-	validationData: { data: Hex } | { dataHash: Hex },
+	signature: Readonly<DynamicSignature>,
+	validationData: Readonly<{ data: Hex } | { dataHash: Hex }>,
 ): Promise<SignatureValidationResult<DynamicSignature>> {
 	let calldata: Hex;
 	let expectedMagic: Hex;
 
 	if ("dataHash" in validationData) {
 		calldata = encodeFunctionData({
-			abi: PARSED_ERC_1271_ABI,
+			abi: PARSED_ERC_1271_ABI_CURRENT,
 			functionName: "isValidSignature",
 			args: [validationData.dataHash, signature.data],
 		});
 		expectedMagic = MAGIC_VALUE_BYTES32;
 	} else {
 		calldata = encodeFunctionData({
-			abi: PARSED_ERC_1271_ABI,
+			abi: PARSED_ERC_1271_ABI_LEGACY,
 			functionName: "isValidSignature",
 			args: [validationData.data, signature.data],
 		});
@@ -167,10 +184,15 @@ async function isValidERC1271Signature(
 	let capturedError: Error | undefined;
 
 	try {
-		const result = await provider.request({
-			method: "eth_call",
-			params: [{ to: signature.signer, data: calldata }, "latest"],
-		});
+		// fixed size byte sequences are right padded to 32 bytes
+		// example returned magic value: 0x20c13b0b00000000000000000000000000000000000000000000000000000000
+		const result = await provider
+			.request({
+				method: "eth_call",
+				params: [{ to: signature.signer, data: calldata }, "latest"],
+			})
+			.then((res) => res.slice(0, 10));
+		console.log(result, expectedMagic);
 		if (result === expectedMagic) {
 			return {
 				valid: true,
@@ -250,8 +272,8 @@ async function isValidERC1271Signature(
  */
 async function isValidApprovedHashSignature(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	signature: StaticSignature,
-	validationData: { dataHash: Hex },
+	signature: Readonly<StaticSignature>,
+	validationData: Readonly<{ dataHash: Hex }>,
 ): Promise<SignatureValidationResult<StaticSignature>> {
 	const { dataHash } = validationData;
 
@@ -364,8 +386,8 @@ async function isValidApprovedHashSignature(
  */
 async function validateSignature(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	signature: PicosafeSignature,
-	validationData: { data: Hex; dataHash: Hex },
+	signature: Readonly<PicosafeSignature>,
+	validationData: Readonly<{ data: Hex; dataHash: Hex }>,
 ): Promise<SignatureValidationResult<PicosafeSignature>> {
 	if ("dynamic" in signature && signature.dynamic) {
 		return await isValidERC1271Signature(provider, signature, validationData);

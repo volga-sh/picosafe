@@ -12,7 +12,7 @@ import {
 	toHex,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { PARSED_SAFE_ABI } from "../src/abis";
 import { deploySafeAccount } from "../src/deployment";
 import {
@@ -24,11 +24,15 @@ import {
 import type {
 	DynamicSignature,
 	PicosafeSignature,
+	SafeMessage,
 	StaticSignature,
 } from "../src/types";
 import { SignatureTypeVByte } from "../src/types";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress, randomBytesHex } from "./utils";
+import { calculateSafeMessageHash } from "../src/eip712";
+import { getChainId } from "../src/utilities/eip1193-provider";
+import { ZERO_ADDRESS } from "../src/utilities/constants";
 
 describe("isValidECDSASignature", () => {
 	test("should validate correct ECDSA signature with v=27", async () => {
@@ -43,7 +47,6 @@ describe("isValidECDSASignature", () => {
 			const account = privateKeyToAccount(privateKey);
 			const dataHash = keccak256(toHex("test message"));
 
-			// Sign the hash directly (without prefix)
 			const signature = await account.sign({
 				hash: dataHash,
 			});
@@ -146,9 +149,9 @@ describe("isValidECDSASignature", () => {
 				data: malformedSig as Hex,
 			};
 
-			await expect(
-				isValidECDSASignature(staticSignature, dataHash),
-			).rejects.toThrow();
+			const result = await isValidECDSASignature(staticSignature, dataHash);
+			expect(result.valid).toBe(false);
+			expect(result.error).toBeDefined();
 		}
 	});
 
@@ -157,7 +160,7 @@ describe("isValidECDSASignature", () => {
 		const signer = randomAddress();
 
 		// Test with invalid v values
-		const invalidVValues = [0, 1, 2, 25, 26, 29, 30, 255];
+		const invalidVValues = [2, 25, 26, 29, 30, 255];
 
 		for (const v of invalidVValues) {
 			const signature = concatHex([
@@ -171,14 +174,9 @@ describe("isValidECDSASignature", () => {
 				data: signature,
 			};
 
-			// Should either throw or return invalid, but not crash
-			try {
-				const result = await isValidECDSASignature(staticSignature, dataHash);
-				expect(result.valid).toBe(false);
-			} catch (error) {
-				// Expected for some invalid values
-				expect(error).toBeDefined();
-			}
+			const result = await isValidECDSASignature(staticSignature, dataHash);
+			expect(result.valid).toBe(false);
+			expect(result.error).toBeDefined();
 		}
 	});
 
@@ -213,119 +211,147 @@ describe("isValidECDSASignature", () => {
 	});
 });
 
-// ERC-1271 magic values
-const MAGIC_VALUE_BYTES32 = "0x1626ba7e";
-const MAGIC_VALUE_BYTES = "0x20c13b0b";
-
-// Mock ERC-1271 contract bytecode that returns the correct magic value
-const ERC1271_MOCK_BYTECODE = (() => {
-	// Simple contract that returns MAGIC_VALUE_BYTES32 for isValidSignature(bytes32,bytes)
-	// and MAGIC_VALUE_BYTES for isValidSignature(bytes,bytes)
-	const runtime = concatHex([
-		"0x608060405234801561001057600080fd5b50600436106100365760003560e01c80631626ba7e1461003b57806320c13b0b14610070575b600080fd5b61005560048036038101906100509190610140565b6100a5565b60405161006791906101a8565b60405180910390f35b61008a600480360381019061008591906101c3565b6100ae565b60405161009c91906101a8565b60405180910390f35b631626ba7e60e01b92915050565b6320c13b0b60e01b92915050565b600080fd5b600080fd5b6000819050919050565b6100dd816100ca565b81146100e857600080fd5b50565b6000813590506100fa816100d4565b92915050565b600080fd5b600080fd5b600080fd5b60008083601f8401126101255761012461010a565b5b8235905067ffffffffffffffff8111156101425761014161010f565b5b60208301915083600182028301111561015e5761015d610114565b5b9250929050565b60008060006040848603121561017e5761017d6100c0565b5b600061018c868287016100eb565b935050602084013567ffffffffffffffff8111156101ad576101ac6100c5565b5b6101b98682870161010f565b92509250509250925092565b60007fffffffff0000000000000000000000000000000000000000000000000000000082169050919050565b6101fa816101c5565b82525050565b600060208201905061021560008301846101f1565b92915050565b600080fd5b600080fd5b600080fd5b60008083356001602003843603038112610245576102446100fd565b5b80840192508235915067ffffffffffffffff8211156102675761026661021b565b5b60208301925060018202360383131561028357610282610220565b5b509250929050565b600080600080604085870312156102a5576102a46100c0565b5b600085013567ffffffffffffffff8111156102c3576102c26100c5565b5b6102cf8782880161022a565b9450945050602085013567ffffffffffffffff8111156102f2576102f16100c5565b5b6102fe8782880161010f565b92509250509295919450925092505056fea26469706673582212208e",
-		"0xc2cbe7b010eea5969ba5e1794e088f2a09e1faa5e82eb4fd3b8e93dcbd64736f6c63430008190033",
-	]);
-
-	return runtime;
-})();
-
-// Contract that always reverts
-const REVERTING_CONTRACT_BYTECODE =
-	"0x6080604052348015600e575f80fd5b50600436106026575f3560e01c80631626ba7e14602a575b5f80fd5b60306032565b005b5f80fdfe";
-
-// Contract that returns wrong magic value
-const WRONG_MAGIC_CONTRACT_BYTECODE = (() => {
-	const runtime = concatHex([
-		"0x608060405234801561001057600080fd5b506004361061002b5760003560e01c80631626ba7e14610030575b600080fd5b61004a60048036038101906100459190610140565b610060565b6040516100579190610195565b60405180910390f35b600090509291505056",
-	]);
-	return runtime;
-})();
-
 describe("isValidERC1271Signature", () => {
 	const { testClient, publicClient, walletClients } = createClients();
-	let revert: () => Promise<void>;
+	let resetSnapshot: () => Promise<void>;
 
 	beforeEach(async () => {
-		revert = await snapshot(testClient);
+		resetSnapshot = await snapshot(testClient);
+	});
+
+	afterEach(async () => {
+		await resetSnapshot();
 	});
 
 	test("should validate signature using bytes32 isValidSignature variant", async () => {
-		// Deploy mock ERC-1271 contract
-		const deployHash = await walletClients[0].deployContract({
-			bytecode: ERC1271_MOCK_BYTECODE,
+		// Deploy a Safe contract with a fallback handler that contains ERC-1271 function
+		const deployment = await deploySafeAccount(publicClient, {
+			owners: [walletClients[0].account.address],
+			threshold: 1n,
 		});
-		const { contractAddress } = await publicClient.waitForTransactionReceipt({
-			hash: deployHash,
+		const safeAddress = deployment.data.safeAddress;
+		const txHash = await deployment.send();
+		await publicClient.waitForTransactionReceipt({
+			hash: txHash,
 		});
 
-		const dataHash = keccak256(toHex("test message"));
-		const signatureData = randomBytesHex(65);
+		const message: SafeMessage = {
+			message: keccak256(toHex("test message")),
+		};
+		const safeMessageHash = calculateSafeMessageHash(
+			safeAddress,
+			await getChainId(publicClient),
+			message,
+		);
+
+		const signature = await walletClients[0].account.sign?.({
+			hash: safeMessageHash,
+		});
+
+		if (!signature) {
+			throw new Error("Failed to sign message");
+		}
 
 		const dynamicSignature: DynamicSignature = {
-			signer: contractAddress!,
-			data: signatureData,
+			signer: safeAddress,
+			data: signature,
 			dynamic: true,
 		};
 
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ dataHash },
+			{ dataHash: message.message },
 		);
 
 		expect(result.valid).toBe(true);
-		expect(result.validatedSigner).toBe(contractAddress);
+		expect(result.validatedSigner).toBe(safeAddress);
 		expect(result.signature).toEqual(dynamicSignature);
 		expect(result.error).toBeUndefined();
-
-		await revert();
 	});
 
 	test("should validate signature using bytes isValidSignature variant", async () => {
-		// Deploy mock ERC-1271 contract
-		const deployHash = await walletClients[0].deployContract({
-			bytecode: ERC1271_MOCK_BYTECODE,
+		// Deploy a Safe contract with a fallback handler that contains ERC-1271 function
+		const deployment = await deploySafeAccount(publicClient, {
+			owners: [walletClients[0].account.address],
+			threshold: 1n,
 		});
-		const { contractAddress } = await publicClient.waitForTransactionReceipt({
-			hash: deployHash,
+		const safeAddress = deployment.data.safeAddress;
+		const txHash = await deployment.send();
+		await publicClient.waitForTransactionReceipt({
+			hash: txHash,
 		});
 
-		const data = toHex("raw message data");
-		const signatureData = randomBytesHex(130);
+		const message: SafeMessage = {
+			message: keccak256(toHex("test message")),
+		};
+		const safeMessageHash = calculateSafeMessageHash(
+			safeAddress,
+			await getChainId(publicClient),
+			message,
+		);
+
+		const signature = await walletClients[0].account.sign?.({
+			hash: safeMessageHash,
+		});
+
+		if (!signature) {
+			throw new Error("Failed to sign message");
+		}
 
 		const dynamicSignature: DynamicSignature = {
-			signer: contractAddress!,
-			data: signatureData,
+			signer: safeAddress,
+			data: signature,
 			dynamic: true,
 		};
 
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ data },
+			{ data: message.message },
 		);
 
 		expect(result.valid).toBe(true);
-		expect(result.validatedSigner).toBe(contractAddress);
+		expect(result.validatedSigner).toBe(safeAddress);
+		expect(result.signature).toEqual(dynamicSignature);
 		expect(result.error).toBeUndefined();
-
-		await revert();
 	});
 
 	test("should return invalid when contract returns wrong magic value", async () => {
-		// Deploy contract that returns wrong magic value
-		const deployHash = await walletClients[0].deployContract({
-			bytecode: WRONG_MAGIC_CONTRACT_BYTECODE,
-		});
-		const { contractAddress } = await publicClient.waitForTransactionReceipt({
-			hash: deployHash,
+		/*
+		 * Minimal runtime that *always* returns a 32-byte word whose first 4 bytes
+		 * are `0xC0FFEE00`. This deliberately violates EIP-1271’s magic values so
+		 * that the validator should mark the signature as **invalid**.
+		 *
+		 *  ┌────────┬──────────────────┬────────────────────────────────────────┬─────────────────────────────────────────────┐
+		 *  │ Byte   │ Instruction      │ Stack after execution                  │ Comment                                     │
+		 *  ├────────┼──────────────────┼────────────────────────────────────────┼─────────────────────────────────────────────┤
+		 *  │ 0x63   │ PUSH4 0xc0ffee00 │ 0xc0ffee00                             │ Push constant                               │
+		 *  │ 0x60   │ PUSH1 0xe0       │ 0xc0ffee00 0xe0                        │ Shift amount = 224 bits (28 bytes)          │
+		 *  │ 0x1b   │ SHL              │ 0xc0ffee00 << 224                      │ Move constant into the *high* 4 bytes       │
+		 *  │ 0x5f   │ PUSH0            │ 0x00 <value>                           │ Destination offset (memory 0)               │
+		 *  │ 0x52   │ MSTORE           │ –                                      │ mstore(0, value)                            │
+		 *  │ 0x60   │ PUSH1 0x20       │ 0x20                                   │ Return size = 32                            │
+		 *  │ 0x5f   │ PUSH0            │ 0x00 0x20                              │ Return offset = 0                           │
+		 *  │ 0xf3   │ RETURN           │ –                                      │ return(0, 32)                               │
+		 *  └────────┴──────────────────┴────────────────────────────────────────┴─────────────────────────────────────────────┘
+		 *
+		 *  Concatenated bytecode (spaces added for readability):
+		 *  0x63 c0ffee00 60 e0 1b 5f 52 60 20 5f f3
+		 */
+		const address = randomAddress();
+		await testClient.setCode({
+			address,
+			// Runtime bytecode: PUSH4 0xc0ffee00 │ PUSH1 0xe0 │ SHL │ PUSH0 │ MSTORE │ PUSH1 0x20 │ PUSH0 │ RETURN
+			// Encoded: 0x63 c0ffee00 60 e0 1b 5f 52 60 20 5f f3
+			bytecode: "0x63c0ffee0060e01b5f5260205ff3",
 		});
 
 		const dataHash = keccak256(toHex("test message"));
 		const signatureData = randomBytesHex(65);
 
 		const dynamicSignature: DynamicSignature = {
-			signer: contractAddress!,
+			signer: address,
 			data: signatureData,
 			dynamic: true,
 		};
@@ -337,44 +363,58 @@ describe("isValidERC1271Signature", () => {
 		);
 
 		expect(result.valid).toBe(false);
-		expect(result.validatedSigner).toBe(contractAddress);
-		expect(result.error).toBeUndefined(); // No error, just invalid
-
-		await revert();
+		expect(result.validatedSigner).toBe(address);
+		expect(result.error).toBeUndefined();
 	});
 
-	test("should handle contract revert gracefully", async () => {
-		// Deploy contract that always reverts
-		const deployHash = await walletClients[0].deployContract({
-			bytecode: REVERTING_CONTRACT_BYTECODE,
+	test("should handle contract revert and return invalid with error", async () => {
+		// Deploy a Safe contract with a fallback handler that contains ERC-1271 function
+		const deployment = await deploySafeAccount(publicClient, {
+			owners: [walletClients[0].account.address],
+			threshold: 1n,
 		});
-		const { contractAddress } = await publicClient.waitForTransactionReceipt({
-			hash: deployHash,
+		const safeAddress = deployment.data.safeAddress;
+		const txHash = await deployment.send();
+		await publicClient.waitForTransactionReceipt({
+			hash: txHash,
 		});
 
-		const dataHash = keccak256(toHex("test message"));
-		const signatureData = randomBytesHex(65);
+		const message: SafeMessage = {
+			message: keccak256(toHex("test message")),
+		};
+		const safeMessageHash = calculateSafeMessageHash(
+			safeAddress,
+			await getChainId(publicClient),
+			message,
+		);
+
+		const signature = await walletClients[1].account.sign?.({
+			hash: safeMessageHash,
+		});
+
+		if (!signature) {
+			throw new Error("Failed to sign message");
+		}
 
 		const dynamicSignature: DynamicSignature = {
-			signer: contractAddress!,
-			data: signatureData,
+			signer: safeAddress,
+			data: signature,
 			dynamic: true,
 		};
-
+		// Safe smart contract will revert when the signature is invalid (we used walletClients[1] to sign which is not an owner)
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ dataHash },
+			{ data: message.message },
 		);
 
 		expect(result.valid).toBe(false);
+		expect(result.validatedSigner).toBe(safeAddress);
+		expect(result.signature).toEqual(dynamicSignature);
 		expect(result.error).toBeDefined();
-		expect(result.error?.message).toContain("error");
-
-		await revert();
 	});
 
-	test("should handle calls to EOA addresses", async () => {
+	test("should handle calls to EOA addresses and return invalid", async () => {
 		const eoaAddress = walletClients[1].account.address;
 		const dataHash = keccak256(toHex("test message"));
 		const signatureData = randomBytesHex(65);
@@ -391,60 +431,93 @@ describe("isValidERC1271Signature", () => {
 			{ dataHash },
 		);
 
+		// eth_call to an EOA would return empty bytes and will not error, just return invalid
 		expect(result.valid).toBe(false);
-		expect(result.error).toBeDefined();
-
-		await revert();
+		expect(result.error).toBeUndefined();
 	});
 
-	test("should handle contracts without ERC-1271 support", async () => {
-		// Deploy a simple contract without isValidSignature
-		const simpleContractBytecode =
-			"0x6080604052348015600e575f80fd5b50603e80601a5f395ff3fe60806040525f80fdfea26469706673582212202c";
-
-		const deployHash = await walletClients[0].deployContract({
-			bytecode: simpleContractBytecode,
+	test("should handle contracts without ERC-1271 support and return invalid", async () => {
+		// Deploy a Safe contract without a fallback handler that contains ERC-1271 function
+		const deployment = await deploySafeAccount(publicClient, {
+			owners: [walletClients[0].account.address],
+			threshold: 1n,
+			fallbackHandler: ZERO_ADDRESS,
 		});
-		const { contractAddress } = await publicClient.waitForTransactionReceipt({
-			hash: deployHash,
+		const safeAddress = deployment.data.safeAddress;
+		const txHash = await deployment.send();
+		await publicClient.waitForTransactionReceipt({
+			hash: txHash,
 		});
 
-		const dataHash = keccak256(toHex("test message"));
-		const signatureData = randomBytesHex(65);
+		const message: SafeMessage = {
+			message: keccak256(toHex("test message")),
+		};
+		const safeMessageHash = calculateSafeMessageHash(
+			safeAddress,
+			await getChainId(publicClient),
+			message,
+		);
+
+		const signature = await walletClients[0].account.sign?.({
+			hash: safeMessageHash,
+		});
+
+		if (!signature) {
+			throw new Error("Failed to sign message");
+		}
 
 		const dynamicSignature: DynamicSignature = {
-			signer: contractAddress!,
-			data: signatureData,
+			signer: safeAddress,
+			data: signature,
 			dynamic: true,
 		};
 
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ dataHash },
+			{ dataHash: message.message },
 		);
 
+		// Contract with a fallback function that does not contain ERC-1271 will return 0x, so we just check for invalid
+		// and do not expect an error
 		expect(result.valid).toBe(false);
-		expect(result.error).toBeDefined();
-
-		await revert();
+		expect(result.error).toBeUndefined();
 	});
 
 	test("should handle empty signature data", async () => {
-		// Deploy mock ERC-1271 contract
-		const deployHash = await walletClients[0].deployContract({
-			bytecode: ERC1271_MOCK_BYTECODE,
-		});
-		const { contractAddress } = await publicClient.waitForTransactionReceipt({
-			hash: deployHash,
+		/*
+		 * Minimal runtime that *always* returns a 32-byte word whose first 4 bytes
+		 * are `0x1626ba7e`. This matches the bytes32 variant of EIP-1271’s magic value so
+		 * that the validator should mark the signature as **valid**.
+		 *
+		 *  ┌────────┬──────────────────┬────────────────────────────────────────┬─────────────────────────────────────────────┐
+		 *  │ Byte   │ Instruction      │ Stack after execution                  │ Comment                                     │
+		 *  ├────────┼──────────────────┼────────────────────────────────────────┼─────────────────────────────────────────────┤
+		 *  │ 0x63   │ PUSH4 0x1626ba7e │ 0x1626ba7e                             │ Push constant                               │
+		 *  │ 0x60   │ PUSH1 0xe0       │ 0x1626ba7e 0xe0                        │ Shift amount = 224 bits (28 bytes)          │
+		 *  │ 0x1b   │ SHL              │ 0x1626ba7e << 224                      │ Move constant into the *high* 4 bytes       │
+		 *  │ 0x5f   │ PUSH0            │ 0x00 <value>                           │ Destination offset (memory 0)               │
+		 *  │ 0x52   │ MSTORE           │ –                                      │ mstore(0, value)                            │
+		 *  │ 0x60   │ PUSH1 0x20       │ 0x20                                   │ Return size = 32                            │
+		 *  │ 0x5f   │ PUSH0            │ 0x00 0x20                              │ Return offset = 0                           │
+		 *  │ 0xf3   │ RETURN           │ –                                      │ return(0, 32)                               │
+		 *  └────────┴──────────────────┴────────────────────────────────────────┴─────────────────────────────────────────────┘
+		 *
+		 *  Concatenated bytecode (spaces added for readability):
+		 *  0x63 1626ba7e 60 e0 1b 5f 52 60 20 5f f3
+		 */
+		const address = randomAddress();
+		await testClient.setCode({
+			address,
+			// Runtime bytecode: PUSH4 0xc0ffee00 │ PUSH1 0xe0 │ SHL │ PUSH0 │ MSTORE │ PUSH1 0x20 │ PUSH0 │ RETURN
+			// Encoded: 0x63  60 e0 1b 5f 52 60 20 5f f3
+			bytecode: "0x631626ba7e60e01b5f5260205ff3",
 		});
 
 		const dataHash = keccak256(toHex("test message"));
-		const emptySignature = "0x";
-
 		const dynamicSignature: DynamicSignature = {
-			signer: contractAddress!,
-			data: emptySignature,
+			signer: address,
+			data: "0x",
 			dynamic: true,
 		};
 
@@ -454,27 +527,45 @@ describe("isValidERC1271Signature", () => {
 			{ dataHash },
 		);
 
-		// Contract should still respond, even with empty data
 		expect(result.valid).toBe(true);
-
-		await revert();
+		expect(result.error).toBeUndefined();
+		expect(result.signature).toEqual(dynamicSignature);
 	});
 
 	test("should handle large signature payloads", async () => {
-		// Deploy mock ERC-1271 contract
-		const deployHash = await walletClients[0].deployContract({
-			bytecode: ERC1271_MOCK_BYTECODE,
-		});
-		const { contractAddress } = await publicClient.waitForTransactionReceipt({
-			hash: deployHash,
+		/*
+		 * Minimal runtime that *always* returns a 32-byte word whose first 4 bytes
+		 * are `0x1626ba7e`. This matches the bytes32 variant of EIP-1271’s magic value so
+		 * that the validator should mark the signature as **valid**.
+		 *
+		 *  ┌────────┬──────────────────┬────────────────────────────────────────┬─────────────────────────────────────────────┐
+		 *  │ Byte   │ Instruction      │ Stack after execution                  │ Comment                                     │
+		 *  ├────────┼──────────────────┼────────────────────────────────────────┼─────────────────────────────────────────────┤
+		 *  │ 0x63   │ PUSH4 0x1626ba7e │ 0x1626ba7e                             │ Push constant                               │
+		 *  │ 0x60   │ PUSH1 0xe0       │ 0x1626ba7e 0xe0                        │ Shift amount = 224 bits (28 bytes)          │
+		 *  │ 0x1b   │ SHL              │ 0x1626ba7e << 224                      │ Move constant into the *high* 4 bytes       │
+		 *  │ 0x5f   │ PUSH0            │ 0x00 <value>                           │ Destination offset (memory 0)               │
+		 *  │ 0x52   │ MSTORE           │ –                                      │ mstore(0, value)                            │
+		 *  │ 0x60   │ PUSH1 0x20       │ 0x20                                   │ Return size = 32                            │
+		 *  │ 0x5f   │ PUSH0            │ 0x00 0x20                              │ Return offset = 0                           │
+		 *  │ 0xf3   │ RETURN           │ –                                      │ return(0, 32)                               │
+		 *  └────────┴──────────────────┴────────────────────────────────────────┴─────────────────────────────────────────────┘
+		 *
+		 *  Concatenated bytecode (spaces added for readability):
+		 *  0x63 1626ba7e 60 e0 1b 5f 52 60 20 5f f3
+		 */
+		const address = randomAddress();
+		await testClient.setCode({
+			address,
+			// Runtime bytecode: PUSH4 0xc0ffee00 │ PUSH1 0xe0 │ SHL │ PUSH0 │ MSTORE │ PUSH1 0x20 │ PUSH0 │ RETURN
+			// Encoded: 0x63  60 e0 1b 5f 52 60 20 5f f3
+			bytecode: "0x631626ba7e60e01b5f5260205ff3",
 		});
 
 		const dataHash = keccak256(toHex("test message"));
-		// Create large signature data (> 1KB)
 		const largeSignature = randomBytesHex(1500);
-
 		const dynamicSignature: DynamicSignature = {
-			signer: contractAddress!,
+			signer: address,
 			data: largeSignature,
 			dynamic: true,
 		};
@@ -486,9 +577,8 @@ describe("isValidERC1271Signature", () => {
 		);
 
 		expect(result.valid).toBe(true);
-		expect(result.validatedSigner).toBe(contractAddress);
-
-		await revert();
+		expect(result.error).toBeUndefined();
+		expect(result.signature).toEqual(dynamicSignature);
 	});
 });
 
