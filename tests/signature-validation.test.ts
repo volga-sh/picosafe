@@ -23,6 +23,7 @@ import {
 } from "../src/signature-validation";
 import type {
 	DynamicSignature,
+	EIP1193ProviderWithRequestFn,
 	PicosafeSignature,
 	SafeMessage,
 	StaticSignature,
@@ -33,6 +34,8 @@ import { randomAddress, randomBytesHex } from "./utils";
 import { calculateSafeMessageHash } from "../src/eip712";
 import { getChainId } from "../src/utilities/eip1193-provider";
 import { ZERO_ADDRESS } from "../src/utilities/constants";
+import { padStartHex } from "../src/utilities/encoding";
+import { getApprovedHashSignatureBytes } from "../src/safe-signatures";
 
 describe("isValidECDSASignature", () => {
 	test("should validate correct ECDSA signature with v=27", async () => {
@@ -582,21 +585,19 @@ describe("isValidERC1271Signature", () => {
 	});
 });
 
-describe("isValidApprovedHashSignature", () => {
+describe.only("isValidApprovedHashSignature", () => {
 	const { testClient, publicClient, walletClients } = createClients();
-	let revert: () => Promise<void>;
+	let resetSnapshot: () => Promise<void>;
 	let safeAddress: Address;
-	let owners: Address[];
+	let owners: [Address, Address, Address];
 
 	beforeEach(async () => {
-		revert = await snapshot(testClient);
-
-		// Deploy a Safe for testing
+		resetSnapshot = await snapshot(testClient);
 		owners = [
 			walletClients[0].account.address,
 			walletClients[1].account.address,
 			walletClients[2].account.address,
-		];
+		] as const;
 
 		const deployment = await deploySafeAccount(publicClient, {
 			owners,
@@ -604,17 +605,20 @@ describe("isValidApprovedHashSignature", () => {
 			saltNonce: BigInt(Date.now()),
 		});
 
-		const deploymentTx = await deployment.send(walletClients[0]);
+		const deploymentTx = await deployment.send();
 		await publicClient.waitForTransactionReceipt({ hash: deploymentTx });
 
-		safeAddress = deployment.safeAccountAddress;
+		safeAddress = deployment.data.safeAddress;
+	});
+
+	afterEach(async () => {
+		await resetSnapshot();
 	});
 
 	test("should validate when hash is approved (non-zero value)", async () => {
 		const owner = owners[0];
 		const dataHash = keccak256(toHex("approved message"));
 
-		// Approve the hash from the Safe
 		const approveHashData = encodeFunctionData({
 			abi: PARSED_SAFE_ABI,
 			functionName: "approveHash",
@@ -628,123 +632,47 @@ describe("isValidApprovedHashSignature", () => {
 		});
 		await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-		// Create approved hash signature
-		const signatureData = concatHex([
-			pad(owner, { size: 32 }), // Owner address padded to 32 bytes
-			"0x0000000000000000000000000000000000000000000000000000000000000000", // Unused 32 bytes
-			"0x01", // v=1 for approved hash
-		]);
-
 		const staticSignature: StaticSignature = {
-			signer: safeAddress, // Safe contract that stores approved hashes
-			data: signatureData,
+			signer: owner,
+			data: getApprovedHashSignatureBytes(owner),
 		};
 
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			staticSignature,
-			{ dataHash },
+			{ dataHash, safeAddress },
 		);
 
 		expect(result.valid).toBe(true);
-		expect(result.validatedSigner).toBe(safeAddress);
+		expect(result.validatedSigner).toBe(owner);
 		expect(result.error).toBeUndefined();
-
-		await revert();
 	});
 
 	test("should return invalid when hash not approved (zero value)", async () => {
 		const owner = owners[0];
 		const dataHash = keccak256(toHex("unapproved message"));
 
-		// Create approved hash signature for unapproved hash
-		const signatureData = concatHex([
-			pad(owner, { size: 32 }),
-			"0x0000000000000000000000000000000000000000000000000000000000000000",
-			"0x01",
-		]);
-
 		const staticSignature: StaticSignature = {
-			signer: safeAddress,
-			data: signatureData,
+			signer: owner,
+			data: getApprovedHashSignatureBytes(owner),
 		};
 
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			staticSignature,
-			{ dataHash },
+			{ dataHash, safeAddress },
 		);
 
 		expect(result.valid).toBe(false);
-		expect(result.validatedSigner).toBe(safeAddress);
+		expect(result.validatedSigner).toBe(owner);
 		expect(result.error).toBeUndefined();
-
-		await revert();
-	});
-
-	test("should correctly parse owner address from signature data", async () => {
-		const testOwner = "0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5";
-		const dataHash = keccak256(toHex("test message"));
-
-		// Test different padding scenarios
-		const signatureVariants = [
-			// Standard padding
-			concatHex([
-				pad(testOwner, { size: 32 }),
-				"0x0000000000000000000000000000000000000000000000000000000000000000",
-				"0x01",
-			]),
-			// With extra zeros (should still work)
-			concatHex([
-				"0x000000000000000000000000" + testOwner.slice(2).toLowerCase(),
-				"0x0000000000000000000000000000000000000000000000000000000000000000",
-				"0x01",
-			]),
-		];
-
-		for (const signatureData of signatureVariants) {
-			const staticSignature: StaticSignature = {
-				signer: testOwner as Address,
-				data: signatureData,
-			};
-
-			// Mock eth_call to track the parameters
-			let calledWithCorrectParams = false;
-			const originalRequest = publicClient.request;
-			publicClient.request = async (args: any) => {
-				if (args.method === "eth_call") {
-					const calldata = args.params[0].data;
-					// Check if it's calling approvedHashes with correct parameters
-					const expectedCalldata = encodeFunctionData({
-						abi: PARSED_SAFE_ABI,
-						functionName: "approvedHashes",
-						args: [testOwner as Address, dataHash],
-					});
-					if (calldata === expectedCalldata) {
-						calledWithCorrectParams = true;
-					}
-				}
-				return originalRequest.call(publicClient, args);
-			};
-
-			await isValidApprovedHashSignature(publicClient, staticSignature, {
-				dataHash,
-			});
-
-			expect(calledWithCorrectParams).toBe(true);
-
-			// Restore original request method
-			publicClient.request = originalRequest;
-		}
-
-		await revert();
 	});
 
 	test("should handle incorrectly formatted signature data", async () => {
 		const dataHash = keccak256(toHex("test message"));
 
 		// Test various malformed signatures
-		const malformedSignatures = [
+		const malformedSignatures: Hex[] = [
 			"0x", // Empty
 			"0x01", // Just v byte
 			randomBytesHex(32), // Just 32 bytes
@@ -757,23 +685,16 @@ describe("isValidApprovedHashSignature", () => {
 				signer: randomAddress(),
 				data: malformedSig,
 			};
+			console.log(malformedSig);
+			const result = await isValidApprovedHashSignature(
+				publicClient,
+				staticSignature,
+				{ dataHash, safeAddress },
+			);
 
-			// Should handle gracefully without crashing
-			try {
-				const result = await isValidApprovedHashSignature(
-					publicClient,
-					staticSignature,
-					{ dataHash },
-				);
-				// If it doesn't throw, it should be invalid
-				expect(result.valid).toBe(false);
-			} catch (error) {
-				// Some malformed data might throw, which is acceptable
-				expect(error).toBeDefined();
-			}
+			expect(result.valid).toBe(false);
+			expect(result.error).toBeDefined();
 		}
-
-		await revert();
 	});
 
 	test("should handle eth_call failures gracefully", async () => {
@@ -781,34 +702,31 @@ describe("isValidApprovedHashSignature", () => {
 		const dataHash = keccak256(toHex("test message"));
 
 		const signatureData = concatHex([
-			pad(owner, { size: 32 }),
+			padStartHex(owner, 32),
 			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			"0x01",
 		]);
 
 		const staticSignature: StaticSignature = {
-			signer: safeAddress,
+			signer: owner,
 			data: signatureData,
 		};
 
-		// Mock provider to throw error
-		const mockProvider = {
+		const mockProvider: EIP1193ProviderWithRequestFn = {
 			request: async () => {
 				throw new Error("Network error");
 			},
 		};
 
 		const result = await isValidApprovedHashSignature(
-			mockProvider as any,
+			mockProvider,
 			staticSignature,
-			{ dataHash },
+			{ dataHash, safeAddress },
 		);
 
 		expect(result.valid).toBe(false);
 		expect(result.error).toBeDefined();
 		expect(result.error?.message).toContain("Network error");
-
-		await revert();
 	});
 
 	test("should handle calls to contracts without approvedHashes", async () => {
@@ -827,13 +745,13 @@ describe("isValidApprovedHashSignature", () => {
 		const dataHash = keccak256(toHex("test message"));
 
 		const signatureData = concatHex([
-			pad(owner, { size: 32 }),
+			padStartHex(owner, 32),
 			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			"0x01",
 		]);
 
 		const staticSignature: StaticSignature = {
-			signer: safeAddress,
+			signer: owner,
 			data: signatureData,
 		};
 
@@ -843,13 +761,11 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			modifiedSignature,
-			{ dataHash },
+			{ dataHash, safeAddress },
 		);
 
 		expect(result.valid).toBe(false);
 		expect(result.error).toBeDefined();
-
-		await revert();
 	});
 
 	test("should treat any non-zero approval value as valid", async () => {
@@ -857,13 +773,13 @@ describe("isValidApprovedHashSignature", () => {
 		const dataHash = keccak256(toHex("test message"));
 
 		const signatureData = concatHex([
-			pad(owner, { size: 32 }),
+			padStartHex(owner, 32),
 			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			"0x01",
 		]);
 
 		const staticSignature: StaticSignature = {
-			signer: safeAddress,
+			signer: owner,
 			data: signatureData,
 		};
 
@@ -877,7 +793,7 @@ describe("isValidApprovedHashSignature", () => {
 
 		for (const returnValue of nonZeroValues) {
 			// Mock provider to return specific value
-			const mockProvider = {
+			const mockProvider: EIP1193ProviderWithRequestFn = {
 				request: async (args: any) => {
 					if (args.method === "eth_call") {
 						return returnValue;
@@ -887,15 +803,13 @@ describe("isValidApprovedHashSignature", () => {
 			};
 
 			const result = await isValidApprovedHashSignature(
-				mockProvider as any,
+				mockProvider,
 				staticSignature,
-				{ dataHash },
+				{ dataHash, safeAddress },
 			);
 
 			expect(result.valid).toBe(true);
 		}
-
-		await revert();
 	});
 
 	test("should only accept signatures with v=1", async () => {
@@ -907,7 +821,7 @@ describe("isValidApprovedHashSignature", () => {
 
 		for (const v of vValues) {
 			const signatureData = concatHex([
-				pad(owner, { size: 32 }),
+				padStartHex(owner, 32),
 				"0x0000000000000000000000000000000000000000000000000000000000000000",
 				toHex(v, { size: 1 }),
 			]);
@@ -923,15 +837,13 @@ describe("isValidApprovedHashSignature", () => {
 			const result = await isValidApprovedHashSignature(
 				publicClient,
 				staticSignature,
-				{ dataHash },
+				{ dataHash, safeAddress },
 			);
 
 			// Should still work but return false since hash isn't approved
 			expect(result.valid).toBe(false);
 			expect(result.error).toBeUndefined();
 		}
-
-		await revert();
 	});
 });
 

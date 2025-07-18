@@ -16,6 +16,7 @@ const SAFE_ABI = [
 	"function getMessageHash(bytes message) view returns (bytes32)",
 	"function checkNSignatures(bytes32 dataHash, bytes data, bytes signatures, uint256 requiredSignatures) view",
 	"function approvedHashes(address, bytes32) view returns (uint256)",
+	"function approveHash(bytes32 hash)",
 	"event SafeSetup(address indexed initiator, address[] owners, uint256 threshold, address initializer, address fallbackHandler)",
 ] as const;
 

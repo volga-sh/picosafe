@@ -665,6 +665,14 @@ async function validateSignaturesForSafe(
 	};
 }
 
+function getApprovedHashSignatureBytes(signer: Address): Hex {
+	return concatHex(
+		padStartHex(signer, 32),
+		padStartHex("00", 32),
+		SignatureTypeVByte.APPROVED_HASH.toString(16),
+	);
+}
+
 export {
 	encodeSafeSignaturesBytes,
 	decodeSafeSignatureBytesToPicosafeSignatures,
@@ -672,4 +680,5 @@ export {
 	validateSignature,
 	validateSignaturesForSafe,
 	getSignatureTypeVByte,
+	getApprovedHashSignatureBytes,
 };

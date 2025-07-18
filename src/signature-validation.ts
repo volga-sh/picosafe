@@ -5,7 +5,10 @@ import {
 	PARSED_ERC_1271_ABI_LEGACY,
 	PARSED_SAFE_ABI,
 } from "./abis";
-import { getSignatureTypeVByte } from "./safe-signatures";
+import {
+	getApprovedHashSignatureBytes,
+	getSignatureTypeVByte,
+} from "./safe-signatures";
 import type {
 	DynamicSignature,
 	EIP1193ProviderWithRequestFn,
@@ -192,7 +195,7 @@ async function isValidERC1271Signature(
 				params: [{ to: signature.signer, data: calldata }, "latest"],
 			})
 			.then((res) => res.slice(0, 10));
-		console.log(result, expectedMagic);
+
 		if (result === expectedMagic) {
 			return {
 				valid: true,
@@ -273,9 +276,12 @@ async function isValidERC1271Signature(
 async function isValidApprovedHashSignature(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	signature: Readonly<StaticSignature>,
-	validationData: Readonly<{ dataHash: Hex }>,
+	validationData: Readonly<{
+		dataHash: Hex;
+		safeAddress: Address;
+	}>,
 ): Promise<SignatureValidationResult<StaticSignature>> {
-	const { dataHash } = validationData;
+	const { dataHash, safeAddress } = validationData;
 
 	const approvedHashesCalldata = encodeFunctionData({
 		abi: PARSED_SAFE_ABI,
@@ -291,7 +297,7 @@ async function isValidApprovedHashSignature(
 			method: "eth_call",
 			params: [
 				{
-					to: signature.signer,
+					to: safeAddress,
 					data: approvedHashesCalldata,
 				},
 			],
@@ -311,8 +317,8 @@ async function isValidApprovedHashSignature(
 			approvedHash !== undefined &&
 			approvedHash !==
 				"0x0000000000000000000000000000000000000000000000000000000000000000",
-		validatedSigner: signature.signer,
 		signature,
+		validatedSigner: signature.signer,
 		error: capturedError,
 	};
 }
