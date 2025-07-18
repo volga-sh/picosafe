@@ -259,9 +259,17 @@ async function checkNSignatures(
 	// We skip additional runtime validation checks (e.g., validating addresses, signature formats)
 	// because the Safe contract's checkNSignatures function will handle all validation
 	// and revert if signatures are invalid, which we catch and return as false
-	const encodedSignatures = Array.isArray(params.signatures)
-		? encodeSafeSignaturesBytes(params.signatures)
-		: (params.signatures as Hex);
+	let encodedSignatures: Hex;
+	if (Array.isArray(params.signatures)) {
+		// Handle empty array case - provide minimal valid signature bytes
+		if (params.signatures.length === 0) {
+			encodedSignatures = "0x";
+		} else {
+			encodedSignatures = encodeSafeSignaturesBytes(params.signatures);
+		}
+	} else {
+		encodedSignatures = params.signatures as Hex;
+	}
 
 	const data = encodeFunctionData({
 		abi: PARSED_SAFE_ABI,
@@ -286,6 +294,20 @@ async function checkNSignatures(
 				params.block ?? "latest",
 			],
 		});
+		// checkNSignatures doesn't return anything on success
+		// If we get a result, it should be "0x" (empty) for success
+		// If calling an EOA, we'll get "0x" as well, but the call succeeds which is wrong
+		// So we need to check if the contract exists first
+		const code = await provider.request({
+			method: "eth_getCode",
+			params: [safeAddress, params.block ?? "latest"],
+		});
+
+		// If there's no code at the address, it's not a contract
+		if (code === "0x" || code === "0x0") {
+			return false;
+		}
+
 		return true;
 	} catch {
 		return false;
@@ -770,9 +792,9 @@ async function validateSignaturesForSafe(
  */
 function getApprovedHashSignatureBytes(signer: Address): Hex {
 	return concatHex(
-		padStartHex(signer, 32),
-		padStartHex("00", 32),
-		SignatureTypeVByte.APPROVED_HASH.toString(16),
+		padStartHex("00", 32), // First 32 bytes are zeros for approved hash
+		padStartHex(signer, 32), // Next 32 bytes are the signer address
+		"0x" + SignatureTypeVByte.APPROVED_HASH.toString(16).padStart(2, "0"), // v-byte
 	);
 }
 
