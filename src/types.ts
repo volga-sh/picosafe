@@ -252,7 +252,43 @@ enum SignatureTypeVByte {
  */
 type SafeSignaturesParam = readonly PicosafeSignature[] | Hex;
 
+/**
+ * Type predicate to check if a signature is an ApprovedHashSignature
+ * @param signature - The signature to check
+ * @returns True if the signature is an ApprovedHashSignature
+ */
+function isApprovedHashSignature(
+	signature: PicosafeSignature,
+): signature is ApprovedHashSignature {
+	return !("data" in signature);
+}
+
+/**
+ * Type predicate to check if a signature is a DynamicSignature
+ * @param signature - The signature to check
+ * @returns True if the signature is a DynamicSignature
+ */
+function isDynamicSignature(
+	signature: PicosafeSignature,
+): signature is DynamicSignature {
+	return (
+		"data" in signature && "dynamic" in signature && signature.dynamic === true
+	);
+}
+
+/**
+ * Type predicate to check if a signature is an ECDSASignature
+ * @param signature - The signature to check
+ * @returns True if the signature is an ECDSASignature
+ */
+function isECDSASignature(
+	signature: PicosafeSignature,
+): signature is ECDSASignature {
+	return "data" in signature && !("dynamic" in signature);
+}
+
 export { Operation, SignatureTypeVByte };
+export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
 export type {
 	MetaTransaction,
 	SafeTransactionData,

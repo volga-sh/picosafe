@@ -10,7 +10,12 @@ import type {
 	PicosafeSignature,
 	SafeSignaturesParam,
 } from "./types.js";
-import { SignatureTypeVByte } from "./types.js";
+import {
+	isApprovedHashSignature,
+	isDynamicSignature,
+	isECDSASignature,
+	SignatureTypeVByte,
+} from "./types.js";
 import { checksumAddress } from "./utilities/address.js";
 import { concatHex, padStartHex } from "./utilities/encoding.js";
 
@@ -533,7 +538,7 @@ function getSignatureTypeVByte(signature: Hex): SignatureTypeVByte {
 
 type SignaturesValidationParams = {
 	signatures: SafeSignaturesParam;
-	data: Hex;
+	data?: Hex;
 	dataHash: Hex;
 };
 
@@ -561,7 +566,7 @@ type SafeConfigurationForValidation = {
  * @param safeAddress - Address of the Safe contract
  * @param validationParams - Parameters for signature validation
  * @param validationParams.signatures - Array of signatures or encoded signatures hex
- * @param validationParams.data - The original data that was signed
+ * @param validationParams.data - Optional original data that was signed. Only required for EIP-1271 signatures.
  * @param validationParams.dataHash - The hash of the data
  * @param safeConfig - Optional Safe configuration to avoid fetching from chain
  * @param safeConfig.threshold - The minimum number of signatures required
@@ -655,11 +660,34 @@ async function validateSignaturesForSafe(
 	const results: SignatureValidationResult<PicosafeSignature>[] = [];
 
 	for (const signature of signatures) {
-		const result = await validateSignature(provider, signature, {
-			data: validationParams.data,
-			dataHash: validationParams.dataHash,
-			safeAddress,
-		});
+		let result: SignatureValidationResult<PicosafeSignature>;
+
+		if (isApprovedHashSignature(signature)) {
+			// ApprovedHashSignature - requires dataHash and safeAddress
+			result = await validateSignature(provider, signature, {
+				dataHash: validationParams.dataHash,
+				safeAddress,
+			});
+		} else if (isDynamicSignature(signature)) {
+			// DynamicSignature - requires data or dataHash
+			if (validationParams.data) {
+				result = await validateSignature(provider, signature, {
+					data: validationParams.data,
+				});
+			} else {
+				result = await validateSignature(provider, signature, {
+					dataHash: validationParams.dataHash,
+				});
+			}
+		} else if (isECDSASignature(signature)) {
+			// ECDSASignature - requires only dataHash
+			result = await validateSignature(provider, signature, {
+				dataHash: validationParams.dataHash,
+			});
+		} else {
+			// This should never happen due to type exhaustiveness
+			throw new Error("Unknown signature type");
+		}
 
 		if (
 			result.valid &&
