@@ -25,7 +25,7 @@ type EIP1193ProviderWithRequestFn = Pick<EIP1193Provider, "request">;
  * Block identifier types accepted by the SDK for specifying block context
  * Can be a block number, tag (e.g., "latest", "pending"), or full block identifier
  */
-type PicoSafeRpcBlockIdentifier =
+type PicosafeRpcBlockIdentifier =
 	| RpcBlockNumber
 	| BlockTag
 	| RpcBlockIdentifier;
@@ -50,6 +50,7 @@ enum Operation {
  * @property {Address} to - Target address to send the transaction to
  * @property {bigint} value - Amount of ETH to send (in wei)
  * @property {Hex} data - Encoded transaction data (function selector + parameters)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/Executor.sol#L21
  */
 type MetaTransaction = {
 	to: Address;
@@ -66,6 +67,7 @@ type MetaTransaction = {
  * @property {Address} gasToken - Token address for gas payment (0x0 = ETH)
  * @property {Address} refundReceiver - Address to receive gas payment (0x0 = tx.origin)
  * @property {bigint} nonce - Safe account nonce to prevent replay attacks
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L139
  */
 type SafeTransactionData = MetaTransaction & {
 	operation: Operation;
@@ -112,26 +114,75 @@ type FullSafeTransaction = Prettify<
 >;
 
 /**
- * Safe account configuration
- * @property {Address} address - Safe account address
- * @property {Address[]} owners - Array of owner addresses
+ * Pre-approved hash signature structure
+ *
+ * Represents a signature that was pre-approved by calling the Safe's
+ * `approveHash` function. This allows an owner to approve a transaction
+ * hash in advance, which can then be used as a valid signature.
+ *
+ * @property {Address} signer - The owner address that approved the hash
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L348
  */
-type SafeConfig = {
-	address: Address;
-	owners: Address[];
+type ApprovedHashSignature = {
+	signer: Address;
 };
 
 /**
- * Safe-specific signature structure (same as Signature but used for clarity in Safe contexts)
- * @property {Address} signer - Address of the signer
+ * ECDSA signature structure
+ *
+ * Represents a standard ECDSA signature created by signing with a private key.
+ * This includes both EIP-712 typed data signatures and eth_sign signatures.
+ *
+ * @property {Address} signer - The address that created this signature
+ * @property {Hex} data - The 65-byte signature data in r + s + v format
+ */
+type ECDSASignature = {
+	signer: Address;
+	data: Hex;
+};
+
+/**
+ * Static signature structure for standard ECDSA and pre-approved signatures
+ *
+ * Represents signatures that have a fixed 65-byte format and don't require
+ * dynamic data resolution. This is a union type of:
+ * - {@link ApprovedHashSignature} - Pre-approved hash signatures
+ * - {@link ECDSASignature} - Standard ECDSA signatures (EIP-712 and eth_sign)
+ *
+ * Both types share a `signer` property but differ in whether they include
+ * signature data. Pre-approved signatures only need the signer address,
+ * while ECDSA signatures include the full 65-byte signature data.
+ */
+type StaticSignature = ApprovedHashSignature | ECDSASignature;
+
+/**
+ * Dynamic signature structure for EIP-1271 contract signatures
+ *
+ * Represents signatures from smart contract wallets that implement EIP-1271.
+ * These signatures have variable length and require special encoding with
+ * offset pointers when combined with other signatures.
+ *
+ * @property {Address} signer - The contract address that will validate the signature
+ * @property {Hex} data - Variable-length signature data for the contract to validate
+ * @property {true} dynamic - Flag indicating this is a dynamic/contract signature
+ */
+type DynamicSignature = {
+	signer: Address;
+	data: Hex;
+	dynamic: true;
+};
+
+/**
+ * Safe-specific signature structure
+ * @property {Address} signer - Address of the signer. This address is purely a convenience field
+ *                              and should not be used as a source of truth for the signer address.
+ *                              It is needed in some cases where we need to sort signatures by signer address
+ *                              (e.g., to encode signatures bytes for submitting a transaction to a Safe).
+ *                              Validation methods MUST validate the signature against the signer address field.
  * @property {Hex} data - Signature data including the signature type suffix
  * @property {boolean} dynamic - Whether the signature includes dynamic part (e.g., EIP-1271)
  */
-type SafeSignature = {
-	signer: Address;
-	data: Hex;
-	dynamic?: boolean;
-};
+type PicosafeSignature = StaticSignature | DynamicSignature;
 
 /**
  * Safe message structure for EIP-191/1271 message signing
@@ -141,15 +192,137 @@ type SafeMessage = {
 	message: Hex;
 };
 
-export { Operation };
+/**
+ * Signature type suffix used by Safe contracts (last byte of every 65-byte signature).
+ *
+ * A Safe signature is always **65 bytes** long and is encoded as:
+ * `{ 64-byte constant data }{ 1-byte signatureType }`.
+ * The interpretation of the first 64 bytes depends on the value of `signatureType`:
+ *
+ * | Value | Enum member        | Constant layout                                           | Typical source               |
+ * | ----- | ------------------ | --------------------------------------------------------- | ---------------------------- |
+ * | `0`   | `CONTRACT`         | `{ verifier (32) | dataOffset (32) | 0 }` + dynamic bytes  | EIP-1271 contract            |
+ * | `1`   | `APPROVED_HASH`    | `{ validator (32) | ignored (32) | 1 }`                   | `approveHash` / tx sender    |
+ * | `27`  | `EIP712_RECID_1`   | `{ r (32) | s (32) | v (1) }`                             | `signTypedData` / EIP-712    |
+ * | `28`  | `EIP712_RECID_2`   | `{ r (32) | s (32) | v (1) }`                             | `signTypedData` / EIP-712    |
+ * | `31`  | `ETH_SIGN_RECID_1` | `{ r (32) | s (32) | ECDSA v+4 (1) }`                   | `eth_sign` / `personal_sign` |
+ * | `32`  | `ETH_SIGN_RECID_2` | `{ r (32) | s (32) | ECDSA v+4 (1) }`                   | `eth_sign` / `personal_sign` |
+ *
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L284
+ */
+enum SignatureTypeVByte {
+	CONTRACT = 0,
+	APPROVED_HASH = 1,
+	EIP712_RECID_1 = 27,
+	EIP712_RECID_2 = EIP712_RECID_1 + 1,
+	ETH_SIGN_RECID_1 = 31,
+	ETH_SIGN_RECID_2 = ETH_SIGN_RECID_1 + 1,
+}
+
+/**
+ * Union type for signature parameters accepted by Safe signature functions
+ *
+ * Many Safe SDK functions that work with signatures accept this flexible type,
+ * allowing callers to provide signatures either as:
+ * - An array of {@link PicosafeSignature} objects (easier to construct and manipulate)
+ * - A hex-encoded string of concatenated signatures (as expected by Safe contracts)
+ *
+ * Functions accepting this type will automatically handle both formats appropriately.
+ *
+ * @example
+ * ```typescript
+ * import { checkNSignatures, encodeSafeSignaturesBytes } from "picosafe";
+ *
+ * // Pass as array of signature objects
+ * await checkNSignatures(provider, safeAddress, {
+ *   signatures: [
+ *     { signer: owner1, data: sig1 },
+ *     { signer: owner2, data: sig2 }
+ *   ],
+ *   // ... other params
+ * });
+ *
+ * // Or pass as encoded hex string
+ * const encoded = encodeSafeSignaturesBytes(signatures);
+ * await checkNSignatures(provider, safeAddress, {
+ *   signatures: encoded, // "0x..."
+ *   // ... other params
+ * });
+ * ```
+ */
+type SafeSignaturesParam = readonly PicosafeSignature[] | Hex;
+
+/**
+ * Type predicate to check if a signature is an ApprovedHashSignature
+ * @param signature - The signature to check
+ * @returns True if the signature is an ApprovedHashSignature
+ */
+function isApprovedHashSignature(
+	signature: PicosafeSignature,
+): signature is ApprovedHashSignature {
+	return !("data" in signature);
+}
+
+/**
+ * Type predicate to check if a signature is a DynamicSignature
+ * @param signature - The signature to check
+ * @returns True if the signature is a DynamicSignature
+ */
+function isDynamicSignature(
+	signature: PicosafeSignature,
+): signature is DynamicSignature {
+	return (
+		"data" in signature && "dynamic" in signature && signature.dynamic === true
+	);
+}
+
+/**
+ * Type predicate to check if a signature is an ECDSASignature
+ * @param signature - The signature to check
+ * @returns True if the signature is an ECDSASignature
+ */
+function isECDSASignature(
+	signature: PicosafeSignature,
+): signature is ECDSASignature {
+	return "data" in signature && !("dynamic" in signature);
+}
+
+/**
+ * Common validation context parameters for signature validation
+ *
+ * Provides a unified structure for passing validation data to signature
+ * validation functions. Different signature types may require different
+ * combinations of these parameters:
+ *
+ * - ECDSA signatures: Require only `dataHash`
+ * - EIP-1271 signatures: Require either `data` or `dataHash`
+ * - Approved hash signatures: Require both `dataHash` and `safeAddress`
+ *
+ * @property {Hex} dataHash - The hash of the data that was signed
+ * @property {Hex} data - The original data that was signed (optional)
+ * @property {Address} safeAddress - The Safe contract address (optional)
+ */
+type SignatureValidationContext = {
+	dataHash: Hex;
+	data?: Hex;
+	safeAddress?: Address;
+};
+
+export { Operation, SignatureTypeVByte };
+export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
 export type {
 	MetaTransaction,
 	SafeTransactionData,
-	SafeSignature,
+	ApprovedHashSignature,
+	ECDSASignature,
+	StaticSignature,
+	DynamicSignature,
+	PicosafeSignature,
 	SafeMessage,
-	SafeConfig,
 	EIP1193ProviderWithRequestFn,
-	PicoSafeRpcBlockIdentifier,
+	PicosafeRpcBlockIdentifier,
 	FullSafeTransaction,
 	Prettify,
+	SafeSignaturesParam,
+	SignatureValidationContext,
 };
