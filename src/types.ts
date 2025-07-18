@@ -287,6 +287,27 @@ function isECDSASignature(
 	return "data" in signature && !("dynamic" in signature);
 }
 
+/**
+ * Common validation context parameters for signature validation
+ *
+ * Provides a unified structure for passing validation data to signature
+ * validation functions. Different signature types may require different
+ * combinations of these parameters:
+ *
+ * - ECDSA signatures: Require only `dataHash`
+ * - EIP-1271 signatures: Require either `data` or `dataHash`
+ * - Approved hash signatures: Require both `dataHash` and `safeAddress`
+ *
+ * @property {Hex} dataHash - The hash of the data that was signed
+ * @property {Hex} data - The original data that was signed (optional)
+ * @property {Address} safeAddress - The Safe contract address (optional)
+ */
+type SignatureValidationContext = {
+	dataHash: Hex;
+	data?: Hex;
+	safeAddress?: Address;
+};
+
 export { Operation, SignatureTypeVByte };
 export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
 export type {
@@ -303,4 +324,5 @@ export type {
 	FullSafeTransaction,
 	Prettify,
 	SafeSignaturesParam,
+	SignatureValidationContext,
 };

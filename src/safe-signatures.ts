@@ -9,6 +9,7 @@ import type {
 	PicosafeRpcBlockIdentifier,
 	PicosafeSignature,
 	SafeSignaturesParam,
+	SignatureValidationContext,
 } from "./types.js";
 import {
 	isApprovedHashSignature,
@@ -17,6 +18,10 @@ import {
 	SignatureTypeVByte,
 } from "./types.js";
 import { checksumAddress } from "./utilities/address.js";
+import {
+	ECDSA_SIGNATURE_LENGTH_BYTES,
+	ECDSA_SIGNATURE_LENGTH_HEX,
+} from "./utilities/constants.js";
 import { concatHex, padStartHex } from "./utilities/encoding.js";
 
 /**
@@ -114,8 +119,6 @@ function encodeSafeSignaturesBytes(
 		throw new Error("Cannot encode empty signatures array");
 	}
 
-	const ECDSA_SIGNATURE_LENGTH_BYTES = 65;
-
 	const sortedSignatures = [...signatures].sort((a, b) =>
 		a.signer.toLowerCase().localeCompare(b.signer.toLowerCase()),
 	);
@@ -152,10 +155,10 @@ function encodeSafeSignaturesBytes(
 			);
 			dynamicPart += concatHex(dataLength, signatureData).slice(2);
 		} else {
-			// Standard ECDSA signature - validate length (65 bytes = 130 hex chars)
-			if (signatureData.length !== ECDSA_SIGNATURE_LENGTH_BYTES * 2) {
+			// Standard ECDSA signature - validate length
+			if (signatureData.length !== ECDSA_SIGNATURE_LENGTH_HEX) {
 				throw new Error(
-					`Invalid ECDSA signature length: expected ${ECDSA_SIGNATURE_LENGTH_BYTES} bytes (${ECDSA_SIGNATURE_LENGTH_BYTES * 2} hex chars), got ${signatureData.length / 2} bytes (${signatureData.length} hex chars)`,
+					`Invalid ECDSA signature length: expected ${ECDSA_SIGNATURE_LENGTH_BYTES} bytes (${ECDSA_SIGNATURE_LENGTH_HEX} hex chars), got ${signatureData.length / 2} bytes (${signatureData.length} hex chars)`,
 				);
 			}
 			staticPart += signatureData;
@@ -404,7 +407,7 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 	const data = encodedSignatures.slice(2); // Remove 0x prefix
 
 	let offset = 0;
-	const staticLength = 65 * 2; // 65 bytes in hex
+	const staticLength = ECDSA_SIGNATURE_LENGTH_HEX;
 
 	while (offset < data.length) {
 		if (offset + staticLength > data.length) break;
@@ -517,7 +520,8 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
  * @see {@link SignatureTypeVByte} for all possible signature types
  */
 function getSignatureTypeVByte(signature: Hex): SignatureTypeVByte {
-	if (signature.length < 130) {
+	if (signature.length < ECDSA_SIGNATURE_LENGTH_HEX + 2) {
+		// +2 for '0x' prefix
 		throw new Error("Signature too short to determine v-byte");
 	}
 
@@ -536,10 +540,8 @@ function getSignatureTypeVByte(signature: Hex): SignatureTypeVByte {
 	}
 }
 
-type SignaturesValidationParams = {
+type SignaturesValidationParams = SignatureValidationContext & {
 	signatures: SafeSignaturesParam;
-	data?: Hex;
-	dataHash: Hex;
 };
 
 type SafeConfigurationForValidation = {

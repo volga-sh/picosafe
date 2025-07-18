@@ -55,9 +55,41 @@ const EMPTY_BYTES = "0x";
 const SENTINEL_NODE = "0x0000000000000000000000000000000000000001";
 
 /**
- * Magic value returned by EIP-1271 (legacy with bytes data) contracts when a signature is valid.
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/Safe.sol#L100
+ * Standard ECDSA signature length in bytes.
+ * ECDSA signatures consist of r (32 bytes) + s (32 bytes) + v (1 byte) = 65 bytes total.
+ * This constant is used for signature validation and encoding/decoding operations.
+ * @example
+ * ```typescript
+ * import { ECDSA_SIGNATURE_LENGTH_BYTES } from 'picosafe/utilities/constants';
+ *
+ * // Validate signature length
+ * if (signatureData.length !== ECDSA_SIGNATURE_LENGTH_BYTES * 2) {
+ *   throw new Error(`Invalid signature length: expected ${ECDSA_SIGNATURE_LENGTH_BYTES} bytes`);
+ * }
+ * ```
  */
-const EIP1271_MAGIC_VALUE = "0x20c13b0b";
+const ECDSA_SIGNATURE_LENGTH_BYTES = 65;
 
-export { ZERO_ADDRESS, EMPTY_BYTES, SENTINEL_NODE, EIP1271_MAGIC_VALUE };
+/**
+ * Standard ECDSA signature length in hex characters.
+ * Since each byte is represented by 2 hex characters, this equals 130 hex chars.
+ * Used for validating hex-encoded signature strings.
+ * @example
+ * ```typescript
+ * import { ECDSA_SIGNATURE_LENGTH_HEX } from 'picosafe/utilities/constants';
+ *
+ * // Check if hex string has correct length (excluding 0x prefix)
+ * if (signature.slice(2).length !== ECDSA_SIGNATURE_LENGTH_HEX) {
+ *   throw new Error('Invalid signature length');
+ * }
+ * ```
+ */
+const ECDSA_SIGNATURE_LENGTH_HEX = ECDSA_SIGNATURE_LENGTH_BYTES * 2;
+
+export {
+	ZERO_ADDRESS,
+	EMPTY_BYTES,
+	SENTINEL_NODE,
+	ECDSA_SIGNATURE_LENGTH_BYTES,
+	ECDSA_SIGNATURE_LENGTH_HEX,
+};
