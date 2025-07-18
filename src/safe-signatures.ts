@@ -119,7 +119,15 @@ function encodeSafeSignaturesBytes(
 	let dynamicPart = "";
 
 	for (const signature of sortedSignatures) {
-		const signatureData = signature.data.slice(2);
+		// Handle ApprovedHashSignature without data field
+		let signatureData: string;
+		if (!("data" in signature)) {
+			// This is an ApprovedHashSignature without data - generate the signature bytes
+			const approvedHashBytes = getApprovedHashSignatureBytes(signature.signer);
+			signatureData = approvedHashBytes.slice(2);
+		} else {
+			signatureData = signature.data.slice(2);
+		}
 
 		if ("dynamic" in signature && signature.dynamic) {
 			// Calculate offset for dynamic data
@@ -650,9 +658,14 @@ async function validateSignaturesForSafe(
 		const result = await validateSignature(provider, signature, {
 			data: validationParams.data,
 			dataHash: validationParams.dataHash,
+			safeAddress,
 		});
 
-		if (result.valid && safeOwners.includes(result.validatedSigner)) {
+		if (
+			result.valid &&
+			result.validatedSigner &&
+			safeOwners.includes(result.validatedSigner)
+		) {
 			validSignaturesCount++;
 		}
 
@@ -665,6 +678,56 @@ async function validateSignaturesForSafe(
 	};
 }
 
+/**
+ * Creates a pre-approved hash signature for a Safe owner
+ *
+ * Pre-approved hash signatures are used when a Safe owner has already approved
+ * a specific transaction or message hash on-chain using the Safe's `approveHash`
+ * function. This creates a signature that the Safe contract will validate by
+ * checking its internal `approvedHashes` mapping instead of performing ECDSA
+ * recovery or EIP-1271 validation.
+ *
+ * The signature format is a 65-byte structure:
+ * - Bytes 0-31: Padded zeros (unused for approved hash signatures)
+ * - Bytes 32-63: Owner address padded to 32 bytes
+ * - Byte 64: Signature type (v=1 for {@link SignatureTypeVByte.APPROVED_HASH})
+ *
+ * This type of signature is gas-efficient for execution since it only requires
+ * a simple mapping lookup, but requires a separate transaction to pre-approve
+ * the hash before it can be used.
+ *
+ * @param signer - The address of the Safe owner who has pre-approved the hash
+ * @returns A 65-byte hex string representing the approved hash signature
+ * @example
+ * ```typescript
+ * import { getApprovedHashSignatureBytes, approveHash, calculateSafeTransactionHash } from "picosafe";
+ *
+ * // First, owner approves a transaction hash on-chain
+ * const safeTx = buildSafeTransaction({
+ *   to: recipient,
+ *   value: 0n,
+ *   data: "0x",
+ *   // ... other params
+ * });
+ * const txHash = await calculateSafeTransactionHash(provider, safeAddress, safeTx);
+ *
+ * // Owner approves the hash
+ * await approveHash(provider, safeAddress, txHash).send();
+ *
+ * // Create the approved hash signature
+ * const approvedSig = getApprovedHashSignatureBytes(ownerAddress);
+ * console.log(approvedSig);
+ * // "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f8fa8e01"
+ *
+ * // Use with other signatures for transaction execution
+ * const signatures = [
+ *   { signer: owner1, data: ecdsaSignature },
+ *   { signer: owner2, data: approvedSig }  // Pre-approved signature
+ * ];
+ * ```
+ * @see {@link SignatureTypeVByte} for signature type constants
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
+ */
 function getApprovedHashSignatureBytes(signer: Address): Hex {
 	return concatHex(
 		padStartHex(signer, 32),

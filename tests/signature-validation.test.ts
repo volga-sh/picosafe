@@ -15,6 +15,9 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { PARSED_SAFE_ABI } from "../src/abis";
 import { deploySafeAccount } from "../src/deployment";
+import { calculateSafeMessageHash } from "../src/eip712";
+import { V141_ADDRESSES } from "../src/safe-contracts";
+import { getApprovedHashSignatureBytes } from "../src/safe-signatures";
 import {
 	isValidApprovedHashSignature,
 	isValidECDSASignature,
@@ -29,13 +32,29 @@ import type {
 	StaticSignature,
 } from "../src/types";
 import { SignatureTypeVByte } from "../src/types";
+import { ZERO_ADDRESS } from "../src/utilities/constants";
+import { getChainId } from "../src/utilities/eip1193-provider";
+import { padStartHex } from "../src/utilities/encoding";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress, randomBytesHex } from "./utils";
-import { calculateSafeMessageHash } from "../src/eip712";
-import { getChainId } from "../src/utilities/eip1193-provider";
-import { ZERO_ADDRESS } from "../src/utilities/constants";
-import { padStartHex } from "../src/utilities/encoding";
-import { getApprovedHashSignatureBytes } from "../src/safe-signatures";
+
+/**
+ * Mock ERC-1271 contract bytecode that always returns the magic value 0x1626ba7e
+ * indicating a valid signature. This is used for testing ERC-1271 signature validation.
+ *
+ * The bytecode does the following:
+ * 1. PUSH4 0x1626ba7e - Push the ERC-1271 magic value (4 bytes)
+ * 2. PUSH1 0xe0 - Push 224 (shift amount in bits)
+ * 3. SHL - Shift left by 224 bits to move magic value to high 4 bytes
+ * 4. PUSH0 - Push 0 (memory offset)
+ * 5. MSTORE - Store the value at memory position 0
+ * 6. PUSH1 0x20 - Push 32 (return data size)
+ * 7. PUSH0 - Push 0 (return data offset)
+ * 8. RETURN - Return 32 bytes from memory position 0
+ *
+ * Bytecode: 0x63 1626ba7e 60 e0 1b 5f 52 60 20 5f f3
+ */
+const ERC1271_MOCK_BYTECODE = "0x631626ba7e60e01b5f5260205ff3";
 
 describe("isValidECDSASignature", () => {
 	test("should validate correct ECDSA signature with v=27", async () => {
@@ -585,7 +604,7 @@ describe("isValidERC1271Signature", () => {
 	});
 });
 
-describe.only("isValidApprovedHashSignature", () => {
+describe("isValidApprovedHashSignature", () => {
 	const { testClient, publicClient, walletClients } = createClients();
 	let resetSnapshot: () => Promise<void>;
 	let safeAddress: Address;
@@ -668,35 +687,6 @@ describe.only("isValidApprovedHashSignature", () => {
 		expect(result.error).toBeUndefined();
 	});
 
-	test("should handle incorrectly formatted signature data", async () => {
-		const dataHash = keccak256(toHex("test message"));
-
-		// Test various malformed signatures
-		const malformedSignatures: Hex[] = [
-			"0x", // Empty
-			"0x01", // Just v byte
-			randomBytesHex(32), // Just 32 bytes
-			randomBytesHex(64), // 64 bytes (missing v)
-			concatHex([randomBytesHex(65), "0x02"]), // Wrong v byte
-		];
-
-		for (const malformedSig of malformedSignatures) {
-			const staticSignature: StaticSignature = {
-				signer: randomAddress(),
-				data: malformedSig,
-			};
-			console.log(malformedSig);
-			const result = await isValidApprovedHashSignature(
-				publicClient,
-				staticSignature,
-				{ dataHash, safeAddress },
-			);
-
-			expect(result.valid).toBe(false);
-			expect(result.error).toBeDefined();
-		}
-	});
-
 	test("should handle eth_call failures gracefully", async () => {
 		const owner = owners[0];
 		const dataHash = keccak256(toHex("test message"));
@@ -729,18 +719,7 @@ describe.only("isValidApprovedHashSignature", () => {
 		expect(result.error?.message).toContain("Network error");
 	});
 
-	test("should handle calls to contracts without approvedHashes", async () => {
-		// Deploy a simple contract without approvedHashes
-		const simpleContractBytecode =
-			"0x6080604052348015600e575f80fd5b50603e80601a5f395ff3fe60806040525f80fdfea26469706673582212202c";
-
-		const deployHash = await walletClients[0].deployContract({
-			bytecode: simpleContractBytecode,
-		});
-		const { contractAddress } = await publicClient.waitForTransactionReceipt({
-			hash: deployHash,
-		});
-
+	test("should handle calls to contracts without approvedHashes and return an error", async () => {
 		const owner = randomAddress();
 		const dataHash = keccak256(toHex("test message"));
 
@@ -755,50 +734,40 @@ describe.only("isValidApprovedHashSignature", () => {
 			data: signatureData,
 		};
 
-		// Override signer to point to non-Safe contract
-		const modifiedSignature = { ...staticSignature, signer: contractAddress! };
-
 		const result = await isValidApprovedHashSignature(
 			publicClient,
-			modifiedSignature,
-			{ dataHash, safeAddress },
+			staticSignature,
+			{ dataHash, safeAddress: V141_ADDRESSES.MultiSend },
 		);
 
 		expect(result.valid).toBe(false);
 		expect(result.error).toBeDefined();
+		expect(result.validatedSigner).toBe(owner);
 	});
 
 	test("should treat any non-zero approval value as valid", async () => {
 		const owner = owners[0];
 		const dataHash = keccak256(toHex("test message"));
 
-		const signatureData = concatHex([
-			padStartHex(owner, 32),
-			"0x0000000000000000000000000000000000000000000000000000000000000000",
-			"0x01",
-		]);
+		const signatureData = getApprovedHashSignatureBytes(owner);
 
 		const staticSignature: StaticSignature = {
 			signer: owner,
 			data: signatureData,
 		};
 
-		// Test various non-zero return values
 		const nonZeroValues = [
 			"0x0000000000000000000000000000000000000000000000000000000000000001", // 1
 			"0x00000000000000000000000000000000000000000000000000000000000000ff", // 255
 			"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", // MAX
-			"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", // Random
-		];
+			randomBytesHex(32), // Random
+		] as const;
 
 		for (const returnValue of nonZeroValues) {
-			// Mock provider to return specific value
 			const mockProvider: EIP1193ProviderWithRequestFn = {
-				request: async (args: any) => {
-					if (args.method === "eth_call") {
-						return returnValue;
-					}
-					return publicClient.request(args);
+				// @ts-expect-error - mock provider
+				request: async () => {
+					return returnValue;
 				},
 			};
 
@@ -1085,10 +1054,10 @@ describe("validateSignature", () => {
 				saltNonce: BigInt(Date.now()),
 			});
 
-			const deploymentTx = await deployment.send(walletClients[0]);
+			const deploymentTx = await deployment.send();
 			await publicClient.waitForTransactionReceipt({ hash: deploymentTx });
 
-			const safeAddress = deployment.safeAccountAddress;
+			const safeAddress = deployment.data.safeAddress;
 			const owner = owners[0];
 			const dataHash = keccak256(toHex("approved message"));
 			const data = toHex("approved message");

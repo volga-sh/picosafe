@@ -5,17 +5,16 @@ import {
 	PARSED_ERC_1271_ABI_LEGACY,
 	PARSED_SAFE_ABI,
 } from "./abis";
-import {
-	getApprovedHashSignatureBytes,
-	getSignatureTypeVByte,
-} from "./safe-signatures";
+import { getSignatureTypeVByte } from "./safe-signatures";
 import type {
+	ApprovedHashSignature,
 	DynamicSignature,
+	ECDSASignature,
 	EIP1193ProviderWithRequestFn,
 	PicosafeSignature,
-	StaticSignature,
 } from "./types";
 import { SignatureTypeVByte } from "./types";
+import { captureError } from "./utilities/captureError";
 
 type SignatureValidationResult<T> = Readonly<{
 	valid: boolean;
@@ -23,6 +22,77 @@ type SignatureValidationResult<T> = Readonly<{
 	validatedSigner?: Address;
 	signature: T;
 }>;
+
+const ERC1271 = {
+	MAGIC_VALUE_BYTES32: "0x1626ba7e",
+	MAGIC_VALUE_BYTES: "0x20c13b0b",
+	RESULT_LENGTH: 10,
+} as const;
+
+const ZERO_HASH =
+	"0x0000000000000000000000000000000000000000000000000000000000000000";
+
+type ValidationContext<S extends PicosafeSignature> = S extends ECDSASignature
+	? { dataHash: Hex; data?: Hex }
+	: S extends ApprovedHashSignature
+		? { dataHash: Hex; safeAddress: Address; data?: Hex }
+		: S extends DynamicSignature
+			? { data: Hex } | { dataHash: Hex } | { data: Hex; dataHash: Hex }
+			: never;
+
+function isApprovedHashContext(
+	ctx: unknown,
+): ctx is { dataHash: Hex; safeAddress: Address } {
+	return (
+		typeof ctx === "object" &&
+		ctx !== null &&
+		"dataHash" in ctx &&
+		"safeAddress" in ctx
+	);
+}
+
+function isDynamicContext(ctx: unknown): ctx is { data?: Hex; dataHash?: Hex } {
+	return (
+		typeof ctx === "object" &&
+		ctx !== null &&
+		("data" in ctx || "dataHash" in ctx)
+	);
+}
+
+function buildERC1271Calldata(
+	validationData: { dataHash: Hex } | { data: Hex },
+	signatureData: Hex,
+): { calldata: Hex; expectedMagic: Hex } {
+	if ("dataHash" in validationData) {
+		return {
+			calldata: encodeFunctionData({
+				abi: PARSED_ERC_1271_ABI_CURRENT,
+				functionName: "isValidSignature",
+				args: [validationData.dataHash, signatureData],
+			}),
+			expectedMagic: ERC1271.MAGIC_VALUE_BYTES32,
+		};
+	}
+
+	return {
+		calldata: encodeFunctionData({
+			abi: PARSED_ERC_1271_ABI_LEGACY,
+			functionName: "isValidSignature",
+			args: [validationData.data, signatureData],
+		}),
+		expectedMagic: ERC1271.MAGIC_VALUE_BYTES,
+	};
+}
+
+function adjustEthSignSignature(
+	signature: Hex,
+	vByte:
+		| SignatureTypeVByte.ETH_SIGN_RECID_1
+		| SignatureTypeVByte.ETH_SIGN_RECID_2,
+): Hex {
+	const adjustedV = vByte - 4;
+	return (signature.slice(0, -2) + adjustedV) as Hex;
+}
 
 /**
  * Validates an ECDSA signature by recovering the signer address
@@ -63,35 +133,33 @@ type SignatureValidationResult<T> = Readonly<{
  * ```
  */
 async function isValidECDSASignature(
-	signature: Readonly<StaticSignature>,
+	signature: Readonly<ECDSASignature>,
 	dataHash: Hex,
-): Promise<SignatureValidationResult<StaticSignature>> {
-	let capturedError: Error | undefined;
-	let recoveredSigner: Address | undefined;
-	try {
-		recoveredSigner = await recoverAddress({
-			hash: dataHash,
-			signature: signature.data,
-		});
-	} catch (err) {
-		if (err instanceof Error) capturedError = err;
-		else
-			capturedError = new Error(
-				`Unknown error while calling recoverAddress: ${err}`,
-			);
+): Promise<SignatureValidationResult<ECDSASignature>> {
+	const [recoveredSigner, error] = await captureError(
+		() =>
+			recoverAddress({
+				hash: dataHash,
+				signature: signature.data,
+			}),
+		"Unknown error while calling recoverAddress",
+	);
+
+	if (error) {
+		return {
+			valid: false,
+			validatedSigner: recoveredSigner,
+			signature,
+			error,
+		};
 	}
 
 	return {
-		valid: capturedError === undefined && recoveredSigner === signature.signer,
+		valid: recoveredSigner === signature.signer,
 		validatedSigner: recoveredSigner,
 		signature,
-		error: capturedError,
 	};
 }
-
-// ERC-1271 magic values
-const MAGIC_VALUE_BYTES32 = "0x1626ba7e" as const; // bytes4(keccak256("isValidSignature(bytes32,bytes)"))
-const MAGIC_VALUE_BYTES = "0x20c13b0b" as const; // bytes4(keccak256("isValidSignature(bytes,bytes)"))
 
 /**
  * Validates a signature using EIP-1271 standard for contract signatures
@@ -165,57 +233,35 @@ async function isValidERC1271Signature(
 	signature: Readonly<DynamicSignature>,
 	validationData: Readonly<{ data: Hex } | { dataHash: Hex }>,
 ): Promise<SignatureValidationResult<DynamicSignature>> {
-	let calldata: Hex;
-	let expectedMagic: Hex;
+	const { calldata, expectedMagic } = buildERC1271Calldata(
+		validationData,
+		signature.data,
+	);
 
-	if ("dataHash" in validationData) {
-		calldata = encodeFunctionData({
-			abi: PARSED_ERC_1271_ABI_CURRENT,
-			functionName: "isValidSignature",
-			args: [validationData.dataHash, signature.data],
-		});
-		expectedMagic = MAGIC_VALUE_BYTES32;
-	} else {
-		calldata = encodeFunctionData({
-			abi: PARSED_ERC_1271_ABI_LEGACY,
-			functionName: "isValidSignature",
-			args: [validationData.data, signature.data],
-		});
-		expectedMagic = MAGIC_VALUE_BYTES;
-	}
+	const [result, error] = await captureError(
+		() =>
+			provider
+				.request({
+					method: "eth_call",
+					params: [{ to: signature.signer, data: calldata }, "latest"],
+				})
+				.then((res) => res.slice(0, ERC1271.RESULT_LENGTH)),
+		"Unknown error while calling isValidSignature",
+	);
 
-	let capturedError: Error | undefined;
-
-	try {
-		// fixed size byte sequences are right padded to 32 bytes
-		// example returned magic value: 0x20c13b0b00000000000000000000000000000000000000000000000000000000
-		const result = await provider
-			.request({
-				method: "eth_call",
-				params: [{ to: signature.signer, data: calldata }, "latest"],
-			})
-			.then((res) => res.slice(0, 10));
-
-		if (result === expectedMagic) {
-			return {
-				valid: true,
-				validatedSigner: signature.signer,
-				signature,
-			};
-		}
-	} catch (err) {
-		if (err instanceof Error) capturedError = err;
-		else
-			capturedError = new Error(
-				`Unknown error while calling isValidSignature: ${err}`,
-			);
+	if (error) {
+		return {
+			valid: false,
+			validatedSigner: signature.signer,
+			signature,
+			error,
+		};
 	}
 
 	return {
-		valid: false,
+		valid: result === expectedMagic,
 		validatedSigner: signature.signer,
 		signature,
-		error: capturedError,
 	};
 }
 
@@ -275,12 +321,12 @@ async function isValidERC1271Signature(
  */
 async function isValidApprovedHashSignature(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	signature: Readonly<StaticSignature>,
+	signature: Readonly<ApprovedHashSignature>,
 	validationData: Readonly<{
 		dataHash: Hex;
 		safeAddress: Address;
 	}>,
-): Promise<SignatureValidationResult<StaticSignature>> {
+): Promise<SignatureValidationResult<ApprovedHashSignature>> {
 	const { dataHash, safeAddress } = validationData;
 
 	const approvedHashesCalldata = encodeFunctionData({
@@ -289,37 +335,33 @@ async function isValidApprovedHashSignature(
 		args: [signature.signer, dataHash],
 	});
 
-	let approvedHash: Hex | undefined;
-	let capturedError: Error | undefined;
+	const [approvedHash, error] = await captureError(
+		() =>
+			provider.request({
+				method: "eth_call",
+				params: [
+					{
+						to: safeAddress,
+						data: approvedHashesCalldata,
+					},
+				],
+			}),
+		"Unknown error while calling approvedHashes",
+	);
 
-	try {
-		approvedHash = await provider.request({
-			method: "eth_call",
-			params: [
-				{
-					to: safeAddress,
-					data: approvedHashesCalldata,
-				},
-			],
-		});
-	} catch (err) {
-		if (err instanceof Error) {
-			capturedError = err;
-		} else {
-			capturedError = new Error(
-				`Unknown error while calling approvedHashes: ${err}`,
-			);
-		}
+	if (error) {
+		return {
+			valid: false,
+			signature,
+			validatedSigner: signature.signer,
+			error,
+		};
 	}
 
 	return {
-		valid:
-			approvedHash !== undefined &&
-			approvedHash !==
-				"0x0000000000000000000000000000000000000000000000000000000000000000",
+		valid: approvedHash !== undefined && approvedHash !== ZERO_HASH,
 		signature,
 		validatedSigner: signature.signer,
-		error: capturedError,
 	};
 }
 
@@ -345,6 +387,7 @@ async function isValidApprovedHashSignature(
  * @param validationData - Data needed for validation
  * @param validationData.data - The original data that was signed
  * @param validationData.dataHash - The hash of the data
+ * @param validationData.safeAddress - The address of the Safe contract
  * @returns Promise resolving to validation result
  * @returns result.valid - True if the signature is cryptographically valid
  * @returns result.validatedSigner - The recovered or validated signer address
@@ -390,51 +433,64 @@ async function isValidApprovedHashSignature(
  * @see {@link SignatureTypeVByte} for all supported signature types
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L284
  */
-async function validateSignature(
+async function validateSignature<T extends PicosafeSignature>(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	signature: Readonly<PicosafeSignature>,
-	validationData: Readonly<{ data: Hex; dataHash: Hex }>,
-): Promise<SignatureValidationResult<PicosafeSignature>> {
-	if ("dynamic" in signature && signature.dynamic) {
-		return await isValidERC1271Signature(provider, signature, validationData);
+	signature: Readonly<T>,
+	validationData: Readonly<ValidationContext<T>>,
+): Promise<SignatureValidationResult<T>> {
+	if (!("data" in signature)) {
+		if (!isApprovedHashContext(validationData)) {
+			throw new Error(
+				"ApprovedHashSignature validation requires dataHash and safeAddress",
+			);
+		}
+		return isValidApprovedHashSignature(
+			provider,
+			signature,
+			validationData,
+		) as Promise<SignatureValidationResult<T>>;
 	}
 
-	const vByte = getSignatureTypeVByte(signature.data);
+	if ("dynamic" in signature && signature.dynamic === true) {
+		if (!isDynamicContext(validationData)) {
+			throw new Error("DynamicSignature validation requires data or dataHash");
+		}
+		return isValidERC1271Signature(
+			provider,
+			signature as DynamicSignature,
+			validationData,
+		) as Promise<SignatureValidationResult<T>>;
+	}
+
+	const sigWithData = signature as unknown as { data: Hex; signer: Address };
+	const vByte = getSignatureTypeVByte(sigWithData.data);
+
 	switch (vByte) {
 		case SignatureTypeVByte.EIP712_RECID_1:
 		case SignatureTypeVByte.EIP712_RECID_2: {
-			const recoveredSigner = await recoverAddress({
-				hash: validationData.dataHash,
-				signature: signature.data,
-			});
-
-			return {
-				valid: recoveredSigner === signature.signer,
-				validatedSigner: recoveredSigner,
-				signature,
-			};
+			if (!validationData.dataHash) {
+				throw new Error("ECDSA signature validation requires dataHash");
+			}
+			return isValidECDSASignature(
+				sigWithData as ECDSASignature,
+				validationData.dataHash,
+			) as Promise<SignatureValidationResult<T>>;
 		}
+
 		case SignatureTypeVByte.ETH_SIGN_RECID_1:
 		case SignatureTypeVByte.ETH_SIGN_RECID_2: {
-			const recoveredSigner = await recoverAddress({
-				hash: hashMessage(validationData.dataHash),
-				signature: signature.data,
-			});
-
-			return {
-				valid: recoveredSigner === signature.signer,
-				validatedSigner: recoveredSigner,
-				signature,
-			};
+			if (!validationData.dataHash) {
+				throw new Error("eth_sign validation requires dataHash");
+			}
+			const adjustedSig = adjustEthSignSignature(sigWithData.data, vByte);
+			return isValidECDSASignature(
+				{ ...sigWithData, data: adjustedSig } as ECDSASignature,
+				hashMessage(validationData.dataHash),
+			) as Promise<SignatureValidationResult<T>>;
 		}
-		case SignatureTypeVByte.APPROVED_HASH:
-			return await isValidApprovedHashSignature(
-				provider,
-				signature,
-				validationData,
-			);
+
 		default:
-			throw new Error("Invalid signature type");
+			throw new Error(`Invalid signature type byte: ${vByte}`);
 	}
 }
 

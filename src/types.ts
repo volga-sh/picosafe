@@ -114,20 +114,46 @@ type FullSafeTransaction = Prettify<
 >;
 
 /**
- * Static signature structure for standard ECDSA and pre-approved signatures
+ * Pre-approved hash signature structure
  *
- * Represents signatures that have a fixed 65-byte format and don't require
- * dynamic data resolution. This includes:
- * - ECDSA signatures (EIP-712 and eth_sign)
- * - Pre-approved hash signatures
+ * Represents a signature that was pre-approved by calling the Safe's
+ * `approveHash` function. This allows an owner to approve a transaction
+ * hash in advance, which can then be used as a valid signature.
  *
- * @property {Address} signer - The address that created or is associated with this signature
- * @property {Hex} data - The 65-byte signature data (r + s + v format)
+ * @property {Address} signer - The owner address that approved the hash
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L348
  */
-type StaticSignature = {
+type ApprovedHashSignature = {
+	signer: Address;
+};
+
+/**
+ * ECDSA signature structure
+ *
+ * Represents a standard ECDSA signature created by signing with a private key.
+ * This includes both EIP-712 typed data signatures and eth_sign signatures.
+ *
+ * @property {Address} signer - The address that created this signature
+ * @property {Hex} data - The 65-byte signature data in r + s + v format
+ */
+type ECDSASignature = {
 	signer: Address;
 	data: Hex;
 };
+
+/**
+ * Static signature structure for standard ECDSA and pre-approved signatures
+ *
+ * Represents signatures that have a fixed 65-byte format and don't require
+ * dynamic data resolution. This is a union type of:
+ * - {@link ApprovedHashSignature} - Pre-approved hash signatures
+ * - {@link ECDSASignature} - Standard ECDSA signatures (EIP-712 and eth_sign)
+ *
+ * Both types share a `signer` property but differ in whether they include
+ * signature data. Pre-approved signatures only need the signer address,
+ * while ECDSA signatures include the full 65-byte signature data.
+ */
+type StaticSignature = ApprovedHashSignature | ECDSASignature;
 
 /**
  * Dynamic signature structure for EIP-1271 contract signatures
@@ -230,6 +256,8 @@ export { Operation, SignatureTypeVByte };
 export type {
 	MetaTransaction,
 	SafeTransactionData,
+	ApprovedHashSignature,
+	ECDSASignature,
 	StaticSignature,
 	DynamicSignature,
 	PicosafeSignature,
