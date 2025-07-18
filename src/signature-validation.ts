@@ -40,6 +40,12 @@ type ValidationContext<S extends PicosafeSignature> = S extends DynamicSignature
 			? { dataHash: Hex; safeAddress: Address }
 			: never;
 
+/**
+ * Type guard to check if validation context is for approved hash signatures
+ * @internal
+ * @param ctx - The validation context to check
+ * @returns True if context contains dataHash and safeAddress properties
+ */
 function isApprovedHashContext(
 	ctx: unknown,
 ): ctx is { dataHash: Hex; safeAddress: Address } {
@@ -51,6 +57,12 @@ function isApprovedHashContext(
 	);
 }
 
+/**
+ * Type guard to check if validation context is for dynamic signatures
+ * @internal
+ * @param ctx - The validation context to check
+ * @returns True if context contains either data or dataHash property
+ */
 function isDynamicContext(
 	ctx: unknown,
 ): ctx is { data: Hex } | { dataHash: Hex } {
@@ -61,6 +73,21 @@ function isDynamicContext(
 	);
 }
 
+/**
+ * Builds calldata for EIP-1271 signature validation
+ *
+ * Constructs the appropriate calldata for calling a contract's isValidSignature
+ * function based on the validation data type. Supports both variants of EIP-1271:
+ * - Current variant: isValidSignature(bytes32 hash, bytes signature)
+ * - Legacy variant: isValidSignature(bytes data, bytes signature)
+ *
+ * @internal
+ * @param validationData - Either a data hash or raw data to validate
+ * @param signatureData - The signature bytes to validate
+ * @returns Object containing the encoded calldata and expected magic value
+ * @returns result.calldata - The encoded function call data
+ * @returns result.expectedMagic - The magic value expected for valid signatures
+ */
 function buildERC1271Calldata(
 	validationData: { dataHash: Hex } | { data: Hex },
 	signatureData: Hex,
@@ -86,6 +113,18 @@ function buildERC1271Calldata(
 	};
 }
 
+/**
+ * Adjusts eth_sign signature v-byte for standard ECDSA recovery
+ *
+ * Safe uses v-bytes 31/32 for eth_sign signatures to distinguish them from
+ * EIP-712 signatures (v=27/28). This function converts the Safe-specific
+ * v-bytes back to standard ECDSA recovery IDs (27/28) for signature recovery.
+ *
+ * @internal
+ * @param signature - The 65-byte signature with Safe's eth_sign v-byte (31/32)
+ * @param vByte - The original v-byte value (must be 31 or 32)
+ * @returns The signature with adjusted v-byte suitable for ecrecover (27/28)
+ */
 function adjustEthSignSignature(
 	signature: Hex,
 	vByte:
