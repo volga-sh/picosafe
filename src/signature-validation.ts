@@ -285,7 +285,10 @@ async function isValidApprovedHashSignature(
 	}
 
 	return {
-		valid: approvedHash !== undefined && approvedHash !== "0x",
+		valid:
+			approvedHash !== undefined &&
+			approvedHash !==
+				"0x0000000000000000000000000000000000000000000000000000000000000000",
 		validatedSigner: signature.signer,
 		signature,
 		error: capturedError,
