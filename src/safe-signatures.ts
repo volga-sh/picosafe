@@ -344,7 +344,14 @@ function readDynamicData(
  * the encoded signature data itself.
  *
  * @param encodedSignatures - The encoded signatures hex string to decode
- * @param signedHash - The hash of the data that was signed, used for ECDSA signature recovery
+ * @param signedHash - The 32-byte hash that was signed. For Safe transactions, this is the
+ *                     result of calculateSafeTransactionHash. For messages, this is the hash
+ *                     of the message (not the raw message itself). The Safe contract expects
+ *                     this to be a hash for all signature types:
+ *                     - EIP-712: Used directly with ecrecover
+ *                     - eth_sign: Safe applies "\x19Ethereum Signed Message:\n32" prefix internally
+ *                     - Contract: Passed to isValidSignature
+ *                     - Approved: Checked against approvedHashes mapping
  * @returns Array of {@link PicoSafeSignature} objects with recovered signer addresses
  * @throws {Error} If signature data is malformed, has invalid type bytes, or offsets are invalid
  * @example
@@ -650,6 +657,7 @@ async function validateSignaturesForSafe(
 		safeConfig?.owners ?? (await getOwners(provider, safeAddress));
 	const requiredSignatures =
 		safeConfig?.threshold ?? (await getThreshold(provider, safeAddress));
+	const seenOwners = new Set<Address>();
 
 	const signatures = Array.isArray(validationParams.signatures)
 		? (validationParams.signatures as PicosafeSignature[])
@@ -694,9 +702,11 @@ async function validateSignaturesForSafe(
 		if (
 			result.valid &&
 			result.validatedSigner &&
-			safeOwners.includes(result.validatedSigner)
+			safeOwners.includes(result.validatedSigner) &&
+			!seenOwners.has(result.validatedSigner)
 		) {
 			validSignaturesCount++;
+			seenOwners.add(result.validatedSigner);
 		}
 
 		results.push(result);
