@@ -32,12 +32,12 @@ const ERC1271 = {
 const ZERO_HASH =
 	"0x0000000000000000000000000000000000000000000000000000000000000000";
 
-type ValidationContext<S extends PicosafeSignature> = S extends ECDSASignature
-	? { dataHash: Hex; data?: Hex }
-	: S extends ApprovedHashSignature
-		? { dataHash: Hex; safeAddress: Address; data?: Hex }
-		: S extends DynamicSignature
-			? { data: Hex } | { dataHash: Hex } | { data: Hex; dataHash: Hex }
+type ValidationContext<S extends PicosafeSignature> = S extends DynamicSignature
+	? { data: Hex } | { dataHash: Hex }
+	: S extends ECDSASignature
+		? { dataHash: Hex }
+		: S extends ApprovedHashSignature
+			? { dataHash: Hex; safeAddress: Address }
 			: never;
 
 function isApprovedHashContext(
@@ -51,7 +51,9 @@ function isApprovedHashContext(
 	);
 }
 
-function isDynamicContext(ctx: unknown): ctx is { data?: Hex; dataHash?: Hex } {
+function isDynamicContext(
+	ctx: unknown,
+): ctx is { data: Hex } | { dataHash: Hex } {
 	return (
 		typeof ctx === "object" &&
 		ctx !== null &&
@@ -91,7 +93,8 @@ function adjustEthSignSignature(
 		| SignatureTypeVByte.ETH_SIGN_RECID_2,
 ): Hex {
 	const adjustedV = vByte - 4;
-	return (signature.slice(0, -2) + adjustedV) as Hex;
+	return (signature.slice(0, -2) +
+		adjustedV.toString(16).padStart(2, "0")) as Hex;
 }
 
 /**
@@ -465,27 +468,27 @@ async function validateSignature<T extends PicosafeSignature>(
 	const sigWithData = signature as unknown as { data: Hex; signer: Address };
 	const vByte = getSignatureTypeVByte(sigWithData.data);
 
+	// At this point, signature is ECDSASignature, so validationData should have dataHash
+	// We need to check and narrow the type properly
+	if (!("dataHash" in validationData)) {
+		throw new Error("ECDSA signature validation requires dataHash");
+	}
+
 	switch (vByte) {
 		case SignatureTypeVByte.EIP712_RECID_1:
 		case SignatureTypeVByte.EIP712_RECID_2: {
-			if (!validationData.dataHash) {
-				throw new Error("ECDSA signature validation requires dataHash");
-			}
 			return isValidECDSASignature(
 				sigWithData as ECDSASignature,
-				validationData.dataHash,
+				(validationData as { dataHash: Hex }).dataHash,
 			) as Promise<SignatureValidationResult<T>>;
 		}
 
 		case SignatureTypeVByte.ETH_SIGN_RECID_1:
 		case SignatureTypeVByte.ETH_SIGN_RECID_2: {
-			if (!validationData.dataHash) {
-				throw new Error("eth_sign validation requires dataHash");
-			}
 			const adjustedSig = adjustEthSignSignature(sigWithData.data, vByte);
 			return isValidECDSASignature(
 				{ ...sigWithData, data: adjustedSig } as ECDSASignature,
-				hashMessage(validationData.dataHash),
+				hashMessage((validationData as { dataHash: Hex }).dataHash),
 			) as Promise<SignatureValidationResult<T>>;
 		}
 

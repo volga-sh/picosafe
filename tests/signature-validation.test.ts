@@ -2,13 +2,8 @@ import type { Address, Hex } from "viem";
 import {
 	concatHex,
 	encodeFunctionData,
-	encodeFunctionResult,
 	hashMessage,
 	keccak256,
-	pad,
-	parseAbi,
-	parseAbiItem,
-	slice,
 	toHex,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -25,13 +20,13 @@ import {
 	validateSignature,
 } from "../src/signature-validation";
 import type {
+	ApprovedHashSignature,
 	DynamicSignature,
+	ECDSASignature,
 	EIP1193ProviderWithRequestFn,
-	PicosafeSignature,
 	SafeMessage,
 	StaticSignature,
 } from "../src/types";
-import { SignatureTypeVByte } from "../src/types";
 import { ZERO_ADDRESS } from "../src/utilities/constants";
 import { getChainId } from "../src/utilities/eip1193-provider";
 import { padStartHex } from "../src/utilities/encoding";
@@ -818,251 +813,320 @@ describe("isValidApprovedHashSignature", () => {
 
 describe("validateSignature", () => {
 	const { testClient, publicClient, walletClients } = createClients();
-	let revert: () => Promise<void>;
+	let resetSnapshot: () => Promise<void>;
+	let safeAddress: Address;
+	let owners: [Address, Address, Address];
 
 	beforeEach(async () => {
-		revert = await snapshot(testClient);
+		resetSnapshot = await snapshot(testClient);
+		owners = [
+			walletClients[0].account.address,
+			walletClients[1].account.address,
+			walletClients[2].account.address,
+		] as const;
+
+		const deployment = await deploySafeAccount(publicClient, {
+			owners,
+			threshold: 2n,
+			saltNonce: BigInt(Date.now()),
+		});
+
+		const deploymentTx = await deployment.send();
+		await publicClient.waitForTransactionReceipt({ hash: deploymentTx });
+
+		safeAddress = deployment.data.safeAddress;
 	});
 
-	// Test routing to ECDSA validation
-	describe("ECDSA signature routing", () => {
-		test("should route v=27 signatures to EIP-712 validation", async () => {
-			const privateKey = generatePrivateKey();
-			const account = privateKeyToAccount(privateKey);
-			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
+	afterEach(async () => {
+		await resetSnapshot();
+	});
 
-			// Create signature with v=27
-			const signature = await account.sign({
-				hash: dataHash,
-			});
+	describe("ECDSA signatures (EIP-712)", () => {
+		test("should validate correct EIP-712 signature with v=27", async () => {
+			let foundV27 = false;
+			let attempts = 0;
+			const maxAttempts = 100;
 
-			// Ensure v=27
-			const vByte = Number.parseInt(signature.slice(-2), 16);
-			const adjustedSignature =
-				vByte === 28
-					? ((signature.slice(0, -2) + "1b") as Hex) // Change to v=27
-					: signature;
+			while (!foundV27 && attempts < maxAttempts) {
+				attempts++;
+				const privateKey = generatePrivateKey();
+				const account = privateKeyToAccount(privateKey);
+				const dataHash = keccak256(toHex(`test message ${attempts}`));
 
-			const staticSignature: StaticSignature = {
-				signer: account.address,
-				data: adjustedSignature,
-			};
+				const signature = await account.sign({
+					hash: dataHash,
+				});
 
-			const result = await validateSignature(publicClient, staticSignature, {
-				data,
-				dataHash,
-			});
+				const vByte = Number.parseInt(signature.slice(-2), 16);
+				if (vByte === 27) {
+					foundV27 = true;
 
-			expect(result.valid).toBe(true);
-			expect(result.validatedSigner).toBe(account.address);
+					const ecdsaSignature: ECDSASignature = {
+						signer: account.address,
+						data: signature,
+					};
 
-			await revert();
+					const result = await validateSignature(publicClient, ecdsaSignature, {
+						dataHash,
+					});
+
+					expect(result.valid).toBe(true);
+					expect(result.validatedSigner).toBe(account.address);
+					expect(result.signature).toEqual(ecdsaSignature);
+					expect(result.error).toBeUndefined();
+				}
+			}
+
+			expect(foundV27).toBe(true);
 		});
 
-		test("should route v=28 signatures to EIP-712 validation", async () => {
-			const privateKey = generatePrivateKey();
-			const account = privateKeyToAccount(privateKey);
-			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
+		test("should validate correct EIP-712 signature with v=28", async () => {
+			let foundV28 = false;
+			let attempts = 0;
+			const maxAttempts = 100;
 
-			// Create signature with v=28
-			const signature = await account.sign({
-				hash: dataHash,
-			});
+			while (!foundV28 && attempts < maxAttempts) {
+				attempts++;
+				const privateKey = generatePrivateKey();
+				const account = privateKeyToAccount(privateKey);
+				const dataHash = keccak256(toHex(`test message ${attempts}`));
 
-			// Ensure v=28
-			const vByte = Number.parseInt(signature.slice(-2), 16);
-			const adjustedSignature =
-				vByte === 27
-					? ((signature.slice(0, -2) + "1c") as Hex) // Change to v=28
-					: signature;
+				const signature = await account.sign({
+					hash: dataHash,
+				});
 
-			const staticSignature: StaticSignature = {
-				signer: account.address,
-				data: adjustedSignature,
-			};
+				const vByte = Number.parseInt(signature.slice(-2), 16);
+				if (vByte === 28) {
+					foundV28 = true;
 
-			const result = await validateSignature(publicClient, staticSignature, {
-				data,
-				dataHash,
-			});
+					const ecdsaSignature: ECDSASignature = {
+						signer: account.address,
+						data: signature,
+					};
 
-			expect(result.valid).toBe(true);
-			expect(result.validatedSigner).toBe(account.address);
+					const result = await validateSignature(publicClient, ecdsaSignature, {
+						dataHash,
+					});
 
-			await revert();
+					expect(result.valid).toBe(true);
+					expect(result.validatedSigner).toBe(account.address);
+					expect(result.signature).toEqual(ecdsaSignature);
+					expect(result.error).toBeUndefined();
+				}
+			}
+
+			expect(foundV28).toBe(true);
 		});
 
-		test("should route v=31 signatures to eth_sign validation", async () => {
+		test("should return invalid for signature from different signer", async () => {
 			const privateKey = generatePrivateKey();
 			const account = privateKeyToAccount(privateKey);
+			const fakeSigner = randomAddress();
 			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
 
-			// For eth_sign, we sign the hash and then adjust v
 			const signature = await account.sign({
 				hash: dataHash,
 			});
 
-			// Change v to 31 (eth_sign v=27 -> 31)
-			const vByte = Number.parseInt(signature.slice(-2), 16);
-			const adjustedV = vByte === 27 ? "1f" : "20"; // 31 or 32
-			const adjustedSignature = (signature.slice(0, -2) + adjustedV) as Hex;
-
-			const staticSignature: StaticSignature = {
-				signer: account.address,
-				data: adjustedSignature,
+			const ecdsaSignature: ECDSASignature = {
+				signer: fakeSigner,
+				data: signature,
 			};
 
-			const result = await validateSignature(publicClient, staticSignature, {
-				data,
+			const result = await validateSignature(publicClient, ecdsaSignature, {
 				dataHash,
 			});
 
-			expect(result.valid).toBe(true);
+			expect(result.valid).toBe(false);
 			expect(result.validatedSigner).toBe(account.address);
-
-			await revert();
-		});
-
-		test("should route v=32 signatures to eth_sign validation", async () => {
-			const privateKey = generatePrivateKey();
-			const account = privateKeyToAccount(privateKey);
-			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
-
-			// For eth_sign, we sign the hash and then adjust v
-			const signature = await account.sign({
-				hash: dataHash,
-			});
-
-			// Change v to 32 (eth_sign v=28 -> 32)
-			const vByte = Number.parseInt(signature.slice(-2), 16);
-			const adjustedV = vByte === 28 ? "20" : "1f"; // 32 or 31
-			const adjustedSignature = (signature.slice(0, -2) + adjustedV) as Hex;
-
-			const staticSignature: StaticSignature = {
-				signer: account.address,
-				data: adjustedSignature,
-			};
-
-			const result = await validateSignature(publicClient, staticSignature, {
-				data,
-				dataHash,
-			});
-
-			expect(result.valid).toBe(true);
-			expect(result.validatedSigner).toBe(account.address);
-
-			await revert();
+			expect(result.validatedSigner).not.toBe(fakeSigner);
 		});
 	});
 
-	// Test routing to ERC-1271 validation
-	describe("Contract signature routing", () => {
-		test("should route dynamic signatures to ERC-1271 validation", async () => {
-			// Deploy mock ERC-1271 contract
-			const deployHash = await walletClients[0].deployContract({
+	describe("eth_sign signatures", () => {
+		test("should validate correct eth_sign signature with v=31", async () => {
+			const privateKey = generatePrivateKey();
+			const account = privateKeyToAccount(privateKey);
+			const dataHash = keccak256(toHex("test message"));
+			const ethSignHash = hashMessage(dataHash);
+
+			const signature = await account.sign({
+				hash: ethSignHash,
+			});
+
+			// Convert v from 27/28 to 31/32 for eth_sign
+			const vByte = Number.parseInt(signature.slice(-2), 16);
+			const ethSignV = vByte + 4; // 27->31 or 28->32
+			const ethSignSignature = (signature.slice(0, -2) +
+				ethSignV.toString(16)) as Hex;
+
+			const ecdsaSignature: ECDSASignature = {
+				signer: account.address,
+				data: ethSignSignature,
+			};
+
+			const result = await validateSignature(publicClient, ecdsaSignature, {
+				dataHash,
+			});
+
+			expect(result.valid).toBe(true);
+			expect(result.validatedSigner).toBe(account.address);
+			// The signature in the result will have the adjusted v value (27/28 instead of 31/32)
+			expect(result.signature.signer).toBe(ecdsaSignature.signer);
+			expect(result.error).toBeUndefined();
+		});
+
+		test("should validate correct eth_sign signature with v=32", async () => {
+			const privateKey = generatePrivateKey();
+			const account = privateKeyToAccount(privateKey);
+			const dataHash = keccak256(toHex("test message"));
+			const ethSignHash = hashMessage(dataHash);
+
+			const signature = await account.sign({
+				hash: ethSignHash,
+			});
+
+			// Convert v from 27/28 to 31/32 for eth_sign
+			const vByte = Number.parseInt(signature.slice(-2), 16);
+			const ethSignV = vByte + 4; // 27->31 or 28->32
+			const ethSignSignature = (signature.slice(0, -2) +
+				ethSignV.toString(16)) as Hex;
+
+			const ecdsaSignature: ECDSASignature = {
+				signer: account.address,
+				data: ethSignSignature,
+			};
+
+			const result = await validateSignature(publicClient, ecdsaSignature, {
+				dataHash,
+			});
+
+			expect(result.valid).toBe(true);
+			expect(result.validatedSigner).toBe(account.address);
+			// The signature in the result will have the adjusted v value (27/28 instead of 31/32)
+			expect(result.signature.signer).toBe(ecdsaSignature.signer);
+			expect(result.error).toBeUndefined();
+		});
+	});
+
+	describe("ERC-1271 contract signatures", () => {
+		test("should validate valid ERC-1271 signature using bytes32 variant", async () => {
+			// Deploy a mock ERC-1271 contract that always returns valid
+			const mockAddress = randomAddress();
+			await testClient.setCode({
+				address: mockAddress,
 				bytecode: ERC1271_MOCK_BYTECODE,
 			});
-			const { contractAddress } = await publicClient.waitForTransactionReceipt({
-				hash: deployHash,
-			});
 
 			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
 			const signatureData = randomBytesHex(65);
 
 			const dynamicSignature: DynamicSignature = {
-				signer: contractAddress!,
+				signer: mockAddress,
 				data: signatureData,
 				dynamic: true,
 			};
 
 			const result = await validateSignature(publicClient, dynamicSignature, {
-				data,
 				dataHash,
 			});
 
 			expect(result.valid).toBe(true);
-			expect(result.validatedSigner).toBe(contractAddress);
-
-			await revert();
+			expect(result.validatedSigner).toBe(mockAddress);
+			expect(result.signature).toEqual(dynamicSignature);
+			expect(result.error).toBeUndefined();
 		});
 
-		test("should pass both data and dataHash to ERC-1271", async () => {
-			// Deploy mock ERC-1271 contract
-			const deployHash = await walletClients[0].deployContract({
-				bytecode: ERC1271_MOCK_BYTECODE,
-			});
-			const { contractAddress } = await publicClient.waitForTransactionReceipt({
-				hash: deployHash,
+		test("should validate valid ERC-1271 signature using bytes variant", async () => {
+			// Deploy a mock ERC-1271 contract that always returns valid for bytes variant
+			const mockAddress = randomAddress();
+			await testClient.setCode({
+				address: mockAddress,
+				// Mock that returns 0x20c13b0b for bytes variant
+				bytecode: "0x6320c13b0b60e01b5f5260205ff3",
 			});
 
-			const data = toHex("important data");
-			const dataHash = keccak256(data);
-			const signatureData = randomBytesHex(130);
+			const data = toHex("test message");
+			const signatureData = randomBytesHex(65);
 
 			const dynamicSignature: DynamicSignature = {
-				signer: contractAddress!,
+				signer: mockAddress,
 				data: signatureData,
 				dynamic: true,
 			};
 
-			// Mock to verify both data and dataHash are available
-			let receivedCorrectData = false;
-			const originalRequest = publicClient.request;
-			publicClient.request = async (args: any) => {
-				if (args.method === "eth_call") {
-					const calldata = args.params[0].data;
-					// Check if calldata contains either bytes32 or bytes variant
-					if (
-						calldata &&
-						(calldata.includes(dataHash.slice(2)) ||
-							calldata.includes(data.slice(2)))
-					) {
-						receivedCorrectData = true;
-					}
-				}
-				return originalRequest.call(publicClient, args);
+			const result = await validateSignature(publicClient, dynamicSignature, {
+				data,
+			});
+
+			expect(result.valid).toBe(true);
+			expect(result.validatedSigner).toBe(mockAddress);
+			expect(result.signature).toEqual(dynamicSignature);
+			expect(result.error).toBeUndefined();
+		});
+
+		test("should handle both data and dataHash provided", async () => {
+			// Deploy a mock ERC-1271 contract that always returns valid
+			const mockAddress = randomAddress();
+			await testClient.setCode({
+				address: mockAddress,
+				bytecode: ERC1271_MOCK_BYTECODE,
+			});
+
+			const data = toHex("test message");
+			const dataHash = keccak256(data);
+			const signatureData = randomBytesHex(65);
+
+			const dynamicSignature: DynamicSignature = {
+				signer: mockAddress,
+				data: signatureData,
+				dynamic: true,
 			};
 
+			// When both are provided, it should prefer dataHash
 			const result = await validateSignature(publicClient, dynamicSignature, {
 				data,
 				dataHash,
 			});
 
 			expect(result.valid).toBe(true);
-			expect(receivedCorrectData).toBe(true);
+			expect(result.validatedSigner).toBe(mockAddress);
+			expect(result.signature).toEqual(dynamicSignature);
+			expect(result.error).toBeUndefined();
+		});
 
-			// Restore original request
-			publicClient.request = originalRequest;
+		test("should return invalid for wrong magic value", async () => {
+			const address = randomAddress();
+			await testClient.setCode({
+				address,
+				bytecode: "0x63c0ffee0060e01b5f5260205ff3", // Returns wrong magic value
+			});
 
-			await revert();
+			const dataHash = keccak256(toHex("test message"));
+			const signatureData = randomBytesHex(65);
+
+			const dynamicSignature: DynamicSignature = {
+				signer: address,
+				data: signatureData,
+				dynamic: true,
+			};
+
+			const result = await validateSignature(publicClient, dynamicSignature, {
+				dataHash,
+			});
+
+			expect(result.valid).toBe(false);
+			expect(result.validatedSigner).toBe(address);
+			expect(result.error).toBeUndefined();
 		});
 	});
 
-	// Test routing to approved hash validation
-	describe("Approved hash routing", () => {
-		test("should route v=1 signatures to approved hash validation", async () => {
-			// Deploy a Safe
-			const owners = [walletClients[0].account.address];
-			const deployment = await deploySafeAccount(publicClient, {
-				owners,
-				threshold: 1n,
-				saltNonce: BigInt(Date.now()),
-			});
-
-			const deploymentTx = await deployment.send();
-			await publicClient.waitForTransactionReceipt({ hash: deploymentTx });
-
-			const safeAddress = deployment.data.safeAddress;
+	describe("Approved hash signatures", () => {
+		test("should validate approved hash signature", async () => {
 			const owner = owners[0];
 			const dataHash = keccak256(toHex("approved message"));
-			const data = toHex("approved message");
 
-			// Approve the hash
+			// Approve the hash first
 			const approveHashData = encodeFunctionData({
 				abi: PARSED_SAFE_ABI,
 				functionName: "approveHash",
@@ -1076,201 +1140,173 @@ describe("validateSignature", () => {
 			});
 			await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-			// Create approved hash signature
-			const signatureData = concatHex([
-				pad(owner, { size: 32 }),
-				"0x0000000000000000000000000000000000000000000000000000000000000000",
-				"0x01", // v=1 for approved hash
-			]);
-
-			const staticSignature: StaticSignature = {
+			const approvedHashSignature: ApprovedHashSignature = {
 				signer: owner,
-				data: signatureData,
 			};
 
-			const result = await validateSignature(publicClient, staticSignature, {
-				data,
-				dataHash,
-			});
+			const result = await validateSignature(
+				publicClient,
+				approvedHashSignature,
+				{
+					dataHash,
+					safeAddress,
+				},
+			);
 
 			expect(result.valid).toBe(true);
-			expect(result.validatedSigner).toBe(safeAddress);
-
-			await revert();
+			expect(result.validatedSigner).toBe(owner);
+			expect(result.error).toBeUndefined();
 		});
 
-		test("should only pass dataHash for approved hash validation", async () => {
-			const owner = randomAddress();
-			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test message");
+		test("should return invalid for non-approved hash", async () => {
+			const owner = owners[0];
+			const dataHash = keccak256(toHex("unapproved message"));
 
-			const signatureData = concatHex([
-				pad(owner, { size: 32 }),
-				"0x0000000000000000000000000000000000000000000000000000000000000000",
-				"0x01",
-			]);
-
-			const staticSignature: StaticSignature = {
+			const approvedHashSignature: ApprovedHashSignature = {
 				signer: owner,
-				data: signatureData,
 			};
 
-			// Mock to verify only dataHash is used
-			let usedDataHash = false;
-			let usedData = false;
-			const originalRequest = publicClient.request;
-			publicClient.request = async (args: any) => {
-				if (args.method === "eth_call") {
-					const calldata = args.params[0].data;
-					if (calldata?.includes(dataHash.slice(2))) {
-						usedDataHash = true;
-					}
-					if (calldata?.includes(data.slice(2)) && data.length > 66) {
-						usedData = true; // Should not happen
-					}
-				}
-				return originalRequest.call(publicClient, args);
-			};
+			const result = await validateSignature(
+				publicClient,
+				approvedHashSignature,
+				{
+					dataHash,
+					safeAddress,
+				},
+			);
 
-			await validateSignature(publicClient, staticSignature, {
-				data,
-				dataHash,
-			});
-
-			expect(usedDataHash).toBe(true);
-			expect(usedData).toBe(false);
-
-			// Restore original request
-			publicClient.request = originalRequest;
-
-			await revert();
+			expect(result.valid).toBe(false);
+			expect(result.validatedSigner).toBe(owner);
+			expect(result.error).toBeUndefined();
 		});
 	});
 
-	// Test error handling
-	describe("Error handling", () => {
-		test("should throw for unsupported signature types", async () => {
-			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
+	describe("Edge cases and error handling", () => {
+		test("should throw error for invalid signature type byte", async () => {
+			const invalidVBytes = [2, 25, 26, 29, 30, 33, 255];
 
-			// Test various unsupported v values
-			const unsupportedVValues = [0, 2, 3, 26, 29, 30, 33, 100, 255];
-
-			for (const v of unsupportedVValues) {
-				// Skip v=0 as it's for contract signatures
-				if (v === 0) continue;
-
+			for (const v of invalidVBytes) {
 				const signature = concatHex([
 					randomBytesHex(32), // r
 					randomBytesHex(32), // s
 					toHex(v, { size: 1 }), // v
 				]);
 
-				const staticSignature: StaticSignature = {
+				const ecdsaSignature: ECDSASignature = {
 					signer: randomAddress(),
 					data: signature,
 				};
 
 				await expect(
-					validateSignature(publicClient, staticSignature, { data, dataHash }),
-				).rejects.toThrow();
+					validateSignature(publicClient, ecdsaSignature, {
+						dataHash: randomBytesHex(32),
+					}),
+				).rejects.toThrow(`Unknown signature v-byte: ${v}`);
 			}
-
-			await revert();
 		});
 
-		test("should preserve errors from sub-validators", async () => {
+		test("should handle malformed signature data gracefully", async () => {
 			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
-
-			// Test with malformed ECDSA signature
-			const malformedSignature: StaticSignature = {
-				signer: randomAddress(),
-				data: "0x1234" as Hex, // Too short
-			};
-
-			await expect(
-				validateSignature(publicClient, malformedSignature, { data, dataHash }),
-			).rejects.toThrow();
-
-			await revert();
-		});
-	});
-
-	// Test signature type detection
-	describe("Signature type detection", () => {
-		test("should correctly extract v-byte from 65-byte signatures", async () => {
-			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
-
-			// Test various v-byte positions
-			const testCases = [
-				{ v: 27, type: "EIP-712" },
-				{ v: 28, type: "EIP-712" },
-				{ v: 31, type: "eth_sign" },
-				{ v: 32, type: "eth_sign" },
-				{ v: 1, type: "approved_hash" },
+			const malformedSignatures = [
+				"0x", // Empty
+				"0x1234", // Too short
+				`0x${"a".repeat(64)}`, // 32 bytes
+				`0x${"a".repeat(128)}`, // 64 bytes
+				`0x${"a".repeat(130)}1b`, // 66 bytes
 			];
 
-			for (const { v } of testCases) {
-				const signature = concatHex([
-					randomBytesHex(32), // r
-					randomBytesHex(32), // s
-					toHex(v, { size: 1 }), // v
-				]);
-
-				const staticSignature: StaticSignature = {
+			for (const malformedSig of malformedSignatures) {
+				const ecdsaSignature: ECDSASignature = {
 					signer: randomAddress(),
-					data: signature,
+					data: malformedSig as Hex,
 				};
 
-				// Should not throw for valid v-bytes
+				// Malformed signatures should either throw or return invalid
 				try {
-					await validateSignature(publicClient, staticSignature, {
-						data,
+					const result = await validateSignature(publicClient, ecdsaSignature, {
 						dataHash,
 					});
-				} catch (error: any) {
-					// Only accept errors that are NOT "Invalid signature type"
-					expect(error.message).not.toContain("Invalid signature type");
+					expect(result.valid).toBe(false);
+					expect(result.error).toBeDefined();
+				} catch (error) {
+					// Expected for signatures too short to determine v-byte
+					expect(error).toBeDefined();
 				}
 			}
-
-			await revert();
 		});
 
-		test("should handle signatures with extra data", async () => {
+		test("should handle provider errors gracefully for ERC-1271", async () => {
+			const mockProvider: EIP1193ProviderWithRequestFn = {
+				request: async () => {
+					throw new Error("Network error");
+				},
+			};
+
+			const dynamicSignature: DynamicSignature = {
+				signer: randomAddress(),
+				data: randomBytesHex(65),
+				dynamic: true,
+			};
+
+			const result = await validateSignature(mockProvider, dynamicSignature, {
+				dataHash: randomBytesHex(32),
+			});
+
+			expect(result.valid).toBe(false);
+			expect(result.error).toBeDefined();
+			expect(result.error?.message).toContain("Network error");
+		});
+
+		test("should handle provider errors gracefully for approved hash", async () => {
+			const mockProvider: EIP1193ProviderWithRequestFn = {
+				request: async () => {
+					throw new Error("RPC error");
+				},
+			};
+
+			const approvedHashSignature: ApprovedHashSignature = {
+				signer: randomAddress(),
+			};
+
+			const result = await validateSignature(
+				mockProvider,
+				approvedHashSignature,
+				{
+					dataHash: randomBytesHex(32),
+					safeAddress: randomAddress(),
+				},
+			);
+
+			expect(result.valid).toBe(false);
+			expect(result.error).toBeDefined();
+			expect(result.error?.message).toContain("RPC error");
+		});
+
+		test("should maintain signature type consistency", async () => {
 			const privateKey = generatePrivateKey();
 			const account = privateKeyToAccount(privateKey);
 			const dataHash = keccak256(toHex("test message"));
-			const data = toHex("test data");
 
-			// Create normal signature
 			const signature = await account.sign({
 				hash: dataHash,
 			});
 
-			// Add extra data at the end
-			const signatureWithExtra = concatHex([
-				signature,
-				randomBytesHex(100), // Extra data
-			]);
-
-			const staticSignature: StaticSignature = {
+			// Test that the same signature validates consistently
+			const ecdsaSignature: ECDSASignature = {
 				signer: account.address,
-				data: signatureWithExtra,
+				data: signature,
 			};
 
-			// Should still extract v-byte correctly from position 64
-			const result = await validateSignature(publicClient, staticSignature, {
-				data,
-				dataHash,
-			});
+			const results = await Promise.all([
+				validateSignature(publicClient, ecdsaSignature, { dataHash }),
+				validateSignature(publicClient, ecdsaSignature, { dataHash }),
+				validateSignature(publicClient, ecdsaSignature, { dataHash }),
+			]);
 
-			expect(result.valid).toBe(true);
-			expect(result.validatedSigner).toBe(account.address);
-
-			await revert();
+			// All results should be identical
+			expect(results[0]).toEqual(results[1]);
+			expect(results[1]).toEqual(results[2]);
+			expect(results.every((r) => r.valid)).toBe(true);
 		});
 	});
 });

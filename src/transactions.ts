@@ -7,11 +7,11 @@ import { encodeMultiSendCall } from "./multisend.js";
 import { V141_ADDRESSES } from "./safe-contracts.js";
 import { encodeSafeSignaturesBytes } from "./safe-signatures.js";
 import type {
+	ECDSASignature,
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,
 	MetaTransaction,
 	PicosafeSignature,
-	StaticSignature,
 } from "./types";
 import { Operation } from "./types.js";
 import { checksumAddress } from "./utilities/address.js";
@@ -241,7 +241,7 @@ async function signSafeTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	transaction: Readonly<FullSafeTransaction>,
 	signerAddress?: Address,
-): Promise<Readonly<StaticSignature>> {
+): Promise<Readonly<ECDSASignature>> {
 	// We convert the chain id to a string so it could be serialized to JSON
 	const domain = getSafeEip712Domain(
 		transaction.safeAddress,
