@@ -1,12 +1,24 @@
 import {
 	type Address,
+	concat,
 	encodeAbiParameters,
+	getTypesForEIP712Domain,
+	type HashTypedDataParameters,
+	type HashTypedDataReturnType,
 	type Hex,
-	hashTypedData,
+	hashDomain,
+	hashStruct,
 	keccak256,
 	parseAbiParameters,
+	type TypedData,
+	validateTypedData,
 } from "viem";
 import type { FullSafeTransaction, SafeMessage } from "./types.js";
+
+type MessageTypeProperty = {
+	name: string;
+	type: string;
+};
 
 /**
  * Calculates the EIP-712 domain separator for a Safe.
@@ -194,7 +206,70 @@ const SAFE_MESSAGE_EIP712_TYPES = {
 function calculateSafeTransactionHash(
 	safeTx: Readonly<FullSafeTransaction>,
 ): Hex {
-	return hashTypedData({
+	return keccak256(
+		encodeTypedData({
+			domain: getSafeEip712Domain(safeTx.safeAddress, safeTx.chainId),
+			types: SAFE_TX_EIP712_TYPES,
+			primaryType: "SafeTx",
+			message: {
+				to: safeTx.to,
+				value: safeTx.value,
+				data: safeTx.data,
+				operation: safeTx.operation,
+				safeTxGas: safeTx.safeTxGas,
+				baseGas: safeTx.baseGas,
+				gasPrice: safeTx.gasPrice,
+				gasToken: safeTx.gasToken,
+				refundReceiver: safeTx.refundReceiver,
+				nonce: safeTx.nonce,
+			},
+		}),
+	);
+}
+
+/**
+ * Encodes a Safe transaction into EIP-712 typed data format for signing.
+ *
+ * This function returns the raw encoded data (pre-image) that would be hashed
+ * to produce the transaction hash. It's useful for advanced signature scenarios
+ * where you need the structured data before hashing, such as when working with
+ * legacy ERC-1271 contract signatures that expect the full typed data.
+ *
+ * @param safeTx - Fully-formed Safe transaction object containing all required fields including safeAddress and chainId
+ * @returns The EIP-712 encoded data as a hex string (concatenation of 0x1901, domain separator, and struct hash)
+ *
+ * @example
+ * ```typescript
+ * import { encodeEIP712SafeTransactionData } from "picosafe";
+ * import { keccak256 } from "viem";
+ * import type { FullSafeTransaction } from "picosafe/types";
+ *
+ * const safeTx: FullSafeTransaction = {
+ *   safeAddress: "0x1234567890123456789012345678901234567890",
+ *   chainId: 1n, // Mainnet
+ *   to: "0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5",
+ *   value: 0n,
+ *   data: "0x",
+ *   operation: 0, // Call
+ *   safeTxGas: 0n,
+ *   baseGas: 0n,
+ *   gasPrice: 0n,
+ *   gasToken: "0x0000000000000000000000000000000000000000",
+ *   refundReceiver: "0x0000000000000000000000000000000000000000",
+ *   nonce: 0n
+ * };
+ *
+ * // Get the encoded data
+ * const encodedData = encodeEIP712SafeTransactionData(safeTx);
+ *
+ * // Hash it to get the transaction hash (same as calculateSafeTransactionHash)
+ * const hash = keccak256(encodedData);
+ * ```
+ */
+function encodeEIP712SafeTransactionData(
+	safeTx: Readonly<FullSafeTransaction>,
+): Hex {
+	return encodeTypedData({
 		domain: getSafeEip712Domain(safeTx.safeAddress, safeTx.chainId),
 		types: SAFE_TX_EIP712_TYPES,
 		primaryType: "SafeTx",
@@ -255,12 +330,127 @@ function calculateSafeMessageHash(
 	chainId: bigint,
 	message: Readonly<SafeMessage>,
 ): Hex {
-	return hashTypedData({
+	return keccak256(
+		encodeTypedData({
+			domain: getSafeEip712Domain(safeAddress, chainId),
+			types: SAFE_MESSAGE_EIP712_TYPES,
+			primaryType: "SafeMessage",
+			message,
+		}),
+	);
+}
+
+/**
+ * Encodes a Safe message into EIP-712 typed data format for signing.
+ *
+ * This function returns the raw encoded data (pre-image) that would be hashed
+ * to produce the message hash. It's useful for advanced signature scenarios
+ * where you need the structured data before hashing, such as when working with
+ * legacy ERC-1271 contract signatures that expect the full typed data.
+ *
+ * @param safeAddress - Address of the Safe that is signing the message
+ * @param chainId - EIP-155 chain ID of the network where the Safe is deployed
+ * @param message - The message payload containing the bytes data to sign
+ * @returns The EIP-712 encoded data as a hex string (concatenation of 0x1901, domain separator, and struct hash)
+ *
+ * @example
+ * ```typescript
+ * import { encodeEIP712SafeMessageData } from "picosafe";
+ * import { keccak256, toHex } from "viem";
+ *
+ * // Encode a text message
+ * const textMessage = "Hello, Safe!";
+ * const encodedData = encodeEIP712SafeMessageData(
+ *   "0x1234567890123456789012345678901234567890", // Safe address
+ *   1n, // Mainnet
+ *   { message: toHex(textMessage) }
+ * );
+ *
+ * // Hash it to get the message hash (same as calculateSafeMessageHash)
+ * const hash = keccak256(encodedData);
+ *
+ * // Use with binary data
+ * const binaryData = "0x1234567890abcdef";
+ * const binaryEncoded = encodeEIP712SafeMessageData(
+ *   "0x1234567890123456789012345678901234567890",
+ *   1n,
+ *   { message: binaryData }
+ * );
+ * ```
+ */
+function encodeEIP712SafeMessageData(
+	safeAddress: Address,
+	chainId: bigint,
+	message: Readonly<SafeMessage>,
+): Hex {
+	return encodeTypedData({
 		domain: getSafeEip712Domain(safeAddress, chainId),
 		types: SAFE_MESSAGE_EIP712_TYPES,
 		primaryType: "SafeMessage",
 		message,
 	});
+}
+
+/**
+ * Encodes EIP-712 typed data into its pre-image format without hashing.
+ *
+ * This is a modified version of viem's hashTypedData function that returns the
+ * encoded data before hashing. The encoded data consists of:
+ * - 0x1901 (EIP-712 prefix)
+ * - Domain separator hash (if domain is provided)
+ * - Struct hash of the primary type (if not signing the domain itself)
+ *
+ * This function is useful for advanced signature scenarios where you need the
+ * structured data before hashing, such as when working with legacy ERC-1271
+ * contract signatures that require the full typed data.
+ *
+ * @param parameters - The typed data parameters including domain, types, primaryType, and message
+ * @returns The concatenated EIP-712 encoded data as a hex string
+ */
+function encodeTypedData<
+	const typedData extends TypedData | Record<string, unknown>,
+	primaryType extends keyof typedData | "EIP712Domain",
+>(
+	parameters: HashTypedDataParameters<typedData, primaryType>,
+): HashTypedDataReturnType {
+	const {
+		domain = {},
+		message,
+		primaryType,
+	} = parameters as HashTypedDataParameters;
+	const types = {
+		EIP712Domain: getTypesForEIP712Domain({ domain }),
+		...parameters.types,
+	};
+
+	// Need to do a runtime validation check on addresses, byte ranges, integer ranges, etc
+	// as we can't statically check this with TypeScript.
+	validateTypedData({
+		domain,
+		message,
+		primaryType,
+		types,
+	});
+
+	const parts: Hex[] = ["0x1901"];
+	if (domain)
+		parts.push(
+			hashDomain({
+				domain,
+				types: types as Record<string, MessageTypeProperty[]>,
+			}),
+		);
+
+	if (primaryType !== "EIP712Domain")
+		parts.push(
+			hashStruct({
+				data: message,
+				primaryType,
+				types: types as Record<string, MessageTypeProperty[]>,
+			}),
+		);
+
+	return concat(parts);
 }
 
 export {
@@ -270,4 +460,7 @@ export {
 	calculateSafeTransactionHash,
 	calculateSafeMessageHash,
 	calculateSafeDomainSeparator,
+	encodeTypedData,
+	encodeEIP712SafeTransactionData,
+	encodeEIP712SafeMessageData,
 };

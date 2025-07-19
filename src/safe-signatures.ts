@@ -18,6 +18,7 @@ import {
 	SignatureTypeVByte,
 } from "./types.js";
 import { checksumAddress } from "./utilities/address.js";
+import { captureError } from "./utilities/captureError.js";
 import {
 	ECDSA_SIGNATURE_LENGTH_BYTES,
 	ECDSA_SIGNATURE_LENGTH_HEX,
@@ -251,17 +252,46 @@ async function checkNSignatures(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	safeAddress: Address,
 	params: Readonly<CheckNSignaturesVerificationParams>,
-): Promise<boolean> {
+): Promise<{
+	valid: boolean;
+	error?: Error;
+}> {
 	if (params.requiredSignatures <= 0n) {
 		throw new Error("Required signatures must be greater than 0");
+	}
+
+	// checkNSignatures doesn't return anything on success
+	// If we get a result, it should be "0x" (empty) for success
+	// If calling an EOA, we'll get "0x" as well, but the call succeeds which is wrong
+	// So we need to check if the contract exists first
+	let [code, error] = await captureError(
+		() =>
+			provider.request({
+				method: "eth_getCode",
+				params: [safeAddress, params.block ?? "latest"],
+			}),
+		`Failed to get code for ${safeAddress}`,
+	);
+
+	// If there's no code at the address, it's not a contract
+	if (error || code === "0x" || code === "0x0") {
+		return { valid: false, error };
 	}
 
 	// We skip additional runtime validation checks (e.g., validating addresses, signature formats)
 	// because the Safe contract's checkNSignatures function will handle all validation
 	// and revert if signatures are invalid, which we catch and return as false
-	const encodedSignatures = Array.isArray(params.signatures)
-		? encodeSafeSignaturesBytes(params.signatures)
-		: (params.signatures as Hex);
+	let encodedSignatures: Hex;
+	if (Array.isArray(params.signatures)) {
+		// Handle empty array case - provide minimal valid signature bytes
+		if (params.signatures.length === 0) {
+			encodedSignatures = "0x";
+		} else {
+			encodedSignatures = encodeSafeSignaturesBytes(params.signatures);
+		}
+	} else {
+		encodedSignatures = params.signatures as Hex;
+	}
 
 	const data = encodeFunctionData({
 		abi: PARSED_SAFE_ABI,
@@ -274,22 +304,27 @@ async function checkNSignatures(
 		],
 	});
 
-	// The call reverts if the signatures are invalid, so we catch the error and return false
-	try {
-		await provider.request({
-			method: "eth_call",
-			params: [
-				{
-					to: safeAddress,
-					data,
-				},
-				params.block ?? "latest",
-			],
-		});
-		return true;
-	} catch {
-		return false;
+	// CheckNSignatures doesn't return anything on success, that's why we omit the result
+	[, error] = await captureError(
+		() =>
+			provider.request({
+				method: "eth_call",
+				params: [
+					{
+						to: safeAddress,
+						data,
+					},
+					params.block ?? "latest",
+				],
+			}),
+		`checkNSignatures failed for ${safeAddress}`,
+	);
+
+	if (error) {
+		return { valid: false, error };
 	}
+
+	return { valid: true };
 }
 
 /**
@@ -728,8 +763,8 @@ async function validateSignaturesForSafe(
  * recovery or EIP-1271 validation.
  *
  * The signature format is a 65-byte structure:
- * - Bytes 0-31: Padded zeros (unused for approved hash signatures)
- * - Bytes 32-63: Owner address padded to 32 bytes
+ * - Bytes 0-31: Owner address padded to 32 bytes
+ * - Bytes 32-63: Padded zeros (unused for approved hash signatures)
  * - Byte 64: Signature type (v=1 for {@link SignatureTypeVByte.APPROVED_HASH})
  *
  * This type of signature is gas-efficient for execution since it only requires
@@ -770,9 +805,9 @@ async function validateSignaturesForSafe(
  */
 function getApprovedHashSignatureBytes(signer: Address): Hex {
 	return concatHex(
-		padStartHex(signer, 32),
-		padStartHex("00", 32),
-		SignatureTypeVByte.APPROVED_HASH.toString(16),
+		padStartHex(signer, 32), // First 32 bytes are the signer address
+		padStartHex("00", 32), // Next 32 bytes are zeros for approved hash
+		SignatureTypeVByte.APPROVED_HASH.toString(16).padStart(2, "0"), // v-byte
 	);
 }
 
