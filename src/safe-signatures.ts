@@ -763,8 +763,8 @@ async function validateSignaturesForSafe(
  * recovery or EIP-1271 validation.
  *
  * The signature format is a 65-byte structure:
- * - Bytes 0-31: Padded zeros (unused for approved hash signatures)
- * - Bytes 32-63: Owner address padded to 32 bytes
+ * - Bytes 0-31: Owner address padded to 32 bytes
+ * - Bytes 32-63: Padded zeros (unused for approved hash signatures)
  * - Byte 64: Signature type (v=1 for {@link SignatureTypeVByte.APPROVED_HASH})
  *
  * This type of signature is gas-efficient for execution since it only requires
@@ -805,9 +805,9 @@ async function validateSignaturesForSafe(
  */
 function getApprovedHashSignatureBytes(signer: Address): Hex {
 	return concatHex(
-		padStartHex("00", 32), // First 32 bytes are zeros for approved hash
 		padStartHex(signer, 32), // Next 32 bytes are the signer address
-		"0x" + SignatureTypeVByte.APPROVED_HASH.toString(16).padStart(2, "0"), // v-byte
+		padStartHex("00", 32), // First 32 bytes are zeros for approved hash
+		SignatureTypeVByte.APPROVED_HASH.toString(16).padStart(2, "0"), // v-byte
 	);
 }
 

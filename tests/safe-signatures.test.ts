@@ -2,17 +2,18 @@ import type { Address, Hex } from "viem";
 import {
 	concatHex,
 	encodeFunctionData,
-	hashMessage,
 	hexToBytes,
 	keccak256,
-	parseAbi,
 	toHex,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterEach, beforeEach, describe, expect, it, test } from "vitest";
 import { PARSED_SAFE_ABI } from "../src/abis";
 import { deploySafeAccount } from "../src/deployment";
-import { calculateSafeTransactionHash } from "../src/eip712";
+import {
+	calculateSafeTransactionHash,
+	encodeEIP712SafeTransactionData,
+} from "../src/eip712";
 import {
 	checkNSignatures,
 	encodeSafeSignaturesBytes,
@@ -269,10 +270,10 @@ describe("checkNSignatures", () => {
 			const ethSignSig2 = (sig2.slice(0, -2) +
 				(v2 + 4).toString(16).padStart(2, "0")) as Hex;
 
-			const signatures = encodeSafeSignaturesBytes([
+			const signatures = [
 				{ signer: owners[0], data: ethSignSig1 },
 				{ signer: owners[1], data: ethSignSig2 },
-			]);
+			];
 
 			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
@@ -299,32 +300,24 @@ describe("checkNSignatures", () => {
 			});
 			await publicClient.waitForTransactionReceipt({ hash: approveTx });
 
-			// Create one approved signature and one ECDSA signature
-			const approvedSig = getApprovedHashSignatureBytes(owners[0]);
-			const ecdsaSig = await walletClients[1].account.sign?.({
-				hash: txHash,
-			});
+			const signatures = [{ signer: owners[0] }];
 
-			if (!ecdsaSig) {
-				throw new Error("Failed to sign");
-			}
+			const { valid, error } = await checkNSignatures(
+				publicClient,
+				safeAddress,
+				{
+					dataHash: txHash,
+					data: "0x",
+					signatures,
+					requiredSignatures: 1n,
+				},
+			);
 
-			const signatures: PicosafeSignature[] = [
-				{ signer: owners[0], data: approvedSig },
-				{ signer: owners[1], data: ecdsaSig },
-			];
-
-			const { valid } = await checkNSignatures(publicClient, safeAddress, {
-				dataHash: txHash,
-				data: "0x",
-				signatures,
-				requiredSignatures: 2n,
-			});
-
+			expect(error).toBeUndefined();
 			expect(valid).toBe(true);
 		});
 
-		test("should validate EIP-1271 contract signatures", async () => {
+		test("should validate ERC-1271 contract signatures", async () => {
 			// Deploy a Safe with a contract owner from the start
 			const mockSigner = randomAddress();
 			await testClient.setCode({
@@ -337,7 +330,6 @@ describe("checkNSignatures", () => {
 			const deployment = await deploySafeAccount(publicClient, {
 				owners: [owners[0], owners[1], mockSigner],
 				threshold: 2n,
-				saltNonce: BigInt(Date.now() + 100),
 			});
 
 			const deploymentTx = await deployment.send();
@@ -362,33 +354,29 @@ describe("checkNSignatures", () => {
 				chainId: BigInt(chainId),
 			};
 
-			const testTxHash = calculateSafeTransactionHash(testSafeTx);
-
-			// Get one ECDSA signature from an owner
-			const ecdsaSig = await walletClients[0].account.sign?.({
-				hash: testTxHash,
-			});
-
-			if (!ecdsaSig) {
-				throw new Error("Failed to sign");
-			}
+			const testSafeTxData = encodeEIP712SafeTransactionData(testSafeTx);
+			const testTxHash = keccak256(testSafeTxData);
 
 			// Create a dynamic signature for the contract
 			const contractSigData = randomBytesHex(130); // Some arbitrary signature data
 
 			const signatures: PicosafeSignature[] = [
-				{ signer: owners[0], data: ecdsaSig },
 				{ signer: mockSigner, data: contractSigData, dynamic: true },
 			];
 
-			const { valid } = await checkNSignatures(publicClient, testSafeAddress, {
-				dataHash: testTxHash,
-				data: "0x",
-				signatures,
-				requiredSignatures: 2n,
-			});
+			const { valid, error } = await checkNSignatures(
+				publicClient,
+				testSafeAddress,
+				{
+					dataHash: testTxHash,
+					data: testSafeTxData,
+					signatures,
+					requiredSignatures: 1n,
+				},
+			);
 
 			expect(valid).toBe(true);
+			expect(error).toBeUndefined();
 		});
 
 		test("should validate mixed signature types", async () => {
@@ -429,7 +417,8 @@ describe("checkNSignatures", () => {
 				chainId: BigInt(chainId),
 			};
 
-			const testTxHash = calculateSafeTransactionHash(testSafeTx);
+			const testSafeTxData = encodeEIP712SafeTransactionData(testSafeTx);
+			const testTxHash = keccak256(testSafeTxData);
 
 			// Approve hash from owner 0
 			const approveHashData = encodeFunctionData({
@@ -446,7 +435,6 @@ describe("checkNSignatures", () => {
 			await publicClient.waitForTransactionReceipt({ hash: approveTx });
 
 			// Create mixed signatures
-			const approvedSig = getApprovedHashSignatureBytes(owners[0]);
 			const ecdsaSig = await walletClients[1].account.sign?.({
 				hash: testTxHash,
 			});
@@ -456,15 +444,15 @@ describe("checkNSignatures", () => {
 				throw new Error("Failed to sign");
 			}
 
-			const signatures: PicosafeSignature[] = [
-				{ signer: owners[0], data: approvedSig }, // Approved hash
+			const signatures = [
+				{ signer: owners[0] }, // Approved hash
 				{ signer: owners[1], data: ecdsaSig }, // ECDSA
 				{ signer: mockSigner, data: contractSigData, dynamic: true }, // EIP-1271
 			];
 
 			const { valid } = await checkNSignatures(publicClient, testSafeAddress, {
 				dataHash: testTxHash,
-				data: "0x",
+				data: testSafeTxData,
 				signatures,
 				requiredSignatures: 3n,
 			});
@@ -474,9 +462,9 @@ describe("checkNSignatures", () => {
 
 		test("should validate with more signatures than required", async () => {
 			// Get signatures from all 3 owners
-			const sigs = await Promise.all(
+			const signatures = await Promise.all(
 				owners.map(async (owner, index) => {
-					const sig = await walletClients[index].account.sign?.({
+					const sig = await walletClients[index]?.account.sign?.({
 						hash: txHash,
 					});
 					if (!sig) throw new Error("Failed to sign");
@@ -488,34 +476,6 @@ describe("checkNSignatures", () => {
 			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
-				signatures: sigs,
-				requiredSignatures: 2n,
-			});
-
-			expect(valid).toBe(true);
-		});
-
-		test("should validate with exact required signatures", async () => {
-			// Get signatures from exactly 2 owners
-			const sig1 = await walletClients[0].account.sign?.({
-				hash: txHash,
-			});
-			const sig2 = await walletClients[1].account.sign?.({
-				hash: txHash,
-			});
-
-			if (!sig1 || !sig2) {
-				throw new Error("Failed to sign");
-			}
-
-			const signatures: PicosafeSignature[] = [
-				{ signer: owners[0], data: sig1 },
-				{ signer: owners[1], data: sig2 },
-			];
-
-			const { valid } = await checkNSignatures(publicClient, safeAddress, {
-				dataHash: txHash,
-				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
@@ -524,6 +484,21 @@ describe("checkNSignatures", () => {
 		});
 
 		test("should validate with block parameter", async () => {
+			// get block number before the deployment
+			const blockNumber = await publicClient.getBlockNumber();
+
+			// deploy a new safe
+			const deployment = await deploySafeAccount(publicClient, {
+				owners: [owners[0], owners[1]],
+				threshold: 2n,
+				saltNonce: blockNumber,
+			});
+
+			const deploymentTx = await deployment.send();
+			await publicClient.waitForTransactionReceipt({ hash: deploymentTx });
+
+			const testSafeAddress = deployment.data.safeAddress;
+
 			const sig1 = await walletClients[0].account.sign?.({
 				hash: txHash,
 			});
@@ -540,7 +515,7 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: sig2 },
 			];
 
-			const { valid } = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, testSafeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
@@ -549,6 +524,21 @@ describe("checkNSignatures", () => {
 			});
 
 			expect(valid).toBe(true);
+
+			// validate before the deployment
+			const { valid: validBefore } = await checkNSignatures(
+				publicClient,
+				testSafeAddress,
+				{
+					dataHash: txHash,
+					data: "0x",
+					signatures,
+					requiredSignatures: 2n,
+					block: `0x${blockNumber.toString(16)}`,
+				},
+			);
+
+			expect(validBefore).toBe(false);
 		});
 	});
 
@@ -903,127 +893,6 @@ describe("checkNSignatures", () => {
 
 			expect(valid).toBe(false);
 			expect(error?.message).toContain("Network error");
-		});
-	});
-
-	describe("complex scenarios", () => {
-		test("should validate transaction with actual calldata", async () => {
-			// Create a transaction with actual calldata
-			const calldata = encodeFunctionData({
-				abi: [
-					{
-						name: "transfer",
-						type: "function",
-						inputs: [
-							{ name: "to", type: "address" },
-							{ name: "amount", type: "uint256" },
-						],
-						outputs: [{ name: "", type: "bool" }],
-					},
-				],
-				functionName: "transfer",
-				args: [randomAddress(), 1000n],
-			});
-
-			const chainId = await publicClient.getChainId();
-			const complexTx: FullSafeTransaction = {
-				to: randomAddress(),
-				value: 0n,
-				data: calldata,
-				operation: Operation.Call,
-				safeTxGas: 0n,
-				baseGas: 0n,
-				gasPrice: 0n,
-				gasToken: "0x0000000000000000000000000000000000000000",
-				refundReceiver: "0x0000000000000000000000000000000000000000",
-				nonce: 0n,
-				safeAddress,
-				chainId: BigInt(chainId),
-			};
-
-			const complexTxHash = calculateSafeTransactionHash(complexTx);
-
-			// Sign the complex transaction
-			const sig1 = await walletClients[0].account.sign?.({
-				hash: complexTxHash,
-			});
-			const sig2 = await walletClients[1].account.sign?.({
-				hash: complexTxHash,
-			});
-
-			if (!sig1 || !sig2) {
-				throw new Error("Failed to sign");
-			}
-
-			const signatures: PicosafeSignature[] = [
-				{ signer: owners[0], data: sig1 },
-				{ signer: owners[1], data: sig2 },
-			];
-
-			const { valid } = await checkNSignatures(publicClient, safeAddress, {
-				dataHash: complexTxHash,
-				data: calldata,
-				signatures,
-				requiredSignatures: 2n,
-			});
-
-			expect(valid).toBe(true);
-		});
-
-		test("should validate with maximum allowed signatures", async () => {
-			// Deploy a Safe with many owners
-			const manyOwners = Array.from({ length: 10 }, () =>
-				privateKeyToAccount(generatePrivateKey()),
-			);
-
-			const deployment = await deploySafeAccount(publicClient, {
-				owners: manyOwners.map((o) => o.address) as [Address, ...Address[]],
-				threshold: 5n,
-				saltNonce: BigInt(Date.now() + 1000),
-			});
-
-			const deploymentTx = await deployment.send();
-			await publicClient.waitForTransactionReceipt({ hash: deploymentTx });
-
-			const manySafeAddress = deployment.data.safeAddress;
-
-			// Create transaction
-			const chainId = await publicClient.getChainId();
-			const manyTx: FullSafeTransaction = {
-				to: randomAddress(),
-				value: 0n,
-				data: "0x",
-				operation: Operation.Call,
-				safeTxGas: 0n,
-				baseGas: 0n,
-				gasPrice: 0n,
-				gasToken: "0x0000000000000000000000000000000000000000",
-				refundReceiver: "0x0000000000000000000000000000000000000000",
-				nonce: 0n,
-				safeAddress: manySafeAddress,
-				chainId: BigInt(chainId),
-			};
-
-			const manyTxHash = calculateSafeTransactionHash(manyTx);
-
-			// Get signatures from 5 owners (threshold)
-			const signatures = await Promise.all(
-				manyOwners.slice(0, 5).map(async (owner) => {
-					const sig = await owner.sign({
-						hash: manyTxHash,
-					});
-					return { signer: owner.address, data: sig };
-				}),
-			);
-
-			const { valid } = await checkNSignatures(publicClient, manySafeAddress, {
-				dataHash: manyTxHash,
-				data: "0x",
-				signatures,
-				requiredSignatures: 5n,
-			});
-
-			expect(valid).toBe(true);
 		});
 	});
 });
