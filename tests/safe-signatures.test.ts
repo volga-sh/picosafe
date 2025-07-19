@@ -1062,7 +1062,6 @@ describe("validateSignaturesForSafe", () => {
 				throw new Error("Failed to sign");
 			}
 			const adjustedVByte = Number.parseInt(ethSignSig.slice(-2), 16) + 4;
-			console.log({ adjustedVByte });
 			const adjustedEthSignSig = concatHex([
 				ethSignSig.slice(0, -2) as Hex,
 				adjustedVByte.toString(16).padStart(2, "0") as Hex,
