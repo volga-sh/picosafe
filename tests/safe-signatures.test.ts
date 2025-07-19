@@ -21,6 +21,10 @@ import {
 } from "../src/safe-signatures";
 import type { FullSafeTransaction, PicosafeSignature } from "../src/types";
 import { Operation } from "../src/types";
+import {
+	getMockERC1271InvalidBytecode,
+	getMockERC1271LegacyValidBytecode,
+} from "./fixtures/mock-bytecodes";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress, randomBytesHex } from "./utils";
 
@@ -323,7 +327,7 @@ describe("checkNSignatures", () => {
 			await testClient.setCode({
 				address: mockSigner,
 				// Returns legacy ERC-1271 magic value (0x20c13b0b) that Safe expects
-				bytecode: "0x6320c13b0b60e01b5f5260205ff3",
+				bytecode: getMockERC1271LegacyValidBytecode(),
 			});
 
 			// Deploy a new Safe with the mock signer as an owner
@@ -385,7 +389,7 @@ describe("checkNSignatures", () => {
 			await testClient.setCode({
 				address: mockSigner,
 				// Returns legacy ERC-1271 magic value (0x20c13b0b) that Safe expects
-				bytecode: "0x6320c13b0b60e01b5f5260205ff3",
+				bytecode: getMockERC1271LegacyValidBytecode(),
 			});
 
 			// Deploy a new Safe with mock signer as an owner and threshold of 3
@@ -685,7 +689,7 @@ describe("checkNSignatures", () => {
 			const mockSigner = randomAddress();
 			await testClient.setCode({
 				address: mockSigner,
-				bytecode: "0x63c0ffee0060e01b5f5260205ff3", // Returns wrong value
+				bytecode: getMockERC1271InvalidBytecode(), // Returns wrong value
 			});
 
 			// Deploy a new Safe with mock signer as an owner

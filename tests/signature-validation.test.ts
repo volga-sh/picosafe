@@ -30,26 +30,13 @@ import type {
 import { ZERO_ADDRESS } from "../src/utilities/constants";
 import { getChainId } from "../src/utilities/eip1193-provider";
 import { padStartHex } from "../src/utilities/encoding";
+import {
+	getMockERC1271InvalidBytecode,
+	getMockERC1271LegacyValidBytecode,
+	getMockERC1271ValidBytecode,
+} from "./fixtures/mock-bytecodes";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress, randomBytesHex } from "./utils";
-
-/**
- * Mock ERC-1271 contract bytecode that always returns the magic value 0x1626ba7e
- * indicating a valid signature. This is used for testing ERC-1271 signature validation.
- *
- * The bytecode does the following:
- * 1. PUSH4 0x1626ba7e - Push the ERC-1271 magic value (4 bytes)
- * 2. PUSH1 0xe0 - Push 224 (shift amount in bits)
- * 3. SHL - Shift left by 224 bits to move magic value to high 4 bytes
- * 4. PUSH0 - Push 0 (memory offset)
- * 5. MSTORE - Store the value at memory position 0
- * 6. PUSH1 0x20 - Push 32 (return data size)
- * 7. PUSH0 - Push 0 (return data offset)
- * 8. RETURN - Return 32 bytes from memory position 0
- *
- * Bytecode: 0x63 1626ba7e 60 e0 1b 5f 52 60 20 5f f3
- */
-const ERC1271_MOCK_BYTECODE = "0x631626ba7e60e01b5f5260205ff3";
 
 describe("isValidECDSASignature", () => {
 	test("should validate correct ECDSA signature with v=27", async () => {
@@ -335,33 +322,10 @@ describe("isValidERC1271Signature", () => {
 	});
 
 	test("should return invalid when contract returns wrong magic value", async () => {
-		/*
-		 * Minimal runtime that *always* returns a 32-byte word whose first 4 bytes
-		 * are `0xC0FFEE00`. This deliberately violates EIP-1271’s magic values so
-		 * that the validator should mark the signature as **invalid**.
-		 *
-		 *  ┌────────┬──────────────────┬────────────────────────────────────────┬─────────────────────────────────────────────┐
-		 *  │ Byte   │ Instruction      │ Stack after execution                  │ Comment                                     │
-		 *  ├────────┼──────────────────┼────────────────────────────────────────┼─────────────────────────────────────────────┤
-		 *  │ 0x63   │ PUSH4 0xc0ffee00 │ 0xc0ffee00                             │ Push constant                               │
-		 *  │ 0x60   │ PUSH1 0xe0       │ 0xc0ffee00 0xe0                        │ Shift amount = 224 bits (28 bytes)          │
-		 *  │ 0x1b   │ SHL              │ 0xc0ffee00 << 224                      │ Move constant into the *high* 4 bytes       │
-		 *  │ 0x5f   │ PUSH0            │ 0x00 <value>                           │ Destination offset (memory 0)               │
-		 *  │ 0x52   │ MSTORE           │ –                                      │ mstore(0, value)                            │
-		 *  │ 0x60   │ PUSH1 0x20       │ 0x20                                   │ Return size = 32                            │
-		 *  │ 0x5f   │ PUSH0            │ 0x00 0x20                              │ Return offset = 0                           │
-		 *  │ 0xf3   │ RETURN           │ –                                      │ return(0, 32)                               │
-		 *  └────────┴──────────────────┴────────────────────────────────────────┴─────────────────────────────────────────────┘
-		 *
-		 *  Concatenated bytecode (spaces added for readability):
-		 *  0x63 c0ffee00 60 e0 1b 5f 52 60 20 5f f3
-		 */
 		const address = randomAddress();
 		await testClient.setCode({
 			address,
-			// Runtime bytecode: PUSH4 0xc0ffee00 │ PUSH1 0xe0 │ SHL │ PUSH0 │ MSTORE │ PUSH1 0x20 │ PUSH0 │ RETURN
-			// Encoded: 0x63 c0ffee00 60 e0 1b 5f 52 60 20 5f f3
-			bytecode: "0x63c0ffee0060e01b5f5260205ff3",
+			bytecode: getMockERC1271InvalidBytecode(),
 		});
 
 		const dataHash = keccak256(toHex("test message"));
@@ -502,33 +466,10 @@ describe("isValidERC1271Signature", () => {
 	});
 
 	test("should handle empty signature data", async () => {
-		/*
-		 * Minimal runtime that *always* returns a 32-byte word whose first 4 bytes
-		 * are `0x1626ba7e`. This matches the bytes32 variant of EIP-1271’s magic value so
-		 * that the validator should mark the signature as **valid**.
-		 *
-		 *  ┌────────┬──────────────────┬────────────────────────────────────────┬─────────────────────────────────────────────┐
-		 *  │ Byte   │ Instruction      │ Stack after execution                  │ Comment                                     │
-		 *  ├────────┼──────────────────┼────────────────────────────────────────┼─────────────────────────────────────────────┤
-		 *  │ 0x63   │ PUSH4 0x1626ba7e │ 0x1626ba7e                             │ Push constant                               │
-		 *  │ 0x60   │ PUSH1 0xe0       │ 0x1626ba7e 0xe0                        │ Shift amount = 224 bits (28 bytes)          │
-		 *  │ 0x1b   │ SHL              │ 0x1626ba7e << 224                      │ Move constant into the *high* 4 bytes       │
-		 *  │ 0x5f   │ PUSH0            │ 0x00 <value>                           │ Destination offset (memory 0)               │
-		 *  │ 0x52   │ MSTORE           │ –                                      │ mstore(0, value)                            │
-		 *  │ 0x60   │ PUSH1 0x20       │ 0x20                                   │ Return size = 32                            │
-		 *  │ 0x5f   │ PUSH0            │ 0x00 0x20                              │ Return offset = 0                           │
-		 *  │ 0xf3   │ RETURN           │ –                                      │ return(0, 32)                               │
-		 *  └────────┴──────────────────┴────────────────────────────────────────┴─────────────────────────────────────────────┘
-		 *
-		 *  Concatenated bytecode (spaces added for readability):
-		 *  0x63 1626ba7e 60 e0 1b 5f 52 60 20 5f f3
-		 */
 		const address = randomAddress();
 		await testClient.setCode({
 			address,
-			// Runtime bytecode: PUSH4 0xc0ffee00 │ PUSH1 0xe0 │ SHL │ PUSH0 │ MSTORE │ PUSH1 0x20 │ PUSH0 │ RETURN
-			// Encoded: 0x63  60 e0 1b 5f 52 60 20 5f f3
-			bytecode: "0x631626ba7e60e01b5f5260205ff3",
+			bytecode: getMockERC1271ValidBytecode(),
 		});
 
 		const dataHash = keccak256(toHex("test message"));
@@ -550,33 +491,10 @@ describe("isValidERC1271Signature", () => {
 	});
 
 	test("should handle large signature payloads", async () => {
-		/*
-		 * Minimal runtime that *always* returns a 32-byte word whose first 4 bytes
-		 * are `0x1626ba7e`. This matches the bytes32 variant of EIP-1271’s magic value so
-		 * that the validator should mark the signature as **valid**.
-		 *
-		 *  ┌────────┬──────────────────┬────────────────────────────────────────┬─────────────────────────────────────────────┐
-		 *  │ Byte   │ Instruction      │ Stack after execution                  │ Comment                                     │
-		 *  ├────────┼──────────────────┼────────────────────────────────────────┼─────────────────────────────────────────────┤
-		 *  │ 0x63   │ PUSH4 0x1626ba7e │ 0x1626ba7e                             │ Push constant                               │
-		 *  │ 0x60   │ PUSH1 0xe0       │ 0x1626ba7e 0xe0                        │ Shift amount = 224 bits (28 bytes)          │
-		 *  │ 0x1b   │ SHL              │ 0x1626ba7e << 224                      │ Move constant into the *high* 4 bytes       │
-		 *  │ 0x5f   │ PUSH0            │ 0x00 <value>                           │ Destination offset (memory 0)               │
-		 *  │ 0x52   │ MSTORE           │ –                                      │ mstore(0, value)                            │
-		 *  │ 0x60   │ PUSH1 0x20       │ 0x20                                   │ Return size = 32                            │
-		 *  │ 0x5f   │ PUSH0            │ 0x00 0x20                              │ Return offset = 0                           │
-		 *  │ 0xf3   │ RETURN           │ –                                      │ return(0, 32)                               │
-		 *  └────────┴──────────────────┴────────────────────────────────────────┴─────────────────────────────────────────────┘
-		 *
-		 *  Concatenated bytecode (spaces added for readability):
-		 *  0x63 1626ba7e 60 e0 1b 5f 52 60 20 5f f3
-		 */
 		const address = randomAddress();
 		await testClient.setCode({
 			address,
-			// Runtime bytecode: PUSH4 0xc0ffee00 │ PUSH1 0xe0 │ SHL │ PUSH0 │ MSTORE │ PUSH1 0x20 │ PUSH0 │ RETURN
-			// Encoded: 0x63  60 e0 1b 5f 52 60 20 5f f3
-			bytecode: "0x631626ba7e60e01b5f5260205ff3",
+			bytecode: getMockERC1271ValidBytecode(),
 		});
 
 		const dataHash = keccak256(toHex("test message"));
@@ -1015,7 +933,7 @@ describe("validateSignature", () => {
 			const mockAddress = randomAddress();
 			await testClient.setCode({
 				address: mockAddress,
-				bytecode: ERC1271_MOCK_BYTECODE,
+				bytecode: getMockERC1271ValidBytecode(),
 			});
 
 			const dataHash = keccak256(toHex("test message"));
@@ -1070,7 +988,7 @@ describe("validateSignature", () => {
 			const mockAddress = randomAddress();
 			await testClient.setCode({
 				address: mockAddress,
-				bytecode: ERC1271_MOCK_BYTECODE,
+				bytecode: getMockERC1271ValidBytecode(),
 			});
 
 			const data = toHex("test message");
