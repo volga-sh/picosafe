@@ -3,9 +3,10 @@ import {
 	concatHex,
 	encodeFunctionData,
 	hashMessage,
+	hexToBytes,
 	keccak256,
-	toHex,
 	parseAbi,
+	toHex,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterEach, beforeEach, describe, expect, it, test } from "vitest";
@@ -17,20 +18,10 @@ import {
 	encodeSafeSignaturesBytes,
 	getApprovedHashSignatureBytes,
 } from "../src/safe-signatures";
-import type {
-	PicosafeSignature,
-	FullSafeTransaction,
-} from "../src/types";
+import type { FullSafeTransaction, PicosafeSignature } from "../src/types";
 import { Operation } from "../src/types";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress, randomBytesHex } from "./utils";
-
-// Safe owner management ABI - these functions are not in the main Safe ABI
-const SAFE_OWNER_ABI = parseAbi([
-	"function addOwnerWithThreshold(address owner, uint256 _threshold)",
-	"function removeOwner(address prevOwner, address owner, uint256 _threshold)",
-	"function changeThreshold(uint256 _threshold)",
-]);
 
 describe("encodeSafeSignaturesBytes", () => {
 	it("should encode single ECDSA signature", () => {
@@ -157,7 +148,7 @@ describe("checkNSignatures", () => {
 
 	beforeEach(async () => {
 		resetSnapshot = await snapshot(testClient);
-		
+
 		// Setup Safe with 3 owners and threshold of 2
 		owners = [
 			walletClients[0].account.address,
@@ -168,7 +159,6 @@ describe("checkNSignatures", () => {
 		const deployment = await deploySafeAccount(publicClient, {
 			owners,
 			threshold: 2n,
-			saltNonce: BigInt(Date.now()),
 		});
 
 		const deploymentTx = await deployment.send();
@@ -204,7 +194,6 @@ describe("checkNSignatures", () => {
 
 	describe("valid signatures", () => {
 		test("should validate correct ECDSA signatures (EIP-712)", async () => {
-			// Sign with two owners
 			const sig1 = await walletClients[0].account.sign?.({
 				hash: txHash,
 			});
@@ -221,18 +210,17 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: sig2 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
-				data: "0x", // Empty data for simple transfer
+				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate with encoded signatures hex", async () => {
-			// Sign with two owners
 			const sig1 = await walletClients[0].account.sign?.({
 				hash: txHash,
 			});
@@ -251,26 +239,22 @@ describe("checkNSignatures", () => {
 
 			const encodedSigs = encodeSafeSignaturesBytes(signatures);
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures: encodedSigs,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate eth_sign signatures", async () => {
-			// For eth_sign, we sign the transaction hash directly
-			// The Safe contract will apply the Ethereum signed message prefix internally
-			// when it sees v=31 or v=32
-			
-			const sig1 = await walletClients[0].account.sign?.({
-				hash: txHash,
+			const sig1 = await walletClients[0].account.signMessage?.({
+				message: { raw: hexToBytes(txHash) },
 			});
-			const sig2 = await walletClients[1].account.sign?.({
-				hash: txHash,
+			const sig2 = await walletClients[1].account.signMessage?.({
+				message: { raw: hexToBytes(txHash) },
 			});
 
 			if (!sig1 || !sig2) {
@@ -280,22 +264,24 @@ describe("checkNSignatures", () => {
 			// Convert v values from 27/28 to 31/32 for eth_sign
 			const v1 = Number.parseInt(sig1.slice(-2), 16);
 			const v2 = Number.parseInt(sig2.slice(-2), 16);
-			const ethSignSig1 = (sig1.slice(0, -2) + (v1 + 4).toString(16).padStart(2, '0')) as Hex;
-			const ethSignSig2 = (sig2.slice(0, -2) + (v2 + 4).toString(16).padStart(2, '0')) as Hex;
+			const ethSignSig1 = (sig1.slice(0, -2) +
+				(v1 + 4).toString(16).padStart(2, "0")) as Hex;
+			const ethSignSig2 = (sig2.slice(0, -2) +
+				(v2 + 4).toString(16).padStart(2, "0")) as Hex;
 
-			const signatures: PicosafeSignature[] = [
+			const signatures = encodeSafeSignaturesBytes([
 				{ signer: owners[0], data: ethSignSig1 },
 				{ signer: owners[1], data: ethSignSig2 },
-			];
+			]);
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate pre-approved hash signatures", async () => {
@@ -328,14 +314,14 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: ecdsaSig },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate EIP-1271 contract signatures", async () => {
@@ -395,14 +381,14 @@ describe("checkNSignatures", () => {
 				{ signer: mockSigner, data: contractSigData, dynamic: true },
 			];
 
-			const isValid = await checkNSignatures(publicClient, testSafeAddress, {
+			const { valid } = await checkNSignatures(publicClient, testSafeAddress, {
 				dataHash: testTxHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate mixed signature types", async () => {
@@ -476,14 +462,14 @@ describe("checkNSignatures", () => {
 				{ signer: mockSigner, data: contractSigData, dynamic: true }, // EIP-1271
 			];
 
-			const isValid = await checkNSignatures(publicClient, testSafeAddress, {
+			const { valid } = await checkNSignatures(publicClient, testSafeAddress, {
 				dataHash: testTxHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 3n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate with more signatures than required", async () => {
@@ -495,18 +481,18 @@ describe("checkNSignatures", () => {
 					});
 					if (!sig) throw new Error("Failed to sign");
 					return { signer: owner, data: sig };
-				})
+				}),
 			);
 
 			// Check with only 2 required (threshold is 2)
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures: sigs,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate with exact required signatures", async () => {
@@ -527,14 +513,14 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: sig2 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate with block parameter", async () => {
@@ -554,7 +540,7 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: sig2 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
@@ -562,7 +548,7 @@ describe("checkNSignatures", () => {
 				block: "latest",
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 	});
 
@@ -581,14 +567,14 @@ describe("checkNSignatures", () => {
 				{ signer: owners[0], data: sig1 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should return false for signatures from non-owners", async () => {
@@ -608,14 +594,14 @@ describe("checkNSignatures", () => {
 				{ signer: nonOwner2.address, data: sig2 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should return false for duplicate signers", async () => {
@@ -634,20 +620,20 @@ describe("checkNSignatures", () => {
 				{ signer: owners[0], data: sig1 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should return false for invalid signature data", async () => {
 			// Create signatures with wrong hash
 			const wrongHash = keccak256(toHex("wrong data"));
-			
+
 			const sig1 = await walletClients[0].account.sign?.({
 				hash: wrongHash,
 			});
@@ -664,20 +650,20 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: sig2 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash, // Different hash than what was signed
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should return false for malformed signatures", async () => {
 			// Test with too short signature
 			const shortSig = "0x1234" as Hex;
-			
+
 			// First test with a single short signature that will throw
 			await expect(
 				checkNSignatures(publicClient, safeAddress, {
@@ -685,7 +671,7 @@ describe("checkNSignatures", () => {
 					data: "0x",
 					signatures: [{ signer: owners[0], data: shortSig }],
 					requiredSignatures: 1n,
-				})
+				}),
 			).rejects.toThrow("Invalid ECDSA signature length");
 
 			// Test with random data that looks valid in length but is invalid
@@ -694,14 +680,14 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: randomBytesHex(65) },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should return false for EIP-1271 contract returning wrong magic value", async () => {
@@ -757,14 +743,14 @@ describe("checkNSignatures", () => {
 				{ signer: mockSigner, data: randomBytesHex(65), dynamic: true },
 			];
 
-			const isValid = await checkNSignatures(publicClient, testSafeAddress, {
+			const { valid } = await checkNSignatures(publicClient, testSafeAddress, {
 				dataHash: testTxHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should return false for unapproved hash signatures", async () => {
@@ -783,14 +769,14 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: ecdsaSig },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should return false when signatures not sorted by signer", async () => {
@@ -811,14 +797,14 @@ describe("checkNSignatures", () => {
 				owners[0] > owners[1] ? sig2 : sig1,
 			]);
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures: encoded,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 	});
 
@@ -832,7 +818,7 @@ describe("checkNSignatures", () => {
 					data: "0x",
 					signatures,
 					requiredSignatures: 0n,
-				})
+				}),
 			).rejects.toThrow("Required signatures must be greater than 0");
 
 			await expect(
@@ -841,21 +827,21 @@ describe("checkNSignatures", () => {
 					data: "0x",
 					signatures,
 					requiredSignatures: -1n,
-				})
+				}),
 			).rejects.toThrow("Required signatures must be greater than 0");
 		});
 
 		test("should handle empty signatures array", async () => {
 			const signatures: PicosafeSignature[] = [];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 1n,
 			});
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should handle contract without checkNSignatures function", async () => {
@@ -874,7 +860,7 @@ describe("checkNSignatures", () => {
 				{ signer: owners[0], data: sig1 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, nonSafeAddress, {
+			const { valid } = await checkNSignatures(publicClient, nonSafeAddress, {
 				dataHash: txHash,
 				data: "0x",
 				signatures,
@@ -882,7 +868,7 @@ describe("checkNSignatures", () => {
 			});
 
 			// Calling a non-existent contract should return false
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
 		});
 
 		test("should handle provider errors gracefully", async () => {
@@ -904,14 +890,19 @@ describe("checkNSignatures", () => {
 				{ signer: owners[0], data: sig1 },
 			];
 
-			const isValid = await checkNSignatures(mockProvider as any, safeAddress, {
-				dataHash: txHash,
-				data: "0x",
-				signatures,
-				requiredSignatures: 1n,
-			});
+			const { valid, error } = await checkNSignatures(
+				mockProvider,
+				safeAddress,
+				{
+					dataHash: txHash,
+					data: "0x",
+					signatures,
+					requiredSignatures: 1n,
+				},
+			);
 
-			expect(isValid).toBe(false);
+			expect(valid).toBe(false);
+			expect(error?.message).toContain("Network error");
 		});
 	});
 
@@ -969,20 +960,20 @@ describe("checkNSignatures", () => {
 				{ signer: owners[1], data: sig2 },
 			];
 
-			const isValid = await checkNSignatures(publicClient, safeAddress, {
+			const { valid } = await checkNSignatures(publicClient, safeAddress, {
 				dataHash: complexTxHash,
 				data: calldata,
 				signatures,
 				requiredSignatures: 2n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 
 		test("should validate with maximum allowed signatures", async () => {
 			// Deploy a Safe with many owners
 			const manyOwners = Array.from({ length: 10 }, () =>
-				privateKeyToAccount(generatePrivateKey())
+				privateKeyToAccount(generatePrivateKey()),
 			);
 
 			const deployment = await deploySafeAccount(publicClient, {
@@ -1022,17 +1013,17 @@ describe("checkNSignatures", () => {
 						hash: manyTxHash,
 					});
 					return { signer: owner.address, data: sig };
-				})
+				}),
 			);
 
-			const isValid = await checkNSignatures(publicClient, manySafeAddress, {
+			const { valid } = await checkNSignatures(publicClient, manySafeAddress, {
 				dataHash: manyTxHash,
 				data: "0x",
 				signatures,
 				requiredSignatures: 5n,
 			});
 
-			expect(isValid).toBe(true);
+			expect(valid).toBe(true);
 		});
 	});
 });
