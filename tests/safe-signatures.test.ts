@@ -992,7 +992,7 @@ describe("validateSignaturesForSafe", () => {
 			expect(validation.results[1]?.validatedSigner).toBe(owners[1]);
 		});
 
-		test.only("should validate mixed signature types", async () => {
+		test("should validate mixed signature types", async () => {
 			// Deploy a mock contract signer
 			const mockSigner = randomAddress();
 			await testClient.setCode({
@@ -1088,7 +1088,6 @@ describe("validateSignaturesForSafe", () => {
 					dataHash: testTxHash,
 				},
 			);
-			console.dir({ validation }, { depth: null });
 
 			expect(validation.valid).toBe(true);
 			expect(validation.results).toHaveLength(4);

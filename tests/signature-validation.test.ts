@@ -4,6 +4,7 @@ import {
 	encodeFunctionData,
 	hashMessage,
 	keccak256,
+	toBytes,
 	toHex,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -865,7 +866,7 @@ describe("validateSignature", () => {
 			const privateKey = generatePrivateKey();
 			const account = privateKeyToAccount(privateKey);
 			const dataHash = keccak256(toHex("test message"));
-			const ethSignHash = hashMessage(dataHash);
+			const ethSignHash = hashMessage({ raw: toBytes(dataHash) });
 
 			const signature = await account.sign({
 				hash: ethSignHash,
@@ -897,7 +898,7 @@ describe("validateSignature", () => {
 			const privateKey = generatePrivateKey();
 			const account = privateKeyToAccount(privateKey);
 			const dataHash = keccak256(toHex("test message"));
-			const ethSignHash = hashMessage(dataHash);
+			const ethSignHash = hashMessage({ raw: toBytes(dataHash) });
 
 			const signature = await account.sign({
 				hash: ethSignHash,

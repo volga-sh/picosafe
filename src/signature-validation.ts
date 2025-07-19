@@ -1,5 +1,5 @@
 import type { Address, Hex } from "viem";
-import { encodeFunctionData, hashMessage, recoverAddress } from "viem";
+import { encodeFunctionData, hashMessage, recoverAddress, toBytes } from "viem";
 import {
 	PARSED_ERC_1271_ABI_CURRENT,
 	PARSED_ERC_1271_ABI_LEGACY,
@@ -420,6 +420,20 @@ async function isValidApprovedHashSignature(
  * - **Contract signatures** (v=0): EIP-1271 signatures validated by calling the signer contract
  * - **Pre-approved hashes** (v=1): On-chain approvals checked via Safe's approvedHashes
  *
+ * ### eth_sign Signature Handling (v=31,32)
+ *
+ * Safe uses special v-bytes (31,32) to distinguish eth_sign signatures from EIP-712 signatures.
+ * When validating eth_sign signatures, this function:
+ *
+ * 1. Detects v=31 or v=32 indicating an eth_sign signature
+ * 2. Adjusts the v-byte by subtracting 4 (31→27, 32→28) for standard ecrecover
+ * 3. Converts the hash to bytes and wraps it with the Ethereum Signed Message prefix
+ * 4. Validates against the prefixed hash to recover the original signer
+ *
+ * **Important**: When creating eth_sign signatures, the transaction hash must be treated as raw bytes,
+ * not as a hex-encoded string. This means using `hashMessage({ raw: toBytes(dataHash) })` rather than
+ * `hashMessage(dataHash)`. This ensures the correct message format for eth_sign validation.
+ *
  * This function only validates the signature itself - it does not check if the signer
  * is a Safe owner. For complete validation including owner checks, use
  * `validateSignaturesForSafe` from safe-signatures.ts.
@@ -472,6 +486,31 @@ async function isValidApprovedHashSignature(
  *   dataHash: dataHash
  * });
  * ```
+ * @example
+ * ```typescript
+ * import { validateSignature, calculateSafeTransactionHash, hashMessage, toBytes } from "picosafe";
+ *
+ * // Validate an eth_sign signature (v=31 or 32)
+ * const txHash = await calculateSafeTransactionHash(provider, safeAddress, safeTx);
+ *
+ * // For eth_sign, the hash must be treated as bytes when signing
+ * const ethSignHash = hashMessage({ raw: toBytes(txHash) });
+ * const ethSignSignature = await signer.sign({ hash: ethSignHash });
+ *
+ * // Adjust v-byte from 27/28 to 31/32 for eth_sign
+ * const vByte = parseInt(ethSignSignature.slice(-2), 16);
+ * const adjustedSignature = ethSignSignature.slice(0, -2) + (vByte + 4).toString(16);
+ *
+ * const signature = {
+ *   signer: expectedSigner,
+ *   data: adjustedSignature // 65 bytes with v=31 or 32
+ * };
+ *
+ * // The function automatically detects eth_sign by v-byte and handles the conversion
+ * const result = await validateSignature(provider, signature, {
+ *   dataHash: txHash
+ * });
+ * ```
  * @see {@link SignatureTypeVByte} for all supported signature types
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L284
  */
@@ -517,7 +556,7 @@ async function validateSignature<T extends PicosafeSignature>(
 		case SignatureTypeVByte.EIP712_RECID_1:
 		case SignatureTypeVByte.EIP712_RECID_2: {
 			return isValidECDSASignature(
-				sigWithData as ECDSASignature,
+				sigWithData,
 				(validationData as { dataHash: Hex }).dataHash,
 			) as Promise<SignatureValidationResult<T>>;
 		}
@@ -525,10 +564,18 @@ async function validateSignature<T extends PicosafeSignature>(
 		case SignatureTypeVByte.ETH_SIGN_RECID_1:
 		case SignatureTypeVByte.ETH_SIGN_RECID_2: {
 			const adjustedSig = adjustEthSignSignature(sigWithData.data, vByte);
-			return isValidECDSASignature(
-				{ ...sigWithData, data: adjustedSig } as ECDSASignature,
-				hashMessage((validationData as { dataHash: Hex }).dataHash),
-			) as Promise<SignatureValidationResult<T>>;
+			const validationResult = await isValidECDSASignature(
+				{ ...sigWithData, data: adjustedSig },
+				hashMessage({ raw: toBytes(validationData.dataHash as Hex) }),
+			);
+
+			// We should restore the validation result to the original message and signature
+			return {
+				valid: validationResult.valid,
+				validatedSigner: validationResult.validatedSigner,
+				signature: sigWithData,
+				error: validationResult.error,
+			} as unknown as SignatureValidationResult<T>;
 		}
 
 		default:
