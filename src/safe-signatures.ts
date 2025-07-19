@@ -805,7 +805,7 @@ async function validateSignaturesForSafe(
  */
 function getApprovedHashSignatureBytes(signer: Address): Hex {
 	return concatHex(
-		padStartHex(signer, 32), // Next 32 bytes are the signer address
+		padStartHex(signer, 32), // First 32 bytes are the signer address
 		padStartHex("00", 32), // First 32 bytes are zeros for approved hash
 		SignatureTypeVByte.APPROVED_HASH.toString(16).padStart(2, "0"), // v-byte
 	);
