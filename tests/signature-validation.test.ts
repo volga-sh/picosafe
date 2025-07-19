@@ -32,7 +32,6 @@ import { getChainId } from "../src/utilities/eip1193-provider";
 import { padStartHex } from "../src/utilities/encoding";
 import {
 	getMockERC1271InvalidBytecode,
-	getMockERC1271LegacyValidBytecode,
 	getMockERC1271ValidBytecode,
 } from "./fixtures/mock-bytecodes";
 import { createClients, snapshot } from "./fixtures/setup";
