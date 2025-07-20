@@ -31,7 +31,6 @@ type MessageTypeProperty = {
  * @param safeAddress - The address of the Safe contract to calculate the domain separator for
  * @param chainId - The EIP-155 chain ID where the Safe is deployed
  * @returns The 32-byte domain separator hash as a hex string
- * @throws {InvalidAddressError} If the Safe address is not a valid Ethereum address
  *
  * @example
  * ```typescript

@@ -52,8 +52,10 @@ const SAFE_STORAGE_SLOTS = {
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
  * @param safeAddress - The address of the Safe contract whose storage is being queried
- * @param slot - The storage slot position (as a hex Quantity) to read from
- * @param length - The number of consecutive slots to read (defaults to 1)
+ * @param storage - An object containing the storage slot to read and an optional length parameter
+ *                  - `slot`: The storage slot to read (as a Quantity)
+ *                  - `length`: Optional number of 32-byte slots to read (defaults to 1)
+ *                  If `length` is provided, it will read that many consecutive slots starting from the specified slot.
  * @param block - Optional block number or tag to query at (defaults to "latest")
  * @returns An array of Hex strings representing the raw storage values for each slot
  * @throws {Error} If the eth_call fails
@@ -399,6 +401,7 @@ async function getSingleton(
  *
  * @param provider - EIP-1193 compatible provider for blockchain interaction
  * @param safeAddress - Ethereum address of the Safe contract to query
+ * @param block - Optional block number or tag to query at (defaults to "latest")
  * @returns {Promise<Address[]>} Array of checksummed owner addresses in the order they are stored
  * @throws {Error} When address validation fails
  * @throws {Error} When the RPC call fails
