@@ -271,9 +271,7 @@ function isApprovedHashSignature(
 function isDynamicSignature(
 	signature: PicosafeSignature,
 ): signature is DynamicSignature {
-	return (
-		"data" in signature && "dynamic" in signature && signature.dynamic === true
-	);
+	return "data" in signature && "dynamic" in signature && signature.dynamic;
 }
 
 /**

@@ -103,7 +103,7 @@ function encodeWithSelector(
  * Each argument must be a valid hex string (with or without `0x` prefix). The result is a single
  * `0x`-prefixed hex string containing the concatenation of all input hex data (without duplicate prefixes).
  *
- * @param args - One or more hex strings to concatenate. Each may be `0x`-prefixed or not.
+ * @param parts - One or more hex strings to concatenate. Each may be `0x`-prefixed or not.
  * @returns A single `0x`-prefixed hex string containing the concatenated input.
  * @example
  * ```typescript

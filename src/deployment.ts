@@ -200,14 +200,12 @@ function calculateSafeAddress(
 		encodePacked(["bytes", "uint256"], [proxyBytecode, BigInt(singleton)]),
 	);
 
-	const address = getContractAddress({
+	return getContractAddress({
 		bytecodeHash,
 		from: proxyFactory,
 		opcode: "CREATE2",
 		salt,
 	});
-
-	return address;
 }
 
 /**
