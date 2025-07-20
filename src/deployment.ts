@@ -17,7 +17,7 @@ import { wrapEthereumTransaction } from "./utilities/wrapEthereumTransaction.js"
 /**
  * Configuration for deploying a Safe smart account
  */
-interface SafeDeploymentConfig {
+type SafeDeploymentConfig = {
 	/**
 	 * Array of owner addresses that will control the Safe
 	 */
@@ -83,14 +83,14 @@ interface SafeDeploymentConfig {
 	 * @default V141_ADDRESSES.SafeProxyFactory
 	 */
 	proxyFactory?: Address;
-}
+};
 
 type FullSafeDeploymentConfig = Required<SafeDeploymentConfig>;
 
 /**
  * Configuration for calculating a Safe address with pre-encoded setup data
  */
-interface SafeAddressCalculationWithSetupData {
+type SafeAddressCalculationWithSetupData = {
 	/**
 	 * Pre-encoded setup data for the Safe proxy
 	 */
@@ -113,7 +113,7 @@ interface SafeAddressCalculationWithSetupData {
 	 * @default V141_ADDRESSES.SafeProxyFactory
 	 */
 	proxyFactory?: Address;
-}
+};
 
 /**
  * Calculates the deterministic address for a Safe deployment using CREATE2
@@ -218,10 +218,11 @@ function calculateSafeAddress(
  * @param provider - EIP-1193 compatible provider for blockchain interaction
  * @param config - Safe deployment configuration (see {@link SafeDeploymentConfig} for field details)
  *
- * @returns {WrappedTransaction<{ safeAddress: Address }>} Wrapper containing:
+ * @returns {WrappedTransaction<{ safeAddress: Address; deploymentConfig: FullSafeDeploymentConfig }>} Wrapper containing:
  *          - rawTransaction: the transaction request object for deployment
  *          - send(overrides?): function to send the transaction, returning a promise resolving to the transaction hash
  *          - data.safeAddress: the predicted Safe proxy address
+ *          - data.deploymentConfig: the complete deployment configuration with all defaults applied
  *
  * @throws {Error} If provider is not connected or has no accounts
  * @throws {Error} If the deployment transaction fails or is rejected
@@ -251,6 +252,9 @@ function calculateSafeAddress(
  * // Get the predicted Safe address
  * console.log('Safe will be deployed at:', deployment.data.safeAddress);
  *
+ * // Access the complete deployment configuration
+ * console.log('Deployment config:', deployment.data.deploymentConfig);
+ *
  * // Send the deployment transaction
  * const txHash = await deployment.send();
  * console.log('Transaction hash:', txHash);
@@ -258,7 +262,7 @@ function calculateSafeAddress(
  *
  * @example
  * ```typescript
- * import { deploySafeAccount } from 'picosafe';
+ * import { deploySafeAccount, calculateSafeAddress } from 'picosafe';
  * import { parseEther } from 'viem';
  *
  * // Deploy with custom configuration and payment
@@ -275,13 +279,22 @@ function calculateSafeAddress(
  *
  * // Deploy the Safe
  * const txHash = await deployment.send();
+ *
+ * // Later, you can use the deploymentConfig to counterfactually deploy the same Safe
+ * const sameAddress = calculateSafeAddress(deployment.data.deploymentConfig);
+ * console.log('Addresses match:', sameAddress === deployment.data.safeAddress);
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/proxies/SafeProxyFactory.sol#L52
  */
 async function deploySafeAccount(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 	config: Readonly<SafeDeploymentConfig>,
-): Promise<WrappedTransaction<{ safeAddress: Address }>> {
+): Promise<
+	WrappedTransaction<{
+		safeAddress: Address;
+		deploymentConfig: FullSafeDeploymentConfig;
+	}>
+> {
 	const {
 		owners,
 		threshold,
@@ -329,7 +342,22 @@ async function deploySafeAccount(
 			to: proxyFactory,
 			data: deploymentData,
 		},
-		{ safeAddress: predictedAddress },
+		{
+			safeAddress: predictedAddress,
+			deploymentConfig: {
+				owners,
+				threshold,
+				UNSAFE_DELEGATECALL_to,
+				UNSAFE_DELEGATECALL_data,
+				fallbackHandler,
+				paymentToken,
+				payment,
+				paymentReceiver,
+				saltNonce,
+				singleton,
+				proxyFactory,
+			},
+		},
 	);
 }
 

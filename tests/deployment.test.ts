@@ -302,6 +302,98 @@ describe("Safe Deployment Functions", () => {
 			});
 		});
 
+		it("should return deploymentConfig with all defaults applied", async () => {
+			const owner = walletClient.account.address;
+
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [owner],
+				threshold: 1n,
+			});
+
+			// Verify deploymentConfig contains all fields with defaults
+			expect(deployment.data.deploymentConfig).toEqual({
+				owners: [owner],
+				threshold: 1n,
+				UNSAFE_DELEGATECALL_to: ZERO_ADDRESS,
+				UNSAFE_DELEGATECALL_data: "0x",
+				fallbackHandler: V141_ADDRESSES.CompatibilityFallbackHandler,
+				paymentToken: ZERO_ADDRESS,
+				payment: 0n,
+				paymentReceiver: ZERO_ADDRESS,
+				saltNonce: 0n,
+				singleton: V141_ADDRESSES.SafeL2,
+				proxyFactory: V141_ADDRESSES.SafeProxyFactory,
+			});
+		});
+
+		it("should return deploymentConfig with custom values preserved", async () => {
+			const owner = walletClient.account.address;
+			const customFallbackHandler = randomAddress();
+			const paymentReceiver = randomAddress();
+			const payment = parseEther("0.01");
+			const saltNonce = 42n;
+
+			// Deploy minimal bytecode to the fallback handler address
+			await testClient.setCode({
+				address: customFallbackHandler,
+				bytecode: "0x5f5ff3", // PUSH0 PUSH0 RETURN
+			});
+
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [owner],
+				threshold: 1n,
+				fallbackHandler: customFallbackHandler,
+				payment,
+				paymentReceiver,
+				saltNonce,
+				singleton: V141_ADDRESSES.Safe, // Use L1 version
+			});
+
+			// Verify deploymentConfig contains all custom values
+			expect(deployment.data.deploymentConfig).toEqual({
+				owners: [owner],
+				threshold: 1n,
+				UNSAFE_DELEGATECALL_to: ZERO_ADDRESS,
+				UNSAFE_DELEGATECALL_data: "0x",
+				fallbackHandler: customFallbackHandler,
+				paymentToken: ZERO_ADDRESS,
+				payment,
+				paymentReceiver,
+				saltNonce,
+				singleton: V141_ADDRESSES.Safe,
+				proxyFactory: V141_ADDRESSES.SafeProxyFactory,
+			});
+		});
+
+		it("should allow using deploymentConfig to calculate same address", async () => {
+			const owner = walletClient.account.address;
+			const saltNonce = 999n;
+
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [owner],
+				threshold: 1n,
+				saltNonce,
+			});
+
+			// Calculate address using the returned deploymentConfig
+			const calculatedAddress = calculateSafeAddress(
+				deployment.data.deploymentConfig,
+			);
+
+			// Should match the predicted address
+			expect(calculatedAddress).toBe(deployment.data.safeAddress);
+
+			// Deploy and verify it ends up at the same address
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+			const bytecode = await publicClient.getCode({
+				address: calculatedAddress,
+			});
+			expect(bytecode).toBeDefined();
+			expect(bytecode).not.toBe("0x");
+		});
+
 		it("should deploy with custom saltNonce for deterministic addresses", async () => {
 			const owner = walletClient.account.address;
 			const saltNonce = 12345n;
