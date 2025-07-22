@@ -4,6 +4,9 @@ A minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.
 
 **⚠️ Work in Progress**: This project is under active development and not yet ready for production use.
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/volga-sh/picosafe)
+
+
 ## Overview
 
 PicoSafe provides modules for:
