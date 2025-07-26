@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "ts-node 1-basic-account-deployment.ts",
+		"typecheck": "tsc --noEmit",
 		"test": "echo 'No tests'"
 	},
 	"dependencies": {

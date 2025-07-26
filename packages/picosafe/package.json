@@ -19,6 +19,7 @@
 	"scripts": {
 		"build": "tsup",
 		"dev": "tsup --watch",
+		"prepare": "npm run build",n
 		"test:ui": "vitest --ui",
 		"test:run": "vitest run",
 		"test": "./tests/scripts/run_tests.sh",
