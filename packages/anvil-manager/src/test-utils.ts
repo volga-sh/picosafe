@@ -8,7 +8,7 @@ import type { AnvilOptions } from "./types.js";
  * @example
  * ```typescript
  * import { getTestAnvilPort } from "@volga/anvil-manager";
- * 
+ *
  * const workerId = parseInt(process.env.VITEST_WORKER_ID || "0");
  * const port = getTestAnvilPort(workerId);
  * console.log(`Worker ${workerId} will use port ${port}`);
@@ -20,7 +20,19 @@ export function getTestAnvilPort(workerId: number, basePort = 8545): number {
 			`Invalid workerId: ${workerId}. Expected a non-negative integer.`,
 		);
 	}
-	return basePort + workerId;
+
+	const port = basePort + workerId;
+
+	// Validate resulting port is in valid range
+	if (port < 1024 || port > 65535) {
+		throw new Error(
+			`Calculated port ${port} is out of valid range. ` +
+				"Port must be between 1024 and 65535. " +
+				`Consider using a different base port (current: ${basePort}) or limiting worker count.`,
+		);
+	}
+
+	return port;
 }
 
 /**
@@ -31,7 +43,7 @@ export function getTestAnvilPort(workerId: number, basePort = 8545): number {
  * @example
  * ```typescript
  * import { createTestAnvilOptions, startAnvil } from "@volga/anvil-manager";
- * 
+ *
  * const workerId = parseInt(process.env.VITEST_WORKER_ID || "0");
  * const options = createTestAnvilOptions(workerId, "./genesis.json");
  * const anvil = await startAnvil(options);
@@ -54,10 +66,7 @@ export function createTestAnvilOptions(
 }
 
 // Global storage for test Anvil instances to prevent duplicates
-declare global {
-	// biome-ignore lint/style/noVar: Need var for global declaration
-	var __anvil_process__: ReturnType<typeof import("node:child_process").spawn> | undefined;
-}
+// See test-env.d.ts for the global type declaration
 
 /**
  * Get the globally stored Anvil process for the current test worker

@@ -13,7 +13,9 @@
 			"require": "./dist/index.cjs"
 		}
 	},
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"scripts": {
 		"build": "tsup",
 		"dev": "tsup --watch",
@@ -39,6 +41,12 @@
 		"url": "https://github.com/volga-tech/picosafe.git",
 		"directory": "packages/anvil-manager"
 	},
-	"keywords": ["anvil", "ethereum", "foundry", "testing", "blockchain"],
+	"keywords": [
+		"anvil",
+		"ethereum",
+		"foundry",
+		"testing",
+		"blockchain"
+	],
 	"license": "MIT"
 }

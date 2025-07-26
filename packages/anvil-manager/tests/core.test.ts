@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { startAnvil, stopAnvil } from "../src/core.js";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { anvil } from "viem/chains";
+import { describe, expect, it } from "vitest";
+import { startAnvil } from "../src/core.js";
 
 describe("Core Anvil Management", () => {
 	it("should start and stop an Anvil instance", async () => {
@@ -64,7 +64,7 @@ describe("Core Anvil Management", () => {
 
 	it("should handle port conflicts gracefully", async () => {
 		const instance1 = await startAnvil({ port: 8550 });
-		
+
 		// Anvil should panic when trying to bind to an already-used port
 		// But our startAnvil function might not catch this properly yet
 		// Let's test that the first instance is still working
@@ -76,7 +76,7 @@ describe("Core Anvil Management", () => {
 		expect(blockNumber).toBeDefined();
 
 		await instance1.stop();
-		
+
 		// Now we should be able to start on the same port
 		const instance2 = await startAnvil({ port: 8550 });
 		expect(instance2.port).toBe(8550);
@@ -136,4 +136,35 @@ describe("Core Anvil Management", () => {
 		expect(instance.port).toBe(8553);
 		await instance.stop();
 	}, 10000); // Increase timeout for this test
+
+	it("should reject privileged ports below 1024", async () => {
+		await expect(startAnvil({ port: 80 })).rejects.toThrow(
+			/Invalid port number: 80\. Port must be between 1024 and 65535/,
+		);
+		await expect(startAnvil({ port: 443 })).rejects.toThrow(
+			/Invalid port number: 443\. Port must be between 1024 and 65535/,
+		);
+		await expect(startAnvil({ port: 1023 })).rejects.toThrow(
+			/Invalid port number: 1023\. Port must be between 1024 and 65535/,
+		);
+	});
+
+	it("should reject ports above 65535", async () => {
+		await expect(startAnvil({ port: 65536 })).rejects.toThrow(
+			/Invalid port number: 65536\. Port must be between 1024 and 65535/,
+		);
+		await expect(startAnvil({ port: 70000 })).rejects.toThrow(
+			/Invalid port number: 70000\. Port must be between 1024 and 65535/,
+		);
+	});
+
+	it("should accept valid ports between 1024 and 65535", async () => {
+		const instance = await startAnvil({ port: 1024 });
+		expect(instance.port).toBe(1024);
+		await instance.stop();
+
+		const instance2 = await startAnvil({ port: 65535 });
+		expect(instance2.port).toBe(65535);
+		await instance2.stop();
+	});
 });

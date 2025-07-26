@@ -13,8 +13,8 @@ const DEFAULT_MAX_BACKOFF_DELAY_MS = 3200;
  * @throws {Error} If the instance doesn't become ready within the maximum attempts
  * @example
  * ```typescript
- * import { waitForAnvil } from "@volga/anvil-manager/health";
- * 
+ * import { waitForAnvil } from "@volga/anvil-manager";
+ *
  * await waitForAnvil("http://localhost:8545");
  * console.log("Anvil is ready!");
  * ```

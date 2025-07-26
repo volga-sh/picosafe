@@ -1,19 +1,17 @@
 // Core functionality
 export { startAnvil, stopAnvil } from "./core.js";
-export { withAnvil } from "./with-anvil.js";
 export { waitForAnvil } from "./health.js";
-
 // Test utilities
 export {
-	getTestAnvilPort,
 	createTestAnvilOptions,
 	getGlobalAnvilProcess,
+	getTestAnvilPort,
 	setGlobalAnvilProcess,
 } from "./test-utils.js";
-
 // Types
 export type {
-	AnvilOptions,
 	AnvilInstance,
+	AnvilOptions,
 	HealthCheckOptions,
 } from "./types.js";
+export { withAnvil } from "./with-anvil.js";

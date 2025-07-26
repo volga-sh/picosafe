@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import type { AnvilInstance, AnvilOptions } from "./types.js";
 import { waitForAnvil } from "./health.js";
+import type { AnvilInstance, AnvilOptions } from "./types.js";
 
 const DEFAULT_PORT = 8545;
 const DEFAULT_ACCOUNTS = 10;
@@ -15,15 +15,15 @@ const GRACEFUL_SHUTDOWN_DELAY_MS = 500;
  * @example
  * ```typescript
  * import { startAnvil } from "@volga/anvil-manager";
- * 
+ *
  * const anvil = await startAnvil({
  *   port: 8545,
  *   accounts: 10,
  *   balance: "10000"
  * });
- * 
+ *
  * console.log(`Anvil running at ${anvil.rpcUrl}`);
- * 
+ *
  * // Later, stop the instance
  * await anvil.stop();
  * ```
@@ -41,6 +41,14 @@ export async function startAnvil(
 		blockTime,
 		additionalArgs = [],
 	} = options;
+
+	// Validate port number
+	if (port < 1024 || port > 65535) {
+		throw new Error(
+			`Invalid port number: ${port}. Port must be between 1024 and 65535. ` +
+				"Ports 1-1023 are privileged and require root access.",
+		);
+	}
 
 	const args: string[] = [
 		"--port",
@@ -72,25 +80,39 @@ export async function startAnvil(
 
 	// Track if we're still in startup phase
 	let isStarting = true;
-	
+
 	// Handle spawn errors and early exits
 	const spawnErrorPromise = new Promise<never>((_, reject) => {
 		anvilProcess.on("error", (error) => {
-			reject(
-				new Error(
-					`Failed to start Anvil: ${error.message}. ` +
-						`Please ensure 'anvil' is installed and available in your PATH.`,
-				),
-			);
+			// Check if it's a "command not found" error
+			if ("code" in error && error.code === "ENOENT") {
+				reject(
+					new Error(
+						"Anvil is not installed or not found in PATH.\n" +
+							"Please install Foundry by visiting https://getfoundry.sh/\n" +
+							"Quick install: curl -L https://foundry.paradigm.xyz | bash",
+					),
+				);
+			} else {
+				reject(
+					new Error(
+						`Failed to start Anvil: ${error.message}. ` +
+							`Please ensure 'anvil' is installed and available in your PATH.`,
+					),
+				);
+			}
 		});
-		
+
 		// Also handle if the process exits immediately (e.g., due to bad arguments)
-		const exitHandler = (code: number | null, signal: NodeJS.Signals | null) => {
+		const exitHandler = (
+			code: number | null,
+			signal: NodeJS.Signals | null,
+		) => {
 			if (isStarting && code !== 0) {
 				reject(
 					new Error(
 						`Anvil process exited with code ${code}${signal ? ` (signal: ${signal})` : ""}. ` +
-						`This could be due to invalid arguments or port conflicts.`,
+							"This could be due to invalid arguments or port conflicts.",
 					),
 				);
 			}
@@ -150,7 +172,7 @@ export async function startAnvil(
  * @example
  * ```typescript
  * import { startAnvil, stopAnvil } from "@volga/anvil-manager";
- * 
+ *
  * const anvil = await startAnvil();
  * // Use the instance...
  * await stopAnvil(anvil);

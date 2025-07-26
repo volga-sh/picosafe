@@ -1,11 +1,11 @@
+import { spawn } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import {
-	getTestAnvilPort,
 	createTestAnvilOptions,
 	getGlobalAnvilProcess,
+	getTestAnvilPort,
 	setGlobalAnvilProcess,
 } from "../src/test-utils.js";
-import { spawn } from "node:child_process";
 
 describe("Test Utilities", () => {
 	describe("getTestAnvilPort", () => {
@@ -23,7 +23,31 @@ describe("Test Utilities", () => {
 		it("should throw for invalid worker IDs", () => {
 			expect(() => getTestAnvilPort(-1)).toThrow("Invalid workerId");
 			expect(() => getTestAnvilPort(1.5)).toThrow("Invalid workerId");
-			expect(() => getTestAnvilPort(NaN)).toThrow("Invalid workerId");
+			expect(() => getTestAnvilPort(Number.NaN)).toThrow("Invalid workerId");
+		});
+
+		it("should throw when calculated port exceeds valid range", () => {
+			// Test port going above 65535
+			expect(() => getTestAnvilPort(60000, 8545)).toThrow(
+				/Calculated port 68545 is out of valid range/,
+			);
+
+			// Test port going below 1024
+			expect(() => getTestAnvilPort(0, 1023)).toThrow(
+				/Calculated port 1023 is out of valid range/,
+			);
+			expect(() => getTestAnvilPort(0, 500)).toThrow(
+				/Calculated port 500 is out of valid range/,
+			);
+		});
+
+		it("should suggest solutions when port is out of range", () => {
+			try {
+				getTestAnvilPort(100000, 8545);
+			} catch (error) {
+				expect(error.message).toContain("Consider using a different base port");
+				expect(error.message).toContain("or limiting worker count");
+			}
 		});
 	});
 
@@ -43,7 +67,7 @@ describe("Test Utilities", () => {
 
 		it("should respect ANVIL_VERBOSE environment variable", () => {
 			const originalEnv = process.env.ANVIL_VERBOSE;
-			
+
 			process.env.ANVIL_VERBOSE = "true";
 			const verboseOptions = createTestAnvilOptions(0);
 			expect(verboseOptions.verbose).toBe(true);
@@ -69,7 +93,7 @@ describe("Test Utilities", () => {
 
 			// Create a dummy process
 			const dummyProcess = spawn("echo", ["test"], { stdio: "ignore" });
-			
+
 			setGlobalAnvilProcess(dummyProcess);
 			expect(getGlobalAnvilProcess()).toBe(dummyProcess);
 

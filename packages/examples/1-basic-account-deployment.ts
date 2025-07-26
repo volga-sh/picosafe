@@ -1,15 +1,18 @@
-import { deploySafeAccount, type SafeDeploymentConfig } from "@volga/picosafe";
 import { withAnvil } from "@volga/anvil-manager";
-import { createWalletClient, http, createPublicClient } from "viem";
+import { deploySafeAccount, type SafeDeploymentConfig } from "@volga/picosafe";
+import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 
 // Example demonstrating Safe account deployment using a local Anvil instance
 await withAnvil(async (anvilInstance) => {
-	console.log(`🚀 Starting example with local Anvil at ${anvilInstance.rpcUrl}\n`);
+	console.log(
+		`🚀 Starting example with local Anvil at ${anvilInstance.rpcUrl}\n`,
+	);
 
 	// Use the first Anvil test account as deployer
-	const DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+	const DEPLOYER_PRIVATE_KEY =
+		"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 	const walletClient = createWalletClient({
 		chain: anvil,
@@ -54,7 +57,7 @@ await withAnvil(async (anvilInstance) => {
 
 	console.log("📊 DEPLOYMENT DATA:");
 	console.log(`   Safe Address: ${deploymentData.safeAddress}`);
-	console.log(`   Deployment Config:`, deploymentData.deploymentConfig);
+	console.log("   Deployment Config:", deploymentData.deploymentConfig);
 	console.log();
 
 	console.log("⏳ Deploying Safe account...");

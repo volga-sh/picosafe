@@ -1,5 +1,5 @@
-import type { AnvilInstance, AnvilOptions } from "./types.js";
 import { startAnvil } from "./core.js";
+import type { AnvilInstance, AnvilOptions } from "./types.js";
 
 /**
  * Execute a function with a temporary Anvil instance that is automatically cleaned up
@@ -12,16 +12,16 @@ import { startAnvil } from "./core.js";
  * import { withAnvil } from "@volga/anvil-manager";
  * import { createPublicClient, http } from "viem";
  * import { anvil } from "viem/chains";
- * 
+ *
  * const result = await withAnvil(async (instance) => {
  *   const client = createPublicClient({
  *     chain: anvil,
  *     transport: http(instance.rpcUrl),
  *   });
- *   
+ *
  *   const blockNumber = await client.getBlockNumber();
  *   console.log(`Current block: ${blockNumber}`);
- *   
+ *
  *   return blockNumber;
  * });
  * ```

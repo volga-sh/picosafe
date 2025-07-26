@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { withAnvil } from "../src/with-anvil.js";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { anvil } from "viem/chains";
+import { describe, expect, it } from "vitest";
+import { withAnvil } from "../src/with-anvil.js";
 
 describe("withAnvil", () => {
 	it("should provide a working Anvil instance to the callback", async () => {
@@ -24,19 +24,23 @@ describe("withAnvil", () => {
 
 	it("should clean up even if the callback throws", async () => {
 		const port = 8554;
-		let instanceRpcUrl: string;
+		let instanceRpcUrl = "";
 
 		await expect(
-			withAnvil(async (instance) => {
-				instanceRpcUrl = instance.rpcUrl;
-				throw new Error("Test error");
-			}, { port }),
+			withAnvil(
+				async (instance) => {
+					instanceRpcUrl = instance.rpcUrl;
+					throw new Error("Test error");
+				},
+				{ port },
+			),
 		).rejects.toThrow("Test error");
 
 		// Verify the instance was cleaned up by trying to connect
+		expect(instanceRpcUrl).not.toBe("");
 		const client = createPublicClient({
 			chain: anvil,
-			transport: http(instanceRpcUrl!),
+			transport: http(instanceRpcUrl),
 		});
 
 		await expect(client.getBlockNumber()).rejects.toThrow();
@@ -47,7 +51,7 @@ describe("withAnvil", () => {
 			async (instance) => {
 				expect(instance.port).toBe(8555);
 
-				const client = createPublicClient({
+				const _client = createPublicClient({
 					chain: anvil,
 					transport: http(instance.rpcUrl),
 				});
@@ -68,7 +72,7 @@ describe("withAnvil", () => {
 
 	it("should return the callback result", async () => {
 		const result = await withAnvil(async (instance) => {
-			const client = createPublicClient({
+			const _client = createPublicClient({
 				chain: anvil,
 				transport: http(instance.rpcUrl),
 			});

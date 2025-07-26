@@ -5,16 +5,16 @@
  * package to handle Anvil instance lifecycle management.
  */
 
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll } from "vitest";
 import {
-	startAnvil,
 	createTestAnvilOptions,
 	getGlobalAnvilProcess,
 	setGlobalAnvilProcess,
+	startAnvil,
 } from "@volga/anvil-manager";
-import { existsSync } from "node:fs";
+import { afterAll } from "vitest";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -60,9 +60,7 @@ if (!existingProcess || existingProcess.killed) {
 	process.env.TEST_ANVIL_PORT = String(anvilInstance.port);
 
 	if (isVerbose) {
-		console.log(
-			`[Worker ${workerId}] Anvil ready at ${anvilInstance.rpcUrl}`,
-		);
+		console.log(`[Worker ${workerId}] Anvil ready at ${anvilInstance.rpcUrl}`);
 	}
 
 	// Cleanup must happen at worker shutdown to prevent orphaned processes
@@ -75,9 +73,7 @@ if (!existingProcess || existingProcess.killed) {
 	});
 } else {
 	if (isVerbose) {
-		console.log(
-			`[Worker ${workerId}] Reusing existing Anvil instance`,
-		);
+		console.log(`[Worker ${workerId}] Reusing existing Anvil instance`);
 	}
 }
 
