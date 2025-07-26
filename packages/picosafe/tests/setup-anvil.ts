@@ -22,7 +22,14 @@ import { afterAll } from "vitest";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const workerId = Number(process.env.VITEST_WORKER_ID ?? 0);
+// Parse worker ID with validation to ensure we get a valid number for port calculation
+const workerIdRaw = process.env.VITEST_WORKER_ID;
+const workerId = workerIdRaw ? Number.parseInt(workerIdRaw, 10) : 0;
+if (Number.isNaN(workerId) || workerId < 0) {
+	throw new Error(
+		`Invalid VITEST_WORKER_ID: "${workerIdRaw}". Expected a non-negative integer.`,
+	);
+}
 
 // Brief delay allows Anvil to shut down gracefully before SIGKILL
 const GRACEFUL_SHUTDOWN_DELAY_MS = 500;
@@ -88,6 +95,10 @@ const isVerbose = process.env.ANVIL_VERBOSE === "true";
 
 // Global storage prevents spawning multiple Anvil instances if vitest
 // re-evaluates this setup file within the same worker process.
+// We use globalThis instead of module-level variables because Vitest's
+// module isolation can cause the setup file to be re-imported multiple
+// times within the same worker, which would reset module-level state.
+// globalThis persists across these re-imports within the same Node.js process.
 function getAnvilProcess() {
 	return globalThis.__anvil_process__;
 }
