@@ -8,21 +8,31 @@ PicoSafe is a minimalistic but advanced TypeScript SDK for Safe Smart Account co
 
 ## Key Commands
 
-### Development
+### Global Commands (Run from root directory)
+
+These commands run across all packages or apply globally:
 
 ```bash
-npm run dev -w @volga/picosafe       # Watch mode development build
-npm run build -w @volga/picosafe     # Build the SDK (CJS and ESM)
-npm run format                      # Format code with Biome
-npm run check                       # Lint with Biome
-npm run check:write                 # Lint and fix with Biome
-npm run typecheck -w @volga/picosafe # TypeScript type checking
+npm run build                       # Build all packages (currently builds @volga/picosafe)
+npm run dev                         # Run development mode for all packages
+npm run format                      # Format entire codebase with Biome
+npm run check                       # Lint entire codebase with Biome
+npm run check:write                 # Lint and fix entire codebase with Biome
+npm run typecheck                   # TypeScript type checking for all packages
+npm run test                        # Run tests for all packages
 ```
 
-### Testing
+### Package-Specific Commands
+
+Use the `-w` flag with the package name to run commands for a specific package:
 
 ```bash
-npm run anvil                       # Start local Anvil blockchain (keep running)
+# Development
+npm run dev -w @volga/picosafe       # Watch mode development build for PicoSafe
+npm run build -w @volga/picosafe     # Build the SDK (CJS and ESM)
+npm run typecheck -w @volga/picosafe # TypeScript type checking for PicoSafe only
+
+# Testing
 npm run test -w @volga/picosafe     # Run tests with automated Anvil setup
 npm run test:run -w @volga/picosafe # Run tests once (requires Anvil running separately)
 npm run test:ui -w @volga/picosafe  # Run tests with Vitest UI
@@ -36,9 +46,22 @@ npm run test -w @volga/picosafe -- -t "should deploy"
 npm run test -w @volga/picosafe deployment
 ```
 
+### Monorepo Structure
+
+This is a monorepo managed with npm workspaces. The structure is:
+
+```
+picosafe/
+├── packages/
+│   ├── picosafe/        # Main SDK package (@volga/picosafe)
+│   └── examples/        # Example applications
+├── package.json         # Root package.json with workspace configuration
+└── CLAUDE.md           # This file
+```
+
 ## Architecture
 
-The SDK is organized into functional modules in `src/` that handle various Safe operations:
+The SDK is organized into functional modules in `packages/picosafe/src/` that handle various Safe operations:
 
 - **Account deployment and management** - Deploy new Safe accounts with various configurations
 - **Transaction building, signing, and execution** - Create and execute Safe transactions
@@ -51,7 +74,7 @@ Each module exports pure functions that accept an EIP-1193 provider as the first
 
 ### Utilities
 
-The SDK includes utility modules in `src/utilities/` that provide common functionality for address handling, encoding, provider interactions, and transaction wrapping. These utilities are used internally by the main modules and can also be imported directly for specialized use cases.
+The SDK includes utility modules in `packages/picosafe/src/utilities/` that provide common functionality for address handling, encoding, provider interactions, and transaction wrapping. These utilities are used internally by the main modules and can also be imported directly for specialized use cases.
 
 ### Safe Contracts Version
 
@@ -140,7 +163,7 @@ These rules ensure systematic, reliable development with clear purpose and conti
 2. **Work incrementally**: Complete one coherent sub-task before moving to the next - reduces complexity and makes debugging easier
 3. **Plan before acting**: Deep-read codebase and types; understand impacts before making changes - prevents unintended side effects
 4. **Use TODO lists**: Track all tasks with TodoWrite tool—mark in_progress before starting - maintains focus and ensures nothing is forgotten
-5. **Run checks frequently**: Execute `npm run check`, `npm run check:write` and `npm test` after each change - catches issues immediately when they're easiest to fix
+5. **Run checks frequently**: Execute `npm run check`, `npm run check:write` and `npm run test -w @volga/picosafe` after each change - catches issues immediately when they're easiest to fix
 6. **Update tests immediately**: Add/modify tests alongside implementation changes - ensures code correctness and prevents regressions
 7. **Surface edge cases**: Identify nulls, race conditions, extreme inputs upfront - builds robust code that handles real-world scenarios
 8. **Ask clarifying questions**: Query ambiguities rather than making assumptions - prevents building the wrong solution
@@ -151,22 +174,22 @@ These rules ensure systematic, reliable development with clear purpose and conti
 
 When fixing type errors or making changes:
 
-1. **Run TypeScript compiler**: Use `npx tsc --noEmit` to check for type errors without building
+1. **Run TypeScript compiler**: Use `npm run typecheck -w @volga/picosafe` to check for type errors without building
 2. **Check code style**: Run `npm run check` to identify linting issues
 3. **Auto-fix formatting**: Use `npm run format` to automatically fix formatting issues
 4. **Combined check**: Run `npm run check:write` for both linting and auto-fixing
-5. **Test affected code**: Run specific tests with `npm test <pattern>` (e.g., `npm test utilities`)
+5. **Test affected code**: Run specific tests with `npm run test -w @volga/picosafe <pattern>` (e.g., `npm run test -w @volga/picosafe utilities`)
 6. **Fix incrementally**: Address type errors one at a time, testing after each fix
 
 ## Testing Approach
 
 Tests are integration/e2e tests that run against a local Anvil blockchain:
 
-1. **Recommended**: Use `npm test` which automatically starts/stops Anvil
-2. **Alternative**: Run `npm run anvil` in one terminal, then `npm run test:run` in another
-3. Tests use real Safe contracts deployed on the local chain via genesis.json
-4. Test files are in `tests/`
-5. Test utilities are in `tests/fixtures/setup.ts`
+1. **Recommended**: Use `npm run test -w @volga/picosafe` which automatically starts/stops Anvil
+2. **Alternative**: Start Anvil manually, then run `npm run test:run -w @volga/picosafe`
+3. Tests use real Safe contracts deployed on the local chain
+4. Test files are in `packages/picosafe/tests/`
+5. Test utilities are in `packages/picosafe/tests/fixtures/setup.ts`
 
 The test suite covers all SDK functionality including deployment, transactions, signatures, modules, and error cases.
 
@@ -178,14 +201,14 @@ The test suite covers all SDK functionality including deployment, transactions, 
 - Tests use real wallets with test ETH from Anvil's default accounts
 - Test utilities provide helpers for random data generation and common operations
 
-### npm test Script
+### Testing with Anvil
 
-The `npm test` command runs `./tests/scripts/run_tests.sh` which:
+The PicoSafe package includes an automated Anvil setup for testing. When running tests:
 
-- Automatically starts Anvil with pre-deployed Safe 1.4.1 contracts
-- Runs the specified tests (or all tests if no argument provided)
-- Properly cleans up the Anvil process on exit/error
-- Passes arguments through to vitest (e.g., `npm test deployment` runs tests matching "deployment")
+- Tests automatically start and stop Anvil with pre-deployed Safe 1.4.1 contracts
+- The setup is handled by `packages/picosafe/tests/setup-anvil.ts`
+- Tests run in isolated Anvil instances to enable parallel execution
+- Each test gets a clean blockchain state
 
 ## Build Configuration
 
@@ -345,8 +368,8 @@ Before any code changes:
 ## Priority Reminders
 
 1. **Always run `npm run check` after changes** - Catch issues early
-2. **Test incrementally with `npm test <pattern>`** - Verify as you go
-3. **Check types with `npx tsc --noEmit`** - Ensure type safety
+2. **Test incrementally with `npm run test -w @volga/picosafe <pattern>`** - Verify as you go
+3. **Check types with `npm run typecheck`** - Ensure type safety (runs for all packages)
 4. **Update relevant tests immediately** - Keep coverage complete
 5. **Use TodoWrite for multi-step tasks** - Track progress systematically
 6. **Security first** - When in doubt, choose the safer option

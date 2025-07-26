@@ -97,16 +97,30 @@ async function waitForAnvil(
 
 const isVerbose = process.env.ANVIL_VERBOSE === "true";
 
-// Global storage prevents spawning multiple Anvil instances if vitest
-// re-evaluates this setup file within the same worker process.
-// We use globalThis instead of module-level variables because Vitest's
-// module isolation can cause the setup file to be re-imported multiple
-// times within the same worker, which would reset module-level state.
-// globalThis persists across these re-imports within the same Node.js process.
+/**
+ * Retrieves the global Anvil process instance for the current worker.
+ *
+ * This function implements a global state management pattern to ensure only one
+ * Anvil instance runs per worker, even if Vitest re-imports the setup file multiple
+ * times. The process is stored on globalThis to persist across module reloads within
+ * the same Node.js process.
+ *
+ * @returns The Anvil child process instance if one exists, undefined otherwise
+ */
 function getAnvilProcess() {
 	return globalThis.__anvil_process__;
 }
 
+/**
+ * Stores the Anvil process instance in global state for the current worker.
+ *
+ * This function complements getAnvilProcess() to provide controlled access to the
+ * shared Anvil instance. By storing the process on globalThis, we prevent duplicate
+ * Anvil spawns when Vitest's module isolation causes this setup file to be re-evaluated
+ * within the same worker process.
+ *
+ * @param process The Anvil child process to store, or undefined to clear the stored process
+ */
 function setAnvilProcess(process: ReturnType<typeof spawn> | undefined) {
 	globalThis.__anvil_process__ = process;
 }
