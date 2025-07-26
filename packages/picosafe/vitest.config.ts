@@ -17,6 +17,14 @@ export default defineConfig({
 	test: {
 		globals: true,
 		environment: "node",
+		// Enable parallel test execution - each worker gets its own Anvil instance
+		fileParallelism: true,
+		// Run the Anvil setup before tests in each worker
+		setupFiles: ["./tests/setup-anvil.ts"],
+		// Keep setup file execution order predictable
+		sequence: {
+			setupFiles: "list",
+		},
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "json", "html"],
@@ -29,7 +37,5 @@ export default defineConfig({
 				"coverage/**",
 			],
 		},
-		// We run tests against a single local node, so we need to ensure predictable state on a test-by-test basis.
-		fileParallelism: false,
 	},
 });
