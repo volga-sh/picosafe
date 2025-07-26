@@ -1,0 +1,43 @@
+{
+	"name": "@volga/picosafe",
+	"version": "0.0.1",
+	"description": "A TypeScript SDK for Safe Smart Account contracts",
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"prepare": "npm run build",
+		"test:ui": "vitest --ui",
+		"test:run": "vitest run",
+		"test": "./tests/scripts/run_tests.sh",
+		"typecheck": "tsc --noEmit",
+		"coverage": "vitest run --coverage"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"devDependencies": {
+		"@types/node": "^22.13.10",
+		"@vitest/coverage-v8": "^3.2.4",
+		"@vitest/ui": "^3.2.4",
+		"rollup": "^4.45.3",
+		"tsup": "^8.5.0",
+		"vitest": "^3.2.4"
+	},
+	"dependencies": {
+		"viem": "^2.33.1"
+	}
+}

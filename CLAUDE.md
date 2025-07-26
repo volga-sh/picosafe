@@ -11,29 +11,29 @@ PicoSafe is a minimalistic but advanced TypeScript SDK for Safe Smart Account co
 ### Development
 
 ```bash
-npm run dev          # Watch mode development build
-npm run build        # Build the SDK (outputs CJS and ESM)
-npm run format       # Format code with Biome
-npm run check        # Lint, Check and fix code with Biome
-npm run check:write  # Lint, Check and fix code with Biome (write mode)
-npm run typecheck    # Run TypeScript type checking without emitting files
+npm run dev -w @volga/picosafe       # Watch mode development build
+npm run build -w @volga/picosafe     # Build the SDK (CJS and ESM)
+npm run format                      # Format code with Biome
+npm run check                       # Lint with Biome
+npm run check:write                 # Lint and fix with Biome
+npm run typecheck -w @volga/picosafe # TypeScript type checking
 ```
 
 ### Testing
 
 ```bash
-npm run anvil        # Start local Anvil blockchain (keep running)
-npm test             # Run tests with automated Anvil setup (recommended)
-npm run test:run     # Run tests once (requires Anvil running separately)
-npm run test:ui      # Run tests with Vitest UI
-npm run coverage     # Generate test coverage report
+npm run anvil                       # Start local Anvil blockchain (keep running)
+npm run test -w @volga/picosafe     # Run tests with automated Anvil setup
+npm run test:run -w @volga/picosafe # Run tests once (requires Anvil running separately)
+npm run test:ui -w @volga/picosafe  # Run tests with Vitest UI
+npm run coverage -w @volga/picosafe # Generate test coverage report
 
 # Run specific test file
-npm test tests/deployment.test.ts
+npm run test -w @volga/picosafe -- packages/picosafe/tests/deployment.test.ts
 # Run specific test by pattern
-npm test -- -t "should deploy"
+npm run test -w @volga/picosafe -- -t "should deploy"
 # Run tests matching file pattern
-npm test deployment
+npm run test -w @volga/picosafe deployment
 ```
 
 ## Architecture
@@ -41,7 +41,7 @@ npm test deployment
 The SDK is organized into functional modules in `src/` that handle various Safe operations:
 
 - **Account deployment and management** - Deploy new Safe accounts with various configurations
-- **Transaction building, signing, and execution** - Create and execute Safe transactions  
+- **Transaction building, signing, and execution** - Create and execute Safe transactions
 - **Module and owner management** - Add, remove, and manage Safe owners and modules
 - **Guard and fallback handler management** - Set guards and fallback handlers (dangerous operations)
 - **Utility functions and type definitions** - Core types and helper functions
@@ -60,6 +60,7 @@ This SDK is built for and tested against Safe Smart Account contracts **v1.4.1**
 https://github.com/safe-global/safe-smart-account/tree/v1.4.1-3
 
 The contracts serve as the authoritative source for:
+
 - Function signatures and parameters
 - Expected behavior and validation rules
 - Error conditions and revert messages
@@ -103,7 +104,7 @@ for (let i = 0; i < 1000; i++) {
 }
 
 // Batch all deployments into one transaction
-const batchTx = encodeMultiSend(deployments.map(d => d.rawTransaction))
+const batchTx = encodeMultiSend(deployments.map((d) => d.rawTransaction))
 await executeSafeTransaction(walletClient, batchTx)
 ```
 
@@ -172,7 +173,7 @@ The test suite covers all SDK functionality including deployment, transactions, 
 ### Test Structure
 
 - Each test file focuses on a specific module or functionality
-- Tests run sequentially to avoid state conflicts  
+- Tests run sequentially to avoid state conflicts
 - Common test setup uses fixture utilities for creating test Safes
 - Tests use real wallets with test ETH from Anvil's default accounts
 - Test utilities provide helpers for random data generation and common operations
@@ -274,6 +275,7 @@ The only exceptions allowed are functions that do not interact with the blockcha
 ### Return Value Pattern
 
 Functions typically return objects with:
+
 - `rawTransaction`: Prepared transaction data for manual sending
 - `send()`: Convenience method for direct execution
 - Additional metadata relevant to the operation
@@ -305,10 +307,12 @@ PicoSafe handles financial assets where mistakes can lead to irreversible loss o
 
 ### Security Best Practices
 
-1. **Transaction Safety**: 
+1. **Transaction Safety**:
+
    - Always validate Safe transaction structure before execution
 
 2. **State Consistency**:
+
    - Read current state before modifications
    - Verify expected state hasn't changed between read and write
    - Check Safe hasn't been migrated to incompatible version
@@ -329,6 +333,7 @@ PicoSafe handles financial assets where mistakes can lead to irreversible loss o
 ### Code Review Checklist
 
 Before any code changes:
+
 - [ ] All new functions have comprehensive tests
 - [ ] Edge cases are explicitly tested
 - [ ] Error paths are tested

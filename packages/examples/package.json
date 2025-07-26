@@ -1,0 +1,15 @@
+{
+	"name": "picosafe-examples",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "ts-node 1-basic-account-deployment.ts",
+		"typecheck": "tsc --noEmit",
+		"test": "echo 'No tests'"
+	},
+	"dependencies": {
+		"@volga/picosafe": "*",
+		"viem": "^2.33.1"
+	}
+}
