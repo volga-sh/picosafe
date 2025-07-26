@@ -53,11 +53,11 @@ npm run coverage -w @volga/picosafe
 
 ## Manual Anvil Setup (Optional)
 
-For debugging or running tests manually:
+For debugging or running tests manually with [Anvil](https://getfoundry.sh/anvil/overview#anvil):
 
 ```bash
 # Terminal 1: Start Anvil manually
-npm run anvil
+anvil
 
 # Terminal 2: Run tests without automatic Anvil management
 npm run test:run -w @volga/picosafe
