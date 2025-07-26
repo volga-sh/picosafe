@@ -1,43 +1,21 @@
 {
-  "name": "@volga/picosafe",
-  "version": "0.0.1",
-  "description": "A TypeScript project with Vitest, Biome, and tsup",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
-    }
-  },
+  "name": "picosafe-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "packageManager": "npm@10",
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "coverage": "vitest run --coverage",
+    "build": "npm run build -w @volga/picosafe",
+    "dev": "npm run dev -w @volga/picosafe",
+    "typecheck": "npm run -ws typecheck",
+    "test": "npm run -ws test",
     "format": "biome format --write .",
     "check": "biome check",
-    "check:write": "biome check --write .",
-    "test": "./tests/scripts/run_tests.sh"
+    "check:write": "biome check --write ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@biomejs/biome": "^2.1.2",
-    "@vitest/coverage-v8": "^3.2.4",
-    "@types/node": "^22.13.10",
-    "@vitest/ui": "^3.2.4",
-    "tsup": "^8.5.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
-  },
-  "dependencies": {
-    "viem": "^2.33.1"
+    "typescript": "^5.8.3"
   }
 }

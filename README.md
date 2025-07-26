@@ -6,7 +6,6 @@ A minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.
 
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/volga-sh/picosafe)
 
-
 ## Overview
 
 PicoSafe provides modules for:
@@ -27,15 +26,20 @@ npm install picosafe
 ## Basic Usage
 
 ```typescript
-import { createWalletClient, http } from 'viem'
-import { mainnet } from 'viem/chains'
-import { deploySafeAccount, buildSafeTransaction, signSafeTransaction, executeSafeTransaction } from 'picosafe'
+import { createWalletClient, http } from "viem"
+import { mainnet } from "viem/chains"
+import {
+  deploySafeAccount,
+  buildSafeTransaction,
+  signSafeTransaction,
+  executeSafeTransaction,
+} from "picosafe"
 
 // Initialize viem wallet client
 const walletClient = createWalletClient({
   chain: mainnet,
   transport: http(),
-  account: '0x...' // Your account address
+  account: "0x...", // Your account address
 })
 
 // Deploy a new Safe
@@ -47,11 +51,13 @@ const txHash = await deployment.send()
 const safeAddress = deployment.data.safeAddress
 
 // Build and execute a transaction
-const transaction = await buildSafeTransaction(walletClient, safeAddress, [{
-  to: '0x...', // Target address
-  value: 0n,
-  data: '0x'
-}])
+const transaction = await buildSafeTransaction(walletClient, safeAddress, [
+  {
+    to: "0x...", // Target address
+    value: 0n,
+    data: "0x",
+  },
+])
 
 const signature = await signSafeTransaction(walletClient, transaction)
 const executeTx = await executeSafeTransaction(walletClient, transaction, [signature])
@@ -61,8 +67,15 @@ await executeTx.send()
 ## Development
 
 ```bash
+# install all workspace dependencies
 npm install
-npm run dev    # Development build with watch mode
-npm test       # Run tests
-npm run build  # Production build
+
+# library development (watch mode)
+npm run dev -w @volga/picosafe
+
+# run tests
+npm run test -w @volga/picosafe
+
+# build the library
+npm run build -w @volga/picosafe
 ```
