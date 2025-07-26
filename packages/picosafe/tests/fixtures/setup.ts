@@ -74,7 +74,13 @@ function createClients(): {
 } {
 	// Use the dynamic RPC URL from the environment variable set by setup-anvil.ts
 	// This allows each test worker to connect to its own Anvil instance
-	const rpcUrl = process.env.TEST_ANVIL_RPC_URL || "http://127.0.0.1:8545";
+	const rpcUrl = process.env.TEST_ANVIL_RPC_URL;
+	if (!rpcUrl) {
+		throw new Error(
+			"TEST_ANVIL_RPC_URL environment variable is not set. " +
+				"This should be set by setup-anvil.ts. Make sure the test setup is running correctly.",
+		);
+	}
 	const transport = http(rpcUrl);
 
 	const testClient = createTestClient({

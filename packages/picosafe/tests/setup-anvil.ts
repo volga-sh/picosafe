@@ -24,6 +24,9 @@ const __dirname = dirname(__filename);
 
 const workerId = Number(process.env.VITEST_WORKER_ID ?? 0);
 
+// WHY: Brief delay allows Anvil to shut down gracefully before SIGKILL
+const GRACEFUL_SHUTDOWN_DELAY_MS = 500;
+
 // WHY: Port allocation prevents conflicts when running tests in parallel.
 // Each worker needs its own Anvil instance on a unique port.
 const port = 8545 + workerId;
@@ -65,7 +68,9 @@ async function waitForAnvil(
 					`Failed to connect to Anvil at ${url} after ${maxAttempts} attempts`,
 				);
 			}
-			await new Promise((resolve) => setTimeout(resolve, delayMs));
+			// Exponential backoff with a max delay of 3200ms
+			const backoffDelay = Math.min(delayMs * 2 ** i, 3200);
+			await new Promise((resolve) => setTimeout(resolve, backoffDelay));
 		}
 	}
 }
@@ -111,7 +116,10 @@ if (!existingProcess || existingProcess.killed) {
 	// WHY: Only exit on spawn failure to prevent test suite crashes from
 	// transient Anvil issues during test execution.
 	anvilProcess.on("error", (error) => {
-		console.error(`[Worker ${workerId}] Failed to start Anvil:`, error);
+		console.error(
+			`[Worker ${workerId}] Failed to start Anvil on port ${port}: ${error.message}. ` +
+				`Please check if the port is already in use or if the 'anvil' binary is installed and accessible.`,
+		);
 		process.exit(1);
 	});
 
@@ -147,8 +155,9 @@ if (!existingProcess || existingProcess.killed) {
 				console.log(`[Worker ${workerId}] Stopping Anvil...`);
 			}
 			process.kill("SIGTERM");
-			// WHY: Brief delay allows Anvil to shut down gracefully before SIGKILL
-			await new Promise((resolve) => setTimeout(resolve, 500));
+			await new Promise((resolve) =>
+				setTimeout(resolve, GRACEFUL_SHUTDOWN_DELAY_MS),
+			);
 			if (!process.killed) {
 				process.kill("SIGKILL");
 			}
