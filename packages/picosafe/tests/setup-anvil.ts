@@ -59,7 +59,8 @@ if (!existsSync(genesisPath)) {
 }
 
 /**
- * Health check for Anvil instance using JSON-RPC call
+ * Health check for Anvil instance using JSON-RPC call.
+ * Creates a single viem client outside the retry loop for efficiency.
  * @param url The RPC URL to check
  * @param maxAttempts Maximum number of attempts
  * @param delayMs Delay between attempts in milliseconds
@@ -69,6 +70,7 @@ async function waitForAnvil(
 	maxAttempts = MAX_HEALTH_CHECK_ATTEMPTS,
 	delayMs = INITIAL_HEALTH_CHECK_DELAY_MS,
 ): Promise<void> {
+	// Reusing client reduces overhead during health check retries
 	const client = createPublicClient({
 		chain: anvil,
 		transport: http(url),
@@ -88,7 +90,7 @@ async function waitForAnvil(
 						`Anvil process crashed, or network issues. Last error: ${errorMessage}`,
 				);
 			}
-			// Exponential backoff with a max delay
+			// Exponential backoff balances quick startup detection with system load
 			const backoffDelay = Math.min(delayMs * 2 ** i, MAX_BACKOFF_DELAY_MS);
 			await new Promise((resolve) => setTimeout(resolve, backoffDelay));
 		}
@@ -197,9 +199,11 @@ if (!existingProcess || existingProcess.killed) {
 				setTimeout(resolve, GRACEFUL_SHUTDOWN_DELAY_MS),
 			);
 			// process.killed only indicates a signal was sent, not that the process exited.
-			// exitCode === null means the process is still running, ensuring we don't SIGKILL
-			// a process that already gracefully shut down but hasn't updated its killed status yet.
-			if (process.exitCode === null) {
+			// exitCode === null can mean either the process is still running OR it was terminated
+			// by a signal. We check both exitCode === null AND !process.killed to ensure we only
+			// SIGKILL processes that are actually still running, avoiding killing a process that
+			// already gracefully shut down but hasn't updated its exit status yet.
+			if (process.exitCode === null && !process.killed) {
 				process.kill("SIGKILL");
 			}
 			setAnvilProcess(undefined);
