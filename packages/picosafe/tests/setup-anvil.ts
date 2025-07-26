@@ -24,15 +24,24 @@ const __dirname = dirname(__filename);
 
 const workerId = Number(process.env.VITEST_WORKER_ID ?? 0);
 
-// WHY: Brief delay allows Anvil to shut down gracefully before SIGKILL
+// Brief delay allows Anvil to shut down gracefully before SIGKILL
 const GRACEFUL_SHUTDOWN_DELAY_MS = 500;
 
-// WHY: Port allocation prevents conflicts when running tests in parallel.
+// Initial delay for health check allows Anvil to start up
+const INITIAL_HEALTH_CHECK_DELAY_MS = 200;
+
+// Maximum attempts for health check prevents infinite waiting
+const MAX_HEALTH_CHECK_ATTEMPTS = 30;
+
+// Maximum backoff delay prevents excessive waiting between retries
+const MAX_BACKOFF_DELAY_MS = 3200;
+
+// Port allocation prevents conflicts when running tests in parallel.
 // Each worker needs its own Anvil instance on a unique port.
 const port = 8545 + workerId;
 const rpcUrl = `http://127.0.0.1:${port}`;
 
-// WHY: Pre-deployed Safe contracts via genesis dramatically speed up tests
+// Pre-deployed Safe contracts via genesis dramatically speed up tests
 // by avoiding repeated deployments in each test suite.
 const genesisPath = join(__dirname, "scripts", "genesis.json");
 
@@ -50,8 +59,8 @@ if (!existsSync(genesisPath)) {
  */
 async function waitForAnvil(
 	url: string,
-	maxAttempts = 30,
-	delayMs = 200,
+	maxAttempts = MAX_HEALTH_CHECK_ATTEMPTS,
+	delayMs = INITIAL_HEALTH_CHECK_DELAY_MS,
 ): Promise<void> {
 	const client = createPublicClient({
 		chain: anvil,
@@ -68,8 +77,8 @@ async function waitForAnvil(
 					`Failed to connect to Anvil at ${url} after ${maxAttempts} attempts`,
 				);
 			}
-			// Exponential backoff with a max delay of 3200ms
-			const backoffDelay = Math.min(delayMs * 2 ** i, 3200);
+			// Exponential backoff with a max delay
+			const backoffDelay = Math.min(delayMs * 2 ** i, MAX_BACKOFF_DELAY_MS);
 			await new Promise((resolve) => setTimeout(resolve, backoffDelay));
 		}
 	}
@@ -77,7 +86,7 @@ async function waitForAnvil(
 
 const isVerbose = process.env.ANVIL_VERBOSE === "true";
 
-// WHY: Global storage prevents spawning multiple Anvil instances if vitest
+// Global storage prevents spawning multiple Anvil instances if vitest
 // re-evaluates this setup file within the same worker process.
 function getAnvilProcess() {
 	return globalThis.__anvil_process__;
@@ -113,7 +122,7 @@ if (!existingProcess || existingProcess.killed) {
 
 	setAnvilProcess(anvilProcess);
 
-	// WHY: Only exit on spawn failure to prevent test suite crashes from
+	// Only exit on spawn failure to prevent test suite crashes from
 	// transient Anvil issues during test execution.
 	anvilProcess.on("error", (error) => {
 		console.error(
@@ -146,7 +155,7 @@ if (!existingProcess || existingProcess.killed) {
 		console.log(`[Worker ${workerId}] Anvil ready at ${rpcUrl}`);
 	}
 
-	// WHY: Cleanup must happen at worker shutdown to prevent orphaned processes.
+	// Cleanup must happen at worker shutdown to prevent orphaned processes.
 	// Vitest's afterAll hook ensures this runs after all tests in the worker complete.
 	afterAll(async () => {
 		const process = getAnvilProcess();
@@ -172,7 +181,7 @@ if (!existingProcess || existingProcess.killed) {
 	}
 }
 
-// WHY: Environment variables allow test files to connect to their worker's
+// Environment variables allow test files to connect to their worker's
 // unique Anvil instance without hardcoding ports.
 process.env.TEST_ANVIL_RPC_URL = rpcUrl;
 process.env.TEST_ANVIL_PORT = String(port);
