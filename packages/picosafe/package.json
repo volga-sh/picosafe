@@ -22,7 +22,8 @@
 		"prepare": "npm run build",
 		"test:ui": "vitest --ui",
 		"test:run": "vitest run",
-		"test": "./tests/scripts/run_tests.sh",
+		"test": "vitest run",
+		"test:anvil-verbose": "ANVIL_VERBOSE=true vitest run",
 		"typecheck": "tsc --noEmit",
 		"coverage": "vitest run --coverage"
 	},

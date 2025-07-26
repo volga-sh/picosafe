@@ -72,7 +72,10 @@ function createClients(): {
 	publicClient: PublicClient;
 	walletClients: TupleOf<WalletClient<Transport, Chain, Account>, 5>;
 } {
-	const transport = http("http://127.0.0.1:8545");
+	// Use the dynamic RPC URL from the environment variable set by setup-anvil.ts
+	// This allows each test worker to connect to its own Anvil instance
+	const rpcUrl = process.env.TEST_ANVIL_RPC_URL || "http://127.0.0.1:8545";
+	const transport = http(rpcUrl);
 
 	const testClient = createTestClient({
 		chain: anvil,
