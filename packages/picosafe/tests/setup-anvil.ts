@@ -78,10 +78,14 @@ async function waitForAnvil(
 		try {
 			await client.getBlockNumber();
 			return;
-		} catch {
+		} catch (error) {
 			if (i === maxAttempts - 1) {
+				const errorMessage =
+					error instanceof Error ? error.message : String(error);
 				throw new Error(
-					`Failed to connect to Anvil at ${url} after ${maxAttempts} attempts`,
+					`Failed to connect to Anvil at ${url} after ${maxAttempts} attempts. ` +
+						`This could be due to: Anvil still starting up, port ${port} already in use, ` +
+						`Anvil process crashed, or network issues. Last error: ${errorMessage}`,
 				);
 			}
 			// Exponential backoff with a max delay
@@ -178,7 +182,10 @@ if (!existingProcess || existingProcess.killed) {
 			await new Promise((resolve) =>
 				setTimeout(resolve, GRACEFUL_SHUTDOWN_DELAY_MS),
 			);
-			if (!process.killed) {
+			// process.killed only indicates a signal was sent, not that the process exited.
+			// exitCode === null means the process is still running, ensuring we don't SIGKILL
+			// a process that already gracefully shut down but hasn't updated its killed status yet.
+			if (process.exitCode === null) {
 				process.kill("SIGKILL");
 			}
 			setAnvilProcess(undefined);
