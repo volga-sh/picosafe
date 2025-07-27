@@ -54,6 +54,7 @@ This is a monorepo managed with npm workspaces. The structure is:
 picosafe/
 ├── packages/
 │   ├── picosafe/        # Main SDK package (@volga/picosafe)
+│   ├── anvil-manager/   # Anvil process management for tests and examples (@volga/anvil-manager)
 │   └── examples/        # Example applications
 ├── package.json         # Root package.json with workspace configuration
 └── CLAUDE.md           # This file

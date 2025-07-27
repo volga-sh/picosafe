@@ -64,6 +64,14 @@ const executeTx = await executeSafeTransaction(walletClient, transaction, [signa
 await executeTx.send()
 ```
 
+## Project Structure
+
+This is a monorepo managed with npm workspaces, containing:
+
+- `packages/picosafe` - The main PicoSafe SDK
+- `packages/anvil-manager` - Anvil process management for tests and examples
+- `packages/examples` - Example applications demonstrating SDK usage
+
 ## Development
 
 ```bash
@@ -78,4 +86,7 @@ npm run test -w @volga/picosafe
 
 # build the library
 npm run build -w @volga/picosafe
+
+# run examples
+npm run dev -w @volga/examples
 ```
