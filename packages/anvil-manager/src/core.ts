@@ -1,3 +1,4 @@
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { spawn } from "node:child_process";
 import { waitForAnvil } from "./health.js";
 import { checkPortAvailable, findAvailablePort } from "./port-utils.js";
@@ -141,20 +142,19 @@ export async function startAnvil(
 		});
 
 		// Also handle if the process exits immediately (e.g., due to bad arguments)
-		const exitHandler = (
-			code: number | null,
-			signal: NodeJS.Signals | null,
-		) => {
-			if (isStarting && code !== 0) {
-				reject(
-					new Error(
-						`Anvil process exited with code ${code}${signal ? ` (signal: ${signal})` : ""}. ` +
-							"This could be due to invalid arguments or port conflicts.",
-					),
-				);
-			}
-		};
-		anvilProcess.once("exit", exitHandler);
+		anvilProcess.once(
+			"exit",
+			(code: number | null, signal: NodeJS.Signals | null) => {
+				if (isStarting && code !== 0) {
+					reject(
+						new Error(
+							`Anvil process exited with code ${code}${signal ? ` (signal: ${signal})` : ""}. ` +
+								"This could be due to invalid arguments or port conflicts.",
+						),
+					);
+				}
+			},
+		);
 	});
 
 	// Create the instance object
@@ -164,7 +164,7 @@ export async function startAnvil(
 	const instance: AnvilInstance = {
 		rpcUrl,
 		port,
-		process: anvilProcess as AnvilInstance["process"],
+		process: anvilProcess as ChildProcessWithoutNullStreams,
 		async stop() {
 			if (stopped) return;
 			stopped = true;

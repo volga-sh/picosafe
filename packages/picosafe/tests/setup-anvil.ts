@@ -75,6 +75,12 @@ if (!existingProcess || existingProcess.killed) {
 	if (isVerbose) {
 		console.log(`[Worker ${workerId}] Reusing existing Anvil instance`);
 	}
+
+	// Set environment variables for reused instance
+	// The port is deterministic based on worker ID
+	const port = 8545 + workerId;
+	process.env.TEST_ANVIL_RPC_URL = `http://127.0.0.1:${port}`;
+	process.env.TEST_ANVIL_PORT = String(port);
 }
 
 if (isVerbose) {

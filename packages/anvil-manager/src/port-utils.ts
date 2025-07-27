@@ -13,7 +13,7 @@ export async function findAvailablePort(
 	// First try to get an OS-assigned port (port 0)
 	// This is guaranteed to be available and avoids race conditions
 	const osAssignedPort = await getOSAssignedPort();
-	if (osAssignedPort) {
+	if (osAssignedPort !== null) {
 		return osAssignedPort;
 	}
 
