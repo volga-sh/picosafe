@@ -1,6 +1,17 @@
-import { createPublicClient, http } from "viem";
-import { anvil } from "viem/chains";
 import type { HealthCheckOptions } from "./types.js";
+
+/**
+ * JSON-RPC response structure
+ */
+type JsonRpcResponse = {
+	jsonrpc: string;
+	id: number;
+	result?: unknown;
+	error?: {
+		code: number;
+		message: string;
+	};
+};
 
 const DEFAULT_MAX_ATTEMPTS = 30;
 const DEFAULT_INITIAL_DELAY_MS = 200;
@@ -29,17 +40,39 @@ export async function waitForAnvil(
 		maxBackoffDelayMs = DEFAULT_MAX_BACKOFF_DELAY_MS,
 	} = options;
 
-	// Create client once to reuse across retries
-	const client = createPublicClient({
-		chain: anvil,
-		transport: http(rpcUrl),
-	});
-
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		try {
-			// Simple RPC call to check if Anvil is responsive
-			await client.getBlockNumber();
-			return;
+			// Make a raw JSON-RPC call to check if Anvil is responsive
+			const response = await fetch(rpcUrl, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					jsonrpc: "2.0",
+					method: "eth_blockNumber",
+					params: [],
+					id: 1,
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			}
+
+			const data = (await response.json()) as JsonRpcResponse;
+
+			// Check for JSON-RPC error in response
+			if (data.error) {
+				throw new Error(`RPC Error ${data.error.code}: ${data.error.message}`);
+			}
+
+			// If we get a valid response with a result, Anvil is ready
+			if (data.result !== undefined) {
+				return;
+			}
+
+			throw new Error("Invalid RPC response: missing result");
 		} catch (error) {
 			if (attempt === maxAttempts - 1) {
 				const errorMessage =

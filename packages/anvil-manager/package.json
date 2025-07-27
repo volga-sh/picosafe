@@ -24,9 +24,6 @@
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
-	"dependencies": {
-		"viem": "^2.33.1"
-	},
 	"devDependencies": {
 		"@types/node": "^22.10.5",
 		"tsup": "^8.3.0",
