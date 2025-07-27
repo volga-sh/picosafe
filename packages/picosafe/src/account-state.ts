@@ -689,10 +689,9 @@ const getSingleton: StateReadFunction<{ safeAddress: Address }, Address> = <
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L148
  */
-export const getOwners: StateReadFunction<
-	{ safeAddress: Address },
-	Address[]
-> = <O extends StateReadOptions = StateReadOptions<void>>(
+const getOwners: StateReadFunction<{ safeAddress: Address }, Address[]> = <
+	O extends StateReadOptions = StateReadOptions<void>,
+>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: { safeAddress: Address },
 	options?: O,
@@ -889,5 +888,6 @@ export {
 	getModulesPaginated,
 	getGuard,
 	getSingleton,
+	getOwners,
 	SAFE_STORAGE_SLOTS,
 };
