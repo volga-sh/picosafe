@@ -6,7 +6,7 @@ import type { AnvilInstance, AnvilOptions } from "./types.js";
 const DEFAULT_PORT = 8545;
 const DEFAULT_ACCOUNTS = 10;
 const DEFAULT_BALANCE = "10000";
-const GRACEFUL_SHUTDOWN_DELAY_MS = 500;
+const DEFAULT_GRACEFUL_SHUTDOWN_MS = 500;
 
 /**
  * Start a new Anvil instance with the specified options
@@ -41,6 +41,7 @@ export async function startAnvil(
 		autoMine = true,
 		blockTime,
 		additionalArgs = [],
+		gracefulShutdownMs = DEFAULT_GRACEFUL_SHUTDOWN_MS,
 	} = options;
 
 	// Use requested port or find an available one
@@ -88,6 +89,14 @@ export async function startAnvil(
 
 	if (blockTime !== undefined) {
 		args.push("--block-time", String(blockTime));
+	}
+
+	// Validate additionalArgs to prevent command injection
+	if (additionalArgs.some((arg) => arg.includes(";") || arg.includes("&&"))) {
+		throw new Error(
+			"Invalid characters in additional arguments. " +
+				"Arguments cannot contain ';' or '&&' to prevent command injection.",
+		);
 	}
 
 	args.push(...additionalArgs);
@@ -150,7 +159,7 @@ export async function startAnvil(
 		async stop() {
 			if (stopped) return;
 			stopped = true;
-			await stopAnvil(instance);
+			await stopAnvil(instance, gracefulShutdownMs);
 		},
 		async waitForReady() {
 			await waitForAnvil(rpcUrl);
@@ -187,6 +196,7 @@ export async function startAnvil(
 /**
  * Stop a running Anvil instance gracefully
  * @param instance - The AnvilInstance to stop
+ * @param gracefulShutdownMs - Milliseconds to wait for graceful shutdown before force killing
  * @returns A promise that resolves when the instance has stopped
  * @example
  * ```typescript
@@ -197,7 +207,10 @@ export async function startAnvil(
  * await stopAnvil(anvil);
  * ```
  */
-export async function stopAnvil(instance: AnvilInstance): Promise<void> {
+export async function stopAnvil(
+	instance: AnvilInstance,
+	gracefulShutdownMs = DEFAULT_GRACEFUL_SHUTDOWN_MS,
+): Promise<void> {
 	const { process } = instance;
 
 	if (process.killed || process.exitCode !== null) {
@@ -208,9 +221,7 @@ export async function stopAnvil(instance: AnvilInstance): Promise<void> {
 	process.kill("SIGTERM");
 
 	// Wait for graceful shutdown
-	await new Promise((resolve) =>
-		setTimeout(resolve, GRACEFUL_SHUTDOWN_DELAY_MS),
-	);
+	await new Promise((resolve) => setTimeout(resolve, gracefulShutdownMs));
 
 	// Force kill if still running
 	if (process.exitCode === null && !process.killed) {

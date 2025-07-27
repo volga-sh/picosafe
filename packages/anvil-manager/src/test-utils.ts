@@ -89,3 +89,11 @@ export function setGlobalAnvilProcess(
 ) {
 	globalThis.__anvil_process__ = process;
 }
+
+// Clean up Anvil process on exit to prevent orphaned processes
+process.on("exit", () => {
+	const anvilProcess = getGlobalAnvilProcess();
+	if (anvilProcess && !anvilProcess.killed) {
+		anvilProcess.kill("SIGKILL");
+	}
+});

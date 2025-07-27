@@ -48,6 +48,12 @@ export type AnvilOptions = {
 	 * Additional CLI arguments to pass to anvil
 	 */
 	additionalArgs?: string[];
+
+	/**
+	 * Milliseconds to wait for graceful shutdown before force killing
+	 * @default 500
+	 */
+	gracefulShutdownMs?: number;
 };
 
 /**

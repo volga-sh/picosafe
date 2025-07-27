@@ -167,6 +167,75 @@ Executes a function with a temporary Anvil instance that is automatically cleane
 - `getTestAnvilPort(workerId, basePort?)`: Calculate unique port for test worker (supports `ANVIL_BASE_PORT` env var)
 - `createTestAnvilOptions(workerId, genesisPath?)`: Create options for test environments
 
+## Troubleshooting
+
+### Common Issues
+
+#### "Anvil is not installed or not found in PATH"
+
+**Solution:** Install Foundry by running:
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
+
+#### "Port already in use" errors
+
+**Solutions:**
+1. Use automatic port discovery by omitting the `port` option
+2. Check for orphaned Anvil processes: `pkill anvil`
+3. Use a different port range: `startAnvil({ port: 9545 })`
+
+#### Tests hang or timeout
+
+**Possible causes:**
+- Anvil failed to start - check console for error messages
+- Port conflicts in parallel tests - ensure using automatic port discovery or unique ports per worker
+- Insufficient system resources - reduce parallel test workers
+
+**Debug steps:**
+1. Enable verbose logging: `startAnvil({ verbose: true })`
+2. Set `ANVIL_DEBUG=true` environment variable
+3. Run tests serially to isolate the issue
+
+#### "Failed to connect to Anvil" errors
+
+**Common causes:**
+- Anvil process crashed during startup
+- Network/firewall blocking localhost connections
+- Anvil binary is corrupted
+
+**Solutions:**
+1. Test Anvil manually: `anvil --port 8545`
+2. Check system logs for crash reports
+3. Reinstall Foundry: `foundryup`
+
+#### Process cleanup issues
+
+If you notice orphaned Anvil processes after tests:
+
+1. Ensure proper test cleanup:
+   ```typescript
+   afterAll(async () => {
+     await anvil.stop();
+   });
+   ```
+
+2. Use `withAnvil` for automatic cleanup:
+   ```typescript
+   await withAnvil(async (anvil) => {
+     // Your test code
+   }); // Automatically cleaned up
+   ```
+
+3. Emergency cleanup: `pkill -f anvil`
+
+### Environment Variables
+
+- `ANVIL_BASE_PORT`: Override default base port for test utilities
+- `ANVIL_DEBUG`: Enable debug logging when set to "true"
+- `ANVIL_VERBOSE`: Enable verbose Anvil output when set to "true"
+
 ## License
 
 MIT
