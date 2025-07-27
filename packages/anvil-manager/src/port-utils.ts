@@ -10,6 +10,14 @@ export async function findAvailablePort(
 	preferredPort = 8545,
 	maxAttempts = 100,
 ): Promise<number> {
+	// First try to get an OS-assigned port (port 0)
+	// This is guaranteed to be available and avoids race conditions
+	const osAssignedPort = await getOSAssignedPort();
+	if (osAssignedPort) {
+		return osAssignedPort;
+	}
+
+	// Fallback to the original approach if OS assignment fails
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		const port = preferredPort + attempt;
 
@@ -31,6 +39,34 @@ export async function findAvailablePort(
 	throw new Error(
 		`No available ports found after ${maxAttempts} attempts starting from port ${preferredPort}`,
 	);
+}
+
+/**
+ * Get an OS-assigned available port
+ * @returns Promise resolving to an available port number, or null if failed
+ */
+async function getOSAssignedPort(): Promise<number | null> {
+	return new Promise((resolve) => {
+		const server = createServer();
+
+		server.once("error", () => {
+			resolve(null);
+		});
+
+		server.once("listening", () => {
+			const address = server.address();
+			server.close(() => {
+				if (address && typeof address === "object") {
+					resolve(address.port);
+				} else {
+					resolve(null);
+				}
+			});
+		});
+
+		// Port 0 lets the OS assign an available port
+		server.listen(0, "127.0.0.1");
+	});
 }
 
 /**
