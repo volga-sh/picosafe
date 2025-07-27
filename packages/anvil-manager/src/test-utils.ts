@@ -91,9 +91,14 @@ export function setGlobalAnvilProcess(
 }
 
 // Clean up Anvil process on exit to prevent orphaned processes
-process.on("exit", () => {
+const cleanupAnvilProcess = () => {
 	const anvilProcess = getGlobalAnvilProcess();
 	if (anvilProcess && !anvilProcess.killed) {
 		anvilProcess.kill("SIGKILL");
 	}
-});
+};
+
+// Handle various termination signals for proper cleanup
+process.on("exit", cleanupAnvilProcess);
+process.on("SIGINT", cleanupAnvilProcess);
+process.on("SIGTERM", cleanupAnvilProcess);

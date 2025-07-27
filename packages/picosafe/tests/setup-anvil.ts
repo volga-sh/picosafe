@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import {
 	createTestAnvilOptions,
 	getGlobalAnvilProcess,
+	getTestAnvilPort,
 	setGlobalAnvilProcess,
 	startAnvil,
 } from "@volga/anvil-manager";
@@ -77,8 +78,8 @@ if (!existingProcess || existingProcess.killed) {
 	}
 
 	// Set environment variables for reused instance
-	// The port is deterministic based on worker ID
-	const port = 8545 + workerId;
+	// Use the same port calculation as in createTestAnvilOptions
+	const port = getTestAnvilPort(workerId);
 	process.env.TEST_ANVIL_RPC_URL = `http://127.0.0.1:${port}`;
 	process.env.TEST_ANVIL_PORT = String(port);
 }

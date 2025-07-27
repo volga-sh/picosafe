@@ -96,15 +96,23 @@ export async function startAnvil(
 
 	// Validate additionalArgs to prevent command injection
 	const dangerousChars = [";", "&&", "||", "|", ">", "<", "`", "$", "(", ")"];
-	const foundDangerousChars = additionalArgs.filter((arg) =>
-		dangerousChars.some((char) => arg.includes(char)),
-	);
+	const dangerousPatterns = ["$(", "${"];
+
+	const foundDangerousChars = additionalArgs.filter((arg) => {
+		// Check for individual dangerous characters
+		const hasChar = dangerousChars.some((char) => arg.includes(char));
+		// Check for dangerous patterns (command substitution and env var injection)
+		const hasPattern = dangerousPatterns.some((pattern) =>
+			arg.includes(pattern),
+		);
+		return hasChar || hasPattern;
+	});
 
 	if (foundDangerousChars.length > 0) {
 		throw new Error(
 			"Invalid characters in additional arguments. " +
 				`Arguments cannot contain shell metacharacters (${dangerousChars.join(", ")}) ` +
-				"to prevent command injection. " +
+				`or patterns (${dangerousPatterns.join(", ")}) to prevent command injection. ` +
 				`Found dangerous arguments: ${foundDangerousChars.join(", ")}`,
 		);
 	}
