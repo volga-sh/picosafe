@@ -6,6 +6,7 @@ import type { SignatureValidationResult } from "./signature-validation.js";
 import { validateSignature } from "./signature-validation.js";
 import type {
 	EIP1193ProviderWithRequestFn,
+	PicosafeRpcBlockIdentifier,
 	PicosafeSignature,
 	SafeSignaturesParam,
 	SignatureValidationContext,
@@ -183,6 +184,55 @@ function encodeSafeSignaturesBytes(
  */
 
 /**
+ * Helper function to handle error results for both lazy and non-lazy modes in checkNSignatures
+ * This reduces code duplication when creating error results across different error scenarios
+ */
+function createCheckNSignaturesErrorResult<O extends StateReadOptions>(
+	errorResult: { valid: boolean; error?: Error },
+	options: O | undefined,
+	safeAddress: Address,
+	block: PicosafeRpcBlockIdentifier,
+): StateReadResult<{ valid: boolean; error?: Error }, O> {
+	// Handle non-lazy mode
+	if (!options?.lazy) {
+		return Promise.resolve(errorResult) as StateReadResult<
+			{ valid: boolean; error?: Error },
+			O
+		>;
+	}
+
+	// Handle lazy mode
+	const failedCall: StateReadCall = {
+		to: safeAddress,
+		data: "0x",
+		block,
+	};
+
+	if ("data" in options && options.data !== undefined) {
+		const failedResultWithData = {
+			rawCall: failedCall,
+			data: options.data,
+			call: () => Promise.resolve(errorResult),
+		};
+		// TypeScript's conditional types require assertions here due to complexity
+		// of StateReadResult's type inference with generic parameter O
+		return failedResultWithData as unknown as StateReadResult<
+			{ valid: boolean; error?: Error },
+			O
+		>;
+	}
+
+	const failedResultWithoutData = {
+		rawCall: failedCall,
+		call: () => Promise.resolve(errorResult),
+	};
+	return failedResultWithoutData as StateReadResult<
+		{ valid: boolean; error?: Error },
+		O
+	>;
+}
+
+/**
  * Verifies Safe signatures by calling the Safe contract's checkNSignatures function on-chain
  *
  * This function calls the Safe contract's checkNSignatures method to verify
@@ -290,50 +340,20 @@ const checkNSignatures: StateReadFunction<
 		}
 	} catch (error) {
 		// If encoding fails, return error result for both lazy and non-lazy modes
+		const encodingError = new Error(
+			`Failed to encode signatures: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		const errorResult = {
 			valid: false,
-			error: error as Error,
+			error: encodingError,
 		};
 
-		if (!options?.lazy) {
-			return Promise.resolve(errorResult) as StateReadResult<
-				{ valid: boolean; error?: Error },
-				O
-			>;
-		}
-
-		// For lazy mode, return a wrapped call that immediately returns the error
-		const failedCall: StateReadCall = {
-			to: safeAddress,
-			data: "0x",
+		return createCheckNSignaturesErrorResult(
+			errorResult,
+			options,
+			safeAddress,
 			block,
-		};
-
-		if ("data" in options && options.data !== undefined) {
-			const failedResultWithData = {
-				rawCall: failedCall,
-				data: options.data,
-				call: () => Promise.resolve(errorResult),
-			};
-			// TypeScript's conditional types require assertions here due to complexity
-			// of StateReadResult's type inference with generic parameter O
-			return failedResultWithData as unknown as StateReadResult<
-				{ valid: boolean; error?: Error },
-				O
-			>;
-		}
-
-		const failedResultWithoutData: WrappedStateRead<{
-			valid: boolean;
-			error?: Error;
-		}> = {
-			rawCall: failedCall,
-			call: () => Promise.resolve(errorResult),
-		};
-		return failedResultWithoutData as StateReadResult<
-			{ valid: boolean; error?: Error },
-			O
-		>;
+		);
 	}
 
 	const callData = encodeFunctionData({

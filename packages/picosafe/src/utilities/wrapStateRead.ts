@@ -53,36 +53,19 @@ import type {
  * );
  * console.log(nonceCall.data.purpose); // 'validation'
  */
+// Simplified overloads using discriminated unions for better maintainability
 function wrapStateRead<T>(
 	provider: EIP1193ProviderWithRequestFn,
 	call: StateReadCall,
 	decoder: (result: Hex) => T,
-	options?: { lazy?: false },
+	options?: { lazy?: false; data?: never },
 ): Promise<T>;
-function wrapStateRead<T>(
+function wrapStateRead<T, A = void>(
 	provider: EIP1193ProviderWithRequestFn,
 	call: StateReadCall,
 	decoder: (result: Hex) => T,
-	options: { lazy: true },
-): WrappedStateRead<T, void>;
-function wrapStateRead<T, A>(
-	provider: EIP1193ProviderWithRequestFn,
-	call: StateReadCall,
-	decoder: (result: Hex) => T,
-	options: { lazy: true; data: A },
+	options: { lazy: true; data?: A },
 ): WrappedStateRead<T, A>;
-function wrapStateRead<T, A>(
-	provider: EIP1193ProviderWithRequestFn,
-	call: StateReadCall,
-	decoder: (result: Hex) => T,
-	options: StateReadOptions<A>,
-): A extends void
-	? StateReadOptions<A>["lazy"] extends true
-		? WrappedStateRead<T, void>
-		: Promise<T>
-	: StateReadOptions<A>["lazy"] extends true
-		? WrappedStateRead<T, A>
-		: Promise<T>;
 function wrapStateRead<T, A = void>(
 	provider: EIP1193ProviderWithRequestFn,
 	call: StateReadCall,
