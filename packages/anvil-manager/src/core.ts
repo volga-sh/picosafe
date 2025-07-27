@@ -14,8 +14,8 @@ const DEFAULT_GRACEFUL_SHUTDOWN_MS = 500;
  * @param options - Configuration options for the Anvil instance
  * @returns A promise that resolves to an AnvilInstance object
  * @throws {Error} If Anvil fails to start or become ready
- * @note The additionalArgs parameter is validated to prevent shell injection attacks.
- * Shell metacharacters (;, &&, ||, |, >, <, `, $, (, )) are not allowed in arguments.
+ * @note The additionalArgs parameter is validated using a whitelist approach to prevent shell injection attacks.
+ * Only alphanumeric characters, hyphens, underscores, equals signs, colons, slashes, and dots are allowed.
  * @example
  * ```typescript
  * import { startAnvil } from "@volga/anvil-manager";
@@ -44,7 +44,6 @@ export async function startAnvil(
 		autoMine = true,
 		blockTime,
 		additionalArgs = [],
-		gracefulShutdownMs = DEFAULT_GRACEFUL_SHUTDOWN_MS,
 	} = options;
 
 	// Use requested port or find an available one
@@ -95,25 +94,43 @@ export async function startAnvil(
 	}
 
 	// Validate additionalArgs to prevent command injection
-	const dangerousChars = [";", "&&", "||", "|", ">", "<", "`", "$", "(", ")"];
-	const dangerousPatterns = ["$(", "${"];
+	// Using a whitelist approach for better security
+	const safeArgPattern = /^[a-zA-Z0-9\-_=:/.]+$/;
+	const invalidArgs = additionalArgs.filter((arg) => !safeArgPattern.test(arg));
 
-	const foundDangerousChars = additionalArgs.filter((arg) => {
-		// Check for individual dangerous characters
-		const hasChar = dangerousChars.some((char) => arg.includes(char));
-		// Check for dangerous patterns (command substitution and env var injection)
-		const hasPattern = dangerousPatterns.some((pattern) =>
-			arg.includes(pattern),
-		);
-		return hasChar || hasPattern;
-	});
-
-	if (foundDangerousChars.length > 0) {
+	if (invalidArgs.length > 0) {
+		// Provide detailed information about what's not allowed
+		const dangerousChars = [
+			";",
+			"&&",
+			"||",
+			"|",
+			">",
+			"<",
+			"`",
+			"$",
+			"(",
+			")",
+			"&",
+			"\n",
+			"\r",
+			" ",
+			"\t",
+			"*",
+			"?",
+			"[",
+			"]",
+			"{",
+			"}",
+			"'",
+			'"',
+			"\\",
+		];
 		throw new Error(
 			"Invalid characters in additional arguments. " +
-				`Arguments cannot contain shell metacharacters (${dangerousChars.join(", ")}) ` +
-				`or patterns (${dangerousPatterns.join(", ")}) to prevent command injection. ` +
-				`Found dangerous arguments: ${foundDangerousChars.join(", ")}`,
+				"Arguments must only contain alphanumeric characters, hyphens, underscores, equals signs, colons, slashes, and dots. " +
+				`Dangerous characters include: ${dangerousChars.join(", ")}. ` +
+				`Found invalid arguments: ${invalidArgs.join(", ")}`,
 		);
 	}
 
@@ -173,7 +190,7 @@ export async function startAnvil(
 		rpcUrl,
 		port,
 		process: anvilProcess as ChildProcessWithoutNullStreams,
-		async stop() {
+		async stop(gracefulShutdownMs = DEFAULT_GRACEFUL_SHUTDOWN_MS) {
 			if (stopped) return;
 			stopped = true;
 			await stopAnvil(instance, gracefulShutdownMs);

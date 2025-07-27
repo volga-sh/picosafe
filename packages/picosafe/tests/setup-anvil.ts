@@ -17,6 +17,15 @@ import {
 } from "@volga/anvil-manager";
 import { afterAll } from "vitest";
 
+/**
+ * Set environment variables for test Anvil instance
+ */
+function setTestAnvilEnvironment(port: number): void {
+	const rpcUrl = `http://127.0.0.1:${port}`;
+	process.env.TEST_ANVIL_RPC_URL = rpcUrl;
+	process.env.TEST_ANVIL_PORT = String(port);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -57,8 +66,7 @@ if (!existingProcess || existingProcess.killed) {
 	setGlobalAnvilProcess(anvilInstance.process);
 
 	// Environment variables allow test files to connect to their worker's unique Anvil instance
-	process.env.TEST_ANVIL_RPC_URL = anvilInstance.rpcUrl;
-	process.env.TEST_ANVIL_PORT = String(anvilInstance.port);
+	setTestAnvilEnvironment(anvilInstance.port);
 
 	if (isVerbose) {
 		console.log(`[Worker ${workerId}] Anvil ready at ${anvilInstance.rpcUrl}`);
@@ -80,8 +88,7 @@ if (!existingProcess || existingProcess.killed) {
 	// Set environment variables for reused instance
 	// Use the same port calculation as in createTestAnvilOptions
 	const port = getTestAnvilPort(workerId);
-	process.env.TEST_ANVIL_RPC_URL = `http://127.0.0.1:${port}`;
-	process.env.TEST_ANVIL_PORT = String(port);
+	setTestAnvilEnvironment(port);
 }
 
 if (isVerbose) {

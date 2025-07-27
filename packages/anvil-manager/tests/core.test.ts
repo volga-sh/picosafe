@@ -189,7 +189,7 @@ describe("Core Anvil Management", () => {
 
 		for (const args of dangerousArgs) {
 			await expect(startAnvil({ additionalArgs: args })).rejects.toThrow(
-				/Invalid characters in additional arguments.*shell metacharacters/,
+				/Invalid characters in additional arguments.*alphanumeric characters/,
 			);
 		}
 

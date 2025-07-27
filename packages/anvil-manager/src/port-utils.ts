@@ -43,7 +43,10 @@ export async function findAvailablePort(
 
 /**
  * Get an OS-assigned available port
- * @returns Promise resolving to an available port number, or null if failed
+ * @returns Promise resolving to an available port number, or null if failed.
+ * Returns null when the OS cannot allocate a port (e.g., due to system resource
+ * constraints or network configuration issues). Callers should handle the null
+ * case by falling back to manual port scanning.
  * @warning RACE CONDITION: There is a time window between when this function returns
  * a port and when the consuming process (e.g., Anvil) actually binds to it. Another
  * process could potentially claim the port during this window. While extremely rare
