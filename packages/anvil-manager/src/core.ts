@@ -13,6 +13,8 @@ const DEFAULT_GRACEFUL_SHUTDOWN_MS = 500;
  * @param options - Configuration options for the Anvil instance
  * @returns A promise that resolves to an AnvilInstance object
  * @throws {Error} If Anvil fails to start or become ready
+ * @note The additionalArgs parameter is validated to prevent shell injection attacks.
+ * Shell metacharacters (;, &&, ||, |, >, <, `, $, (, )) are not allowed in arguments.
  * @example
  * ```typescript
  * import { startAnvil } from "@volga/anvil-manager";
@@ -92,10 +94,17 @@ export async function startAnvil(
 	}
 
 	// Validate additionalArgs to prevent command injection
-	if (additionalArgs.some((arg) => arg.includes(";") || arg.includes("&&"))) {
+	const dangerousChars = [";", "&&", "||", "|", ">", "<", "`", "$", "(", ")"];
+	const foundDangerousChars = additionalArgs.filter((arg) =>
+		dangerousChars.some((char) => arg.includes(char)),
+	);
+
+	if (foundDangerousChars.length > 0) {
 		throw new Error(
 			"Invalid characters in additional arguments. " +
-				"Arguments cannot contain ';' or '&&' to prevent command injection.",
+				`Arguments cannot contain shell metacharacters (${dangerousChars.join(", ")}) ` +
+				"to prevent command injection. " +
+				`Found dangerous arguments: ${foundDangerousChars.join(", ")}`,
 		);
 	}
 
@@ -220,18 +229,21 @@ export async function stopAnvil(
 	// Try graceful shutdown first
 	process.kill("SIGTERM");
 
-	// Wait for graceful shutdown
-	await new Promise((resolve) => setTimeout(resolve, gracefulShutdownMs));
+	// Wait for either the process to exit or the timeout
+	// This is more efficient than always waiting the full timeout
+	const exitPromise = new Promise<void>((resolve) => {
+		process.once("exit", () => resolve());
+	});
+	const timeoutPromise = new Promise<void>((resolve) => {
+		setTimeout(() => resolve(), gracefulShutdownMs);
+	});
 
-	// Force kill if still running
+	await Promise.race([exitPromise, timeoutPromise]);
+
+	// Force kill if still running after timeout
 	if (process.exitCode === null && !process.killed) {
 		process.kill("SIGKILL");
-	}
-
-	// Wait for process to actually exit
-	if (process.exitCode === null) {
-		await new Promise<void>((resolve) => {
-			process.on("exit", () => resolve());
-		});
+		// Wait for process to actually exit
+		await exitPromise;
 	}
 }

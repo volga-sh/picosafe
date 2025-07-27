@@ -147,6 +147,8 @@ Starts a new Anvil instance with the specified options.
 - If `port` is omitted: Automatically finds an available port
 - If `port` is specified: Validates the port is available before starting, throws an error if in use
 
+**Note on Port Discovery:** When using automatic port discovery, there is a theoretical race condition between when the port is identified as available and when Anvil binds to it. In practice, this is extremely rare, especially with OS-assigned high-numbered ports. If you experience port conflicts in high-concurrency environments, consider using explicit port assignment with coordination between processes.
+
 ### `withAnvil(callback, options?)`
 
 Executes a function with a temporary Anvil instance that is automatically cleaned up.

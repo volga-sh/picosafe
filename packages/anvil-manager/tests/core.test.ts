@@ -171,4 +171,33 @@ describe("Core Anvil Management", () => {
 		expect(instance2.port).toBe(65535);
 		await instance2.stop();
 	});
+
+	it("should reject additional arguments with shell metacharacters", async () => {
+		// Test various dangerous characters
+		const dangerousArgs = [
+			[";", "echo hacked"],
+			["&&", "malicious"],
+			["||", "command"],
+			["|", "pipe"],
+			[">", "redirect"],
+			["<", "input"],
+			["`", "backtick"],
+			["$", "(command)"],
+			["(", "subshell"],
+			[")", "subshell"],
+		];
+
+		for (const args of dangerousArgs) {
+			await expect(startAnvil({ additionalArgs: args })).rejects.toThrow(
+				/Invalid characters in additional arguments.*shell metacharacters/,
+			);
+		}
+
+		// Test that safe arguments work
+		const instance = await startAnvil({
+			additionalArgs: ["--chain-id", "1337", "--silent"],
+		});
+		expect(instance.port).toBeGreaterThanOrEqual(8545);
+		await instance.stop();
+	});
 });

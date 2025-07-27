@@ -44,6 +44,11 @@ export async function findAvailablePort(
 /**
  * Get an OS-assigned available port
  * @returns Promise resolving to an available port number, or null if failed
+ * @note There is a theoretical race condition between when this function returns
+ * a port and when Anvil actually binds to it. Another process could potentially
+ * claim the port in this window. In practice, this is extremely rare, especially
+ * for high-numbered ports returned by the OS. The risk is acceptable given the
+ * significant benefits of automatic port discovery.
  */
 async function getOSAssignedPort(): Promise<number | null> {
 	return new Promise((resolve) => {
