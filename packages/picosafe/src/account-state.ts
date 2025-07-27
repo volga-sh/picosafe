@@ -1,15 +1,15 @@
 import type { Address, Hex, Quantity } from "viem";
 import type {
 	EIP1193ProviderWithRequestFn,
+	MaybeLazy,
 	StateReadCall,
-	StateReadFunction,
-	StateReadOptions,
-	StateReadResult,
+	WrappedStateRead,
+	WrapResult,
 } from "./types";
 import { checksumAddress } from "./utilities/address";
 import { SENTINEL_NODE } from "./utilities/constants";
 import { encodeWithSelector, padStartHex } from "./utilities/encoding.js";
-import { wrapStateReadWithOptions } from "./utilities/wrapStateRead";
+import { wrapStateRead } from "./utilities/wrapStateRead";
 
 /**
  * Constant offsets for parsing storage results from getStorageAt calls.
@@ -154,14 +154,7 @@ const SAFE_STORAGE_SLOTS = {
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/common/StorageAccessible.sol#L17
  */
-const getStorageAt: StateReadFunction<
-	{
-		safeAddress: Address;
-		slot: Quantity;
-		length?: bigint;
-	},
-	Hex[]
-> = <O extends StateReadOptions = StateReadOptions<void>>(
+function getStorageAt<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: {
 		safeAddress: Address;
@@ -169,7 +162,7 @@ const getStorageAt: StateReadFunction<
 		length?: bigint;
 	},
 	options?: O,
-) => {
+): WrapResult<Hex[], A, O> {
 	const { safeAddress, slot, length = 1n } = params;
 	const { block = "latest" } = options || {};
 
@@ -198,13 +191,12 @@ const getStorageAt: StateReadFunction<
 		return decodedResult;
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<Hex[], O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		Hex[],
+		A,
+		O
+	>;
+}
 
 /**
  * Retrieves the current transaction nonce for a Safe contract by reading its storage slot.
@@ -217,7 +209,7 @@ const getStorageAt: StateReadFunction<
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
  * @param params - Parameters for the nonce read
  *                 - `safeAddress`: The address of the Safe contract whose nonce is being fetched
- * @param options - Optional execution options {@link StateReadOptions}
+ * @param options - Optional execution options
  *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
  *                  - `block`: Block number or tag to query at (defaults to "latest")
  *                  - `data`: Optional additional data to attach to the wrapped call
@@ -254,13 +246,11 @@ const getStorageAt: StateReadFunction<
  * const nonce = await nonceCall.call();
  * ```
  */
-const getNonce: StateReadFunction<{ safeAddress: Address }, bigint> = <
-	O extends StateReadOptions = StateReadOptions<void>,
->(
+function getNonce<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: { safeAddress: Address },
 	options?: O,
-) => {
+): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
 	const { block = "latest" } = options || {};
 
@@ -286,13 +276,12 @@ const getNonce: StateReadFunction<{ safeAddress: Address }, bigint> = <
 		return BigInt(`0x${nonceHex}`);
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<bigint, O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		bigint,
+		A,
+		O
+	>;
+}
 
 /**
  * Retrieves the fallback handler address for a Safe contract by reading its storage slot.
@@ -337,14 +326,14 @@ const getNonce: StateReadFunction<{ safeAddress: Address }, bigint> = <
  * const handler = await handlerCall.call();
  * ```
  */
-const getFallbackHandler: StateReadFunction<
-	{ safeAddress: Address },
-	Address
-> = <O extends StateReadOptions = StateReadOptions<void>>(
+function getFallbackHandler<
+	A = void,
+	O extends MaybeLazy<A> | undefined = undefined,
+>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: { safeAddress: Address },
 	options?: O,
-) => {
+): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
 	const { block = "latest" } = options || {};
 
@@ -367,13 +356,12 @@ const getFallbackHandler: StateReadFunction<
 		return parseAddressFromStorageResult(result);
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<Address, O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		Address,
+		A,
+		O
+	>;
+}
 
 /**
  * Retrieves the number of owners configured on a Safe contract by reading its storage slot.
@@ -412,13 +400,14 @@ const getFallbackHandler: StateReadFunction<
  * const count = await countCall.call();
  * ```
  */
-const getOwnerCount: StateReadFunction<{ safeAddress: Address }, bigint> = <
-	O extends StateReadOptions = StateReadOptions<void>,
+function getOwnerCount<
+	A = void,
+	O extends MaybeLazy<A> | undefined = undefined,
 >(
 	provider: EIP1193ProviderWithRequestFn,
 	params: { safeAddress: Address },
 	options?: O,
-) => {
+): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
 	const { block = "latest" } = options || {};
 
@@ -442,13 +431,12 @@ const getOwnerCount: StateReadFunction<{ safeAddress: Address }, bigint> = <
 		return BigInt(`0x${countHex}`);
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<bigint, O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		bigint,
+		A,
+		O
+	>;
+}
 
 /**
  * Retrieves the threshold (minimum signatures required) for a Safe contract by reading its storage slot.
@@ -487,13 +475,11 @@ const getOwnerCount: StateReadFunction<{ safeAddress: Address }, bigint> = <
  * const threshold = await thresholdCall.call();
  * ```
  */
-const getThreshold: StateReadFunction<{ safeAddress: Address }, bigint> = <
-	O extends StateReadOptions = StateReadOptions<void>,
->(
+function getThreshold<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: { safeAddress: Address },
 	options?: O,
-) => {
+): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
 	const { block = "latest" } = options || {};
 
@@ -517,13 +503,12 @@ const getThreshold: StateReadFunction<{ safeAddress: Address }, bigint> = <
 		return BigInt(`0x${thresholdHex}`);
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<bigint, O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		bigint,
+		A,
+		O
+	>;
+}
 
 /**
  * Retrieves the guard address for a Safe contract by reading its storage slot.
@@ -563,13 +548,11 @@ const getThreshold: StateReadFunction<{ safeAddress: Address }, bigint> = <
  * const guard = await guardCall.call();
  * ```
  */
-const getGuard: StateReadFunction<{ safeAddress: Address }, Address> = <
-	O extends StateReadOptions = StateReadOptions<void>,
->(
+function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: { safeAddress: Address },
 	options?: O,
-) => {
+): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
 	const { block = "latest" } = options || {};
 
@@ -586,13 +569,12 @@ const getGuard: StateReadFunction<{ safeAddress: Address }, Address> = <
 		return parseAddressFromStorageResult(result);
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<Address, O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		Address,
+		A,
+		O
+	>;
+}
 
 /**
  * Retrieves the singleton address for a Safe contract by reading its storage slot.
@@ -632,13 +614,11 @@ const getGuard: StateReadFunction<{ safeAddress: Address }, Address> = <
  * const impl = await singletonCall.call();
  * ```
  */
-const getSingleton: StateReadFunction<{ safeAddress: Address }, Address> = <
-	O extends StateReadOptions = StateReadOptions<void>,
->(
+function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: { safeAddress: Address },
 	options?: O,
-) => {
+): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
 	const { block = "latest" } = options || {};
 
@@ -657,13 +637,12 @@ const getSingleton: StateReadFunction<{ safeAddress: Address }, Address> = <
 		return parseAddressFromStorageResult(result);
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<Address, O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		Address,
+		A,
+		O
+	>;
+}
 
 /**
  * Gets all owners of a Safe.
@@ -714,13 +693,11 @@ const getSingleton: StateReadFunction<{ safeAddress: Address }, Address> = <
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L148
  */
-const getOwners: StateReadFunction<{ safeAddress: Address }, Address[]> = <
-	O extends StateReadOptions = StateReadOptions<void>,
->(
+function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: { safeAddress: Address },
 	options?: O,
-) => {
+): WrapResult<Address[], A, O> {
 	const { safeAddress } = params;
 	const { block = "latest" } = options || {};
 
@@ -763,13 +740,12 @@ const getOwners: StateReadFunction<{ safeAddress: Address }, Address[]> = <
 		return owners;
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<Address[], O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		Address[],
+		A,
+		O
+	>;
+}
 
 /**
  * Retrieves a paginated list of enabled modules for a Safe account.
@@ -834,14 +810,10 @@ const getOwners: StateReadFunction<{ safeAddress: Address }, Address[]> = <
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L144
  */
-const getModulesPaginated: StateReadFunction<
-	{
-		safeAddress: Address;
-		start?: Address;
-		pageSize?: number;
-	},
-	{ modules: Address[]; next: Address }
-> = <O extends StateReadOptions = StateReadOptions<void>>(
+function getModulesPaginated<
+	A = void,
+	O extends MaybeLazy<A> | undefined = undefined,
+>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: {
 		safeAddress: Address;
@@ -849,7 +821,7 @@ const getModulesPaginated: StateReadFunction<
 		pageSize?: number;
 	},
 	options?: O,
-) => {
+): WrapResult<{ modules: Address[]; next: Address }, A, O> {
 	const { safeAddress, start = SENTINEL_NODE, pageSize = 100 } = params;
 	const { block = "latest" } = options || {};
 
@@ -896,13 +868,12 @@ const getModulesPaginated: StateReadFunction<
 		return { modules, next };
 	};
 
-	return wrapStateReadWithOptions(
-		provider,
-		call,
-		decoder,
-		options,
-	) as StateReadResult<{ modules: Address[]; next: Address }, O>;
-};
+	return wrapStateRead(provider, call, decoder, options) as WrapResult<
+		{ modules: Address[]; next: Address },
+		A,
+		O
+	>;
+}
 
 export {
 	getStorageAt,

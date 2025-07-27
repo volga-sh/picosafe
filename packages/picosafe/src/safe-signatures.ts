@@ -6,15 +6,14 @@ import type { SignatureValidationResult } from "./signature-validation.js";
 import { validateSignature } from "./signature-validation.js";
 import type {
 	EIP1193ProviderWithRequestFn,
+	MaybeLazy,
 	PicosafeRpcBlockIdentifier,
 	PicosafeSignature,
 	SafeSignaturesParam,
 	SignatureValidationContext,
 	StateReadCall,
-	StateReadFunction,
-	StateReadOptions,
-	StateReadResult,
 	WrappedStateRead,
+	WrapResult,
 } from "./types.js";
 import {
 	isApprovedHashSignature,
@@ -187,16 +186,20 @@ function encodeSafeSignaturesBytes(
  * Helper function to handle error results for both lazy and non-lazy modes in checkNSignatures
  * This reduces code duplication when creating error results across different error scenarios
  */
-function createCheckNSignaturesErrorResult<O extends StateReadOptions>(
+function createCheckNSignaturesErrorResult<
+	A,
+	O extends MaybeLazy<A> | undefined,
+>(
 	errorResult: { valid: boolean; error?: Error },
 	options: O | undefined,
 	safeAddress: Address,
 	block: PicosafeRpcBlockIdentifier,
-): StateReadResult<{ valid: boolean; error?: Error }, O> {
+): WrapResult<{ valid: boolean; error?: Error }, A, O> {
 	// Handle non-lazy mode
 	if (!options?.lazy) {
-		return Promise.resolve(errorResult) as StateReadResult<
+		return Promise.resolve(errorResult) as WrapResult<
 			{ valid: boolean; error?: Error },
+			A,
 			O
 		>;
 	}
@@ -215,9 +218,10 @@ function createCheckNSignaturesErrorResult<O extends StateReadOptions>(
 			call: () => Promise.resolve(errorResult),
 		};
 		// TypeScript's conditional types require assertions here due to complexity
-		// of StateReadResult's type inference with generic parameter O
-		return failedResultWithData as unknown as StateReadResult<
+		// of WrapResult's type inference with generic parameter O
+		return failedResultWithData as unknown as WrapResult<
 			{ valid: boolean; error?: Error },
+			A,
 			O
 		>;
 	}
@@ -226,8 +230,9 @@ function createCheckNSignaturesErrorResult<O extends StateReadOptions>(
 		rawCall: failedCall,
 		call: () => Promise.resolve(errorResult),
 	};
-	return failedResultWithoutData as StateReadResult<
+	return failedResultWithoutData as WrapResult<
 		{ valid: boolean; error?: Error },
+		A,
 		O
 	>;
 }
@@ -262,7 +267,7 @@ function createCheckNSignaturesErrorResult<O extends StateReadOptions>(
  * @param params.data - The original data that was signed (used for EIP-1271 validation)
  * @param params.signatures - Array of signatures to verify or encoded signatures hex {@link SafeSignaturesParam}
  * @param params.requiredSignatures - Number of valid signatures required (must be > 0 and <= threshold)
- * @param options - Optional execution options {@link StateReadOptions}
+ * @param options - Optional execution options
  * @returns Promise that resolves to validation result with valid flag and optional error, or a wrapped call object {@link WrappedStateRead}
  * @throws {Error} If requiredSignatures is <= 0
  * @example
@@ -294,19 +299,10 @@ function createCheckNSignaturesErrorResult<O extends StateReadOptions>(
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
  */
-const checkNSignatures: StateReadFunction<
-	{
-		safeAddress: Address;
-		dataHash: Hex;
-		data: Hex;
-		signatures: SafeSignaturesParam;
-		requiredSignatures: bigint;
-	},
-	{
-		valid: boolean;
-		error?: Error;
-	}
-> = <O extends StateReadOptions = StateReadOptions<void>>(
+function checkNSignatures<
+	A = void,
+	O extends MaybeLazy<A> | undefined = undefined,
+>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: {
 		safeAddress: Address;
@@ -316,7 +312,7 @@ const checkNSignatures: StateReadFunction<
 		requiredSignatures: bigint;
 	},
 	options?: O,
-) => {
+): WrapResult<{ valid: boolean; error?: Error }, A, O> {
 	const { safeAddress, dataHash, data, signatures, requiredSignatures } =
 		params;
 	const { block = "latest" } = options || {};
@@ -436,9 +432,10 @@ const checkNSignatures: StateReadFunction<
 				call: wrappedCallFunction,
 			};
 			// TypeScript's conditional types require assertions here due to complexity
-			// of StateReadResult's type inference with generic parameter O
-			return resultWithData as unknown as StateReadResult<
+			// of WrapResult's type inference with generic parameter O
+			return resultWithData as unknown as WrapResult<
 				{ valid: boolean; error?: Error },
+				A,
 				O
 			>;
 		}
@@ -450,8 +447,9 @@ const checkNSignatures: StateReadFunction<
 			rawCall: call,
 			call: wrappedCallFunction,
 		};
-		return resultWithoutData as StateReadResult<
+		return resultWithoutData as WrapResult<
 			{ valid: boolean; error?: Error },
+			A,
 			O
 		>;
 	}
@@ -469,8 +467,8 @@ const checkNSignatures: StateReadFunction<
 		}
 	};
 
-	return executeCall() as StateReadResult<{ valid: boolean; error?: Error }, O>;
-};
+	return executeCall() as WrapResult<{ valid: boolean; error?: Error }, A, O>;
+}
 
 /**
  * Helper to safely read dynamic data with bounds checking

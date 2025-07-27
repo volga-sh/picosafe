@@ -307,70 +307,53 @@ type SignatureValidationContext = {
 };
 
 /**
- * Represents a call to read state from a contract
- * @property {Address} to - The contract address to call
- * @property {Hex} data - The encoded function call data
- * @property {PicosafeRpcBlockIdentifier} block - Optional block number or tag to query at
+ * Minimal description of an `eth_call` that is safe to batch or execute
+ * immediately. The `block` field is optional and defaults to the node's
+ * `latest` state.
  */
 type StateReadCall = {
+	/** Destination contract address */
 	to: Address;
+	/** Calldata (selector + encoded args) */
 	data: Hex;
+	/**
+	 * Block context – either a tag ("latest", "pending", …) or an explicit block
+	 * number/hash.
+	 */
 	block?: PicosafeRpcBlockIdentifier;
 };
 
 /**
- * Options for state read functions
- * @property {boolean} lazy - If true, returns a wrapped call object instead of executing immediately
- * @property {PicosafeRpcBlockIdentifier} block - Block number or tag to query at
- * @property {A} data - Optional additional data to attach to the wrapped call
+ * Object returned when `wrapStateRead` is used in **lazy** mode. It contains
+ * the raw call descriptor, a convenience `call()` method that performs the
+ * RPC request, and – optionally – a user‑supplied metadata payload.
  */
-type StateReadOptions<A = void> = {
-	lazy?: boolean;
-	block?: PicosafeRpcBlockIdentifier;
+type WrappedStateRead<T, A = void> = {
+	rawCall: StateReadCall;
+	call: () => Promise<T>;
 	data?: A;
 };
 
 /**
- * Wrapped state read object returned when using lazy evaluation
- * @property {StateReadCall} rawCall - The raw RPC call parameters
- * @property {() => Promise<T>} call - Function to execute the call
- * @property {A} data - Optional additional data attached to the call
+ * A discriminated‑union that toggles lazy execution and optionally carries a
+ * strongly‑typed metadata payload and block context.
+ *
+ * - `lazy?: false` (default)  ➜ immediate execution; block option available.
+ * - `lazy: true`             ➜ returns a wrapper; `data` and `block` may be supplied.
+ *
+ * @template A  Caller‑supplied metadata shape.
  */
-type WrappedStateRead<T, A = void> = A extends void
-	? {
-			rawCall: StateReadCall;
-			call: () => Promise<T>;
-		}
-	: {
-			rawCall: StateReadCall;
-			call: () => Promise<T>;
-			data: A;
-		};
+type MaybeLazy<A = void> =
+	| { lazy?: false; data?: never; block?: PicosafeRpcBlockIdentifier }
+	| { lazy: true; data?: A; block?: PicosafeRpcBlockIdentifier };
 
 /**
- * Conditional return type for state read functions based on options
- * Returns a Promise<T> for immediate execution or WrappedStateRead<T> for lazy evaluation
+ * Derives the return type of wrapStateRead from the caller‑supplied
+ * `options` argument.
  */
-type StateReadResult<T, O extends StateReadOptions> = O extends {
-	lazy: true;
-}
-	? O extends { data: infer A }
-		? WrappedStateRead<T, A>
-		: WrappedStateRead<T>
+type WrapResult<T, A, O> = O extends { lazy: true }
+	? WrappedStateRead<T, A>
 	: Promise<T>;
-
-/**
- * Generic state read function type that handles both immediate and lazy evaluation
- * @template P - The parameters type for the function
- * @template T - The return type when the state is read
- */
-type StateReadFunction<P, T> = <
-	O extends StateReadOptions = StateReadOptions<void>,
->(
-	provider: EIP1193ProviderWithRequestFn,
-	params: P,
-	options?: O,
-) => StateReadResult<T, O>;
 
 export { Operation, SignatureTypeVByte };
 export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
@@ -390,8 +373,7 @@ export type {
 	SafeSignaturesParam,
 	SignatureValidationContext,
 	StateReadCall,
-	StateReadOptions,
 	WrappedStateRead,
-	StateReadResult,
-	StateReadFunction,
+	MaybeLazy,
+	WrapResult,
 };

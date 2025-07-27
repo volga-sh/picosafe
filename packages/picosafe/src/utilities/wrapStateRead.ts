@@ -1,13 +1,15 @@
 import type { Hex } from "viem";
 import type {
 	EIP1193ProviderWithRequestFn,
+	MaybeLazy,
 	StateReadCall,
-	StateReadOptions,
 	WrappedStateRead,
+	WrapResult,
 } from "../types";
 
 /**
- * Wraps a state read call with optional lazy evaluation
+ * Wraps an `eth_call` so it can either execute immediately (default) or be
+ * deferred for later/batched execution.
  *
  * This utility function creates a wrapper around an eth_call request that can either:
  * - Execute immediately and return the decoded result (default behavior)
@@ -19,9 +21,9 @@ import type {
  * @param {EIP1193ProviderWithRequestFn} provider - EIP-1193 compatible provider for blockchain interaction
  * @param {StateReadCall} call - The RPC call parameters (to, data, block) {@link StateReadCall}
  * @param {(result: Hex) => T} decoder - Function to decode the raw hex result into the desired type
- * @param {StateReadOptions} options - Options for lazy evaluation and additional metadata {@link StateReadOptions}
+ * @param {MaybeLazy<A>} options - Options for lazy evaluation, block context, and additional metadata {@link MaybeLazy}
  *
- * @returns {Promise<T> | WrappedStateRead<T>} The decoded result or a wrapped call object based on options {@link WrappedStateRead}
+ * @returns {Promise<T> | WrappedStateRead<T, A>} The decoded result or a wrapped call object based on options {@link WrappedStateRead}
  *
  * @example
  * // Immediate execution (default)
@@ -31,6 +33,15 @@ import type {
  *   decodeNonce
  * );
  * console.log(nonce); // 5n
+ *
+ * @example
+ * // Immediate execution with specific block
+ * const nonce = await wrapStateRead(
+ *   provider,
+ *   { to: safeAddress, data: getNonceCalldata },
+ *   decodeNonce,
+ *   { block: 12345n }
+ * );
  *
  * @example
  * // Lazy evaluation
@@ -44,115 +55,66 @@ import type {
  * const nonce = await nonceCall.call();
  *
  * @example
- * // With additional metadata
+ * // Lazy evaluation with metadata and block context
  * const nonceCall = wrapStateRead(
  *   provider,
  *   { to: safeAddress, data: getNonceCalldata },
  *   decodeNonce,
- *   { lazy: true, data: { purpose: 'validation' } }
+ *   { lazy: true, data: { purpose: 'validation' }, block: 'pending' }
  * );
  * console.log(nonceCall.data.purpose); // 'validation'
  */
-// Simplified overloads using discriminated unions for better maintainability
-function wrapStateRead<T>(
+export function wrapStateRead<
+	T,
+	A = void,
+	O extends MaybeLazy<A> | undefined = undefined,
+>(
 	provider: EIP1193ProviderWithRequestFn,
 	call: StateReadCall,
 	decoder: (result: Hex) => T,
-	options?: { lazy?: false; data?: never },
-): Promise<T>;
-function wrapStateRead<T, A = void>(
-	provider: EIP1193ProviderWithRequestFn,
-	call: StateReadCall,
-	decoder: (result: Hex) => T,
-	options: { lazy: true; data?: A },
-): WrappedStateRead<T, A>;
-function wrapStateRead<T, A = void>(
-	provider: EIP1193ProviderWithRequestFn,
-	call: StateReadCall,
-	decoder: (result: Hex) => T,
-	options?: StateReadOptions<A>,
-): Promise<T> | WrappedStateRead<T, A> {
-	const { lazy = false, data } = options || {};
+	options?: O,
+): WrapResult<T, A, O> {
+	const { lazy = false, data, block } = (options ?? {}) as MaybeLazy<A>;
 
-	async function executeCall(): Promise<T> {
+	/** Performs the underlying `eth_call` and decodes the result. */
+	const exec = async (): Promise<T> => {
 		const result = await provider.request({
 			method: "eth_call",
 			params: [
-				{
-					to: call.to,
-					data: call.data,
-				},
-				call.block || "latest",
+				{ to: call.to, data: call.data },
+				block ?? call.block ?? "latest",
 			],
 		});
 
 		return decoder(result);
-	}
+	};
 
+	// ────────────────────────────────────────────────────────────────────────────
+	// Immediate mode
+	// ────────────────────────────────────────────────────────────────────────────
 	if (!lazy) {
-		return executeCall();
+		return exec() as WrapResult<T, A, O>;
 	}
 
+	// ────────────────────────────────────────────────────────────────────────────
+	// Lazy mode – build the wrapper, attaching metadata only when present.
+	// ────────────────────────────────────────────────────────────────────────────
 	const rawCall: StateReadCall = {
 		to: call.to,
 		data: call.data,
-		block: call.block,
+		block: block ?? call.block,
 	};
 
 	if (data === undefined) {
 		return {
 			rawCall,
-			call: executeCall,
-		} as WrappedStateRead<T, A>;
+			call: exec,
+		} as WrapResult<T, A, O>;
 	}
 
 	return {
 		rawCall,
-		call: executeCall,
+		call: exec,
 		data,
-	} as WrappedStateRead<T, A>;
+	} as WrapResult<T, A, O>;
 }
-
-/**
- * Helper function that properly handles StateReadOptions and calls wrapStateRead with the right overload
- * This avoids code duplication in each state read function
- */
-function wrapStateReadWithOptions<T>(
-	provider: EIP1193ProviderWithRequestFn,
-	call: StateReadCall,
-	decoder: (result: Hex) => T,
-	options?: StateReadOptions<void>,
-): Promise<T>;
-function wrapStateReadWithOptions<T>(
-	provider: EIP1193ProviderWithRequestFn,
-	call: StateReadCall,
-	decoder: (result: Hex) => T,
-	options: StateReadOptions<void> & { lazy: true },
-): WrappedStateRead<T, void>;
-function wrapStateReadWithOptions<T, A>(
-	provider: EIP1193ProviderWithRequestFn,
-	call: StateReadCall,
-	decoder: (result: Hex) => T,
-	options: StateReadOptions<A> & { lazy: true; data: A },
-): WrappedStateRead<T, A>;
-function wrapStateReadWithOptions<T, A = void>(
-	provider: EIP1193ProviderWithRequestFn,
-	call: StateReadCall,
-	decoder: (result: Hex) => T,
-	options?: StateReadOptions<A>,
-): Promise<T> | WrappedStateRead<T, A> {
-	if (!options || !options.lazy) {
-		return wrapStateRead(provider, call, decoder);
-	}
-
-	// Build the options object conditionally including data if it exists
-	const lazyOptions = {
-		lazy: true as const,
-		...("data" in options &&
-			options.data !== undefined && { data: options.data }),
-	};
-
-	return wrapStateRead(provider, call, decoder, lazyOptions);
-}
-
-export { wrapStateRead, wrapStateReadWithOptions };
