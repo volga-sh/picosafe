@@ -1,3 +1,4 @@
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import type { AnvilOptions } from "./types.js";
 
 /**
@@ -81,7 +82,7 @@ export function getGlobalAnvilProcess() {
  * @param process - The Anvil process to store, or undefined to clear
  */
 export function setGlobalAnvilProcess(
-	process: ReturnType<typeof import("node:child_process").spawn> | undefined,
+	process: ChildProcessWithoutNullStreams | undefined,
 ) {
 	globalThis.__anvil_process__ = process;
 }

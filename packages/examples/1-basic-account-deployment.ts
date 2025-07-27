@@ -52,7 +52,9 @@ await withAnvil(async (anvilInstance) => {
 
 	console.log("📦 DEPLOYMENT TRANSACTION:");
 	console.log(`   To: ${rawTransaction.to}`);
-	console.log(`   Data: ${rawTransaction.data.slice(0, 66)}...`);
+	console.log(
+		`   Data: ${rawTransaction.data ? `${rawTransaction.data.slice(0, 66)}...` : "N/A"}`,
+	);
 	console.log();
 
 	console.log("📊 DEPLOYMENT DATA:");

@@ -1,5 +1,5 @@
 {
-	"name": "picosafe-examples",
+	"name": "@volga/examples",
 	"version": "1.0.0",
 	"private": true,
 	"type": "module",
@@ -9,8 +9,8 @@
 		"test": "echo 'No tests'"
 	},
 	"dependencies": {
-		"@volga/picosafe": "*",
-		"@volga/anvil-manager": "*",
+		"@volga/picosafe": "workspace:*",
+		"@volga/anvil-manager": "workspace:*",
 		"viem": "^2.33.1"
 	},
 	"devDependencies": {

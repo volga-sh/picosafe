@@ -26,7 +26,6 @@ export default defineConfig({
 	clean: true,
 	treeshake: true,
 	minify: false,
-	// Remove bundle: false since we're using glob patterns
 	tsconfig: resolve(__dirname, "tsconfig.json"),
 	// Mark Node.js built-ins as external to avoid rollup-plugin-dts issues
 	external: [/^node:/],

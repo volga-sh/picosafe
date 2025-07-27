@@ -65,9 +65,10 @@ describe("Core Anvil Management", () => {
 	it("should handle port conflicts gracefully", async () => {
 		const instance1 = await startAnvil({ port: 8550 });
 
-		// Anvil should panic when trying to bind to an already-used port
-		// But our startAnvil function might not catch this properly yet
-		// Let's test that the first instance is still working
+		// Attempt to start another instance on the same port
+		await expect(startAnvil({ port: 8550 })).rejects.toThrow();
+
+		// Verify the first instance is still working
 		const client = createPublicClient({
 			chain: anvil,
 			transport: http(instance1.rpcUrl),
