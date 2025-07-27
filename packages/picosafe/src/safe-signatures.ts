@@ -6,10 +6,13 @@ import type { SignatureValidationResult } from "./signature-validation.js";
 import { validateSignature } from "./signature-validation.js";
 import type {
 	EIP1193ProviderWithRequestFn,
-	PicosafeRpcBlockIdentifier,
 	PicosafeSignature,
 	SafeSignaturesParam,
 	SignatureValidationContext,
+	StateReadCall,
+	StateReadFunction,
+	StateReadOptions,
+	StateReadResult,
 } from "./types.js";
 import {
 	isApprovedHashSignature,
@@ -177,13 +180,6 @@ function encodeSafeSignaturesBytes(
  * @property {SafeSignaturesParam} signatures - Array of signatures to verify or encoded signatures hex
  * @property {bigint} requiredSignatures - Number of valid signatures required
  */
-type CheckNSignaturesVerificationParams = {
-	dataHash: Hex;
-	data: Hex;
-	signatures: SafeSignaturesParam;
-	requiredSignatures: bigint;
-	block?: PicosafeRpcBlockIdentifier;
-};
 
 /**
  * Verifies Safe signatures by calling the Safe contract's checkNSignatures function on-chain
@@ -248,84 +244,167 @@ type CheckNSignaturesVerificationParams = {
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
  */
-async function checkNSignatures(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	params: Readonly<CheckNSignaturesVerificationParams>,
-): Promise<{
-	valid: boolean;
-	error?: Error;
-}> {
-	if (params.requiredSignatures <= 0n) {
+const checkNSignatures: StateReadFunction<
+	{
+		safeAddress: Address;
+		dataHash: Hex;
+		data: Hex;
+		signatures: SafeSignaturesParam;
+		requiredSignatures: bigint;
+	},
+	{
+		valid: boolean;
+		error?: Error;
+	}
+> = <O extends StateReadOptions = StateReadOptions<void>>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: {
+		safeAddress: Address;
+		dataHash: Hex;
+		data: Hex;
+		signatures: SafeSignaturesParam;
+		requiredSignatures: bigint;
+	},
+	options?: O,
+) => {
+	const { safeAddress, dataHash, data, signatures, requiredSignatures } =
+		params;
+	const { block = "latest" } = options || {};
+
+	if (requiredSignatures <= 0n) {
 		throw new Error("Required signatures must be greater than 0");
 	}
 
-	// checkNSignatures doesn't return anything on success
-	// If we get a result, it should be "0x" (empty) for success
-	// If calling an EOA, we'll get "0x" as well, but the call succeeds which is wrong
-	// So we need to check if the contract exists first
-	let [code, error] = await captureError(
-		() =>
-			provider.request({
-				method: "eth_getCode",
-				params: [safeAddress, params.block ?? "latest"],
-			}),
-		`Failed to get code for ${safeAddress}`,
-	);
-
-	// If there's no code at the address, it's not a contract
-	if (error || code === "0x" || code === "0x0") {
-		return { valid: false, error };
-	}
-
-	// We skip additional runtime validation checks (e.g., validating addresses, signature formats)
-	// because the Safe contract's checkNSignatures function will handle all validation
-	// and revert if signatures are invalid, which we catch and return as false
+	// Encode signatures
 	let encodedSignatures: Hex;
-	if (Array.isArray(params.signatures)) {
-		// Handle empty array case - provide minimal valid signature bytes
-		if (params.signatures.length === 0) {
-			encodedSignatures = "0x";
+	try {
+		if (Array.isArray(signatures)) {
+			// Handle empty array case - provide minimal valid signature bytes
+			if (signatures.length === 0) {
+				encodedSignatures = "0x";
+			} else {
+				encodedSignatures = encodeSafeSignaturesBytes(signatures);
+			}
 		} else {
-			encodedSignatures = encodeSafeSignaturesBytes(params.signatures);
+			encodedSignatures = signatures as Hex;
 		}
-	} else {
-		encodedSignatures = params.signatures as Hex;
+	} catch (error) {
+		// If encoding fails, return immediately for non-lazy evaluation
+		if (!options?.lazy) {
+			return Promise.resolve({
+				valid: false,
+				error: error as Error,
+			}) as StateReadResult<{ valid: boolean; error?: Error }, O>;
+		}
+		// For lazy evaluation, we'll let it fail later when called
+		encodedSignatures = "0x";
 	}
 
-	const data = encodeFunctionData({
+	const callData = encodeFunctionData({
 		abi: PARSED_SAFE_ABI,
 		functionName: "checkNSignatures",
-		args: [
-			params.dataHash,
-			params.data,
-			encodedSignatures,
-			params.requiredSignatures,
-		],
+		args: [dataHash, data, encodedSignatures, requiredSignatures],
 	});
 
-	// CheckNSignatures doesn't return anything on success, that's why we omit the result
-	[, error] = await captureError(
-		() =>
-			provider.request({
-				method: "eth_call",
-				params: [
-					{
-						to: safeAddress,
-						data,
-					},
-					params.block ?? "latest",
-				],
-			}),
-		`checkNSignatures failed for ${safeAddress}`,
-	);
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: callData,
+		block,
+	};
 
-	if (error) {
+	// Custom decoder that checks if result indicates a successful call
+	const decoder = async (
+		_result: Hex | null,
+	): Promise<{ valid: boolean; error?: Error }> => {
+		// First check if the contract exists at this address
+		const [code, codeError] = await captureError(
+			() =>
+				provider.request({
+					method: "eth_getCode",
+					params: [safeAddress, block],
+				}),
+			`Failed to get code for ${safeAddress}`,
+		);
+
+		// If there's no code at the address, it's not a contract
+		if (codeError || !code || code === "0x" || code === "0x0") {
+			return {
+				valid: false,
+				error: codeError || new Error("Address is not a contract"),
+			};
+		}
+
+		// checkNSignatures doesn't return anything on success
+		// If we get here without an error and there's a contract, the validation passed
+		return { valid: true };
+	};
+
+	// Custom error handler that returns valid: false for all errors
+	const errorHandler = async (
+		error: Error,
+	): Promise<{ valid: boolean; error?: Error }> => {
+		// All errors mean the signatures are invalid
 		return { valid: false, error };
+	};
+
+	// For lazy evaluation, we need to create a custom wrapper
+	if (options?.lazy === true) {
+		// We need to handle the error case differently for lazy evaluation
+		// First, let's define the call wrapper function that includes error handling
+		const wrappedCallFunction = async (): Promise<{
+			valid: boolean;
+			error?: Error;
+		}> => {
+			try {
+				const result = await provider.request({
+					method: "eth_call",
+					params: [{ to: safeAddress, data: callData }, block],
+				});
+				return await decoder(result);
+			} catch (error) {
+				return await errorHandler(error as Error);
+			}
+		};
+
+		// Now create the wrapped object based on whether we have data
+		if ("data" in options && options.data !== undefined) {
+			// Version with data
+			const wrappedResult = {
+				rawCall: call,
+				data: options.data,
+				call: wrappedCallFunction,
+			};
+			return wrappedResult as StateReadResult<
+				{ valid: boolean; error?: Error },
+				O
+			>;
+		}
+		// Version without data
+		const wrappedResult = {
+			rawCall: call,
+			call: wrappedCallFunction,
+		};
+		return wrappedResult as StateReadResult<
+			{ valid: boolean; error?: Error },
+			O
+		>;
 	}
 
-	return { valid: true };
-}
+	// For immediate execution, handle the async call properly
+	const executeCall = async () => {
+		try {
+			const result = await provider.request({
+				method: "eth_call",
+				params: [{ to: safeAddress, data: callData }, block],
+			});
+			return await decoder(result);
+		} catch (error) {
+			return await errorHandler(error as Error);
+		}
+	};
+
+	return executeCall() as StateReadResult<{ valid: boolean; error?: Error }, O>;
+};
 
 /**
  * Helper to safely read dynamic data with bounds checking
@@ -689,9 +768,9 @@ async function validateSignaturesForSafe(
 	results: SignatureValidationResult<PicosafeSignature>[];
 }> {
 	const safeOwners =
-		safeConfig?.owners ?? (await getOwners(provider, safeAddress));
+		safeConfig?.owners ?? (await getOwners(provider, { safeAddress }));
 	const requiredSignatures =
-		safeConfig?.threshold ?? (await getThreshold(provider, safeAddress));
+		safeConfig?.threshold ?? (await getThreshold(provider, { safeAddress }));
 	const seenOwners = new Set<Address>();
 
 	const signatures = Array.isArray(validationParams.signatures)

@@ -151,7 +151,7 @@ async function getDisableModuleTransaction(
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
 	// Get all modules to find the previous module
-	const modules = await getModulesPaginated(provider, safeAddress);
+	const modules = await getModulesPaginated(provider, { safeAddress });
 	// Normalise to checksum so look-ups are case-insensitive
 	const normalizedModuleAddress = checksumAddress(moduleAddress);
 	const moduleIndex = modules.modules.indexOf(normalizedModuleAddress);

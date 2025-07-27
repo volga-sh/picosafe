@@ -1,11 +1,15 @@
 import type { Address, Hex, Quantity } from "viem";
 import type {
 	EIP1193ProviderWithRequestFn,
-	PicosafeRpcBlockIdentifier,
+	StateReadCall,
+	StateReadFunction,
+	StateReadOptions,
+	StateReadResult,
 } from "./types";
 import { checksumAddress } from "./utilities/address";
 import { SENTINEL_NODE } from "./utilities/constants";
 import { encodeWithSelector, padStartHex } from "./utilities/encoding.js";
+import { wrapStateReadWithOptions } from "./utilities/wrapStateRead";
 
 /**
  * Defines the well-known storage slot addresses used by Safe contracts.
@@ -51,13 +55,15 @@ const SAFE_STORAGE_SLOTS = {
  * This design enables batching multiple storage reads into a single RPC request via a multicall contract.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
- * @param safeAddress - The address of the Safe contract whose storage is being queried
- * @param storage - An object containing the storage slot to read and an optional length parameter
- *                  - `slot`: The storage slot to read (as a Quantity)
- *                  - `length`: Optional number of 32-byte slots to read (defaults to 1)
- *                  If `length` is provided, it will read that many consecutive slots starting from the specified slot.
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns An array of Hex strings representing the raw storage values for each slot
+ * @param params - Parameters for the storage read
+ *                 - `safeAddress`: The address of the Safe contract whose storage is being queried
+ *                 - `slot`: The storage slot to read (as a Quantity)
+ *                 - `length`: Optional number of 32-byte slots to read (defaults to 1)
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns An array of Hex strings representing the raw storage values for each slot, or a wrapped call object
  * @throws {Error} If the eth_call fails
  * @example
  * ```typescript
@@ -67,59 +73,91 @@ const SAFE_STORAGE_SLOTS = {
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
+ * // Immediate execution (default)
  * const values = await getStorageAt(
  *   provider,
- *   '0x742d35Cc6634C0532925a3b844Bc9e7595f4278',
- *   '0x5' // slot 5
+ *   {
+ *     safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278',
+ *     slot: '0x5' // slot 5
+ *   }
  * );
  * console.log(values); // e.g., ['0x000...abc']
  *
  * // Read two slots
  * const [slot0, slot1] = await getStorageAt(
  *   provider,
- *   '0x742d35Cc6634C0532925a3b844Bc9e7595f4278',
- *   '0x0',
- *   2
+ *   {
+ *     safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278',
+ *     slot: '0x0',
+ *     length: 2n
+ *   }
  * );
+ *
+ * // Lazy evaluation for batching
+ * const storageCall = await getStorageAt(
+ *   provider,
+ *   {
+ *     safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278',
+ *     slot: '0x5'
+ *   },
+ *   { lazy: true }
+ * );
+ * // Execute later or batch with multicall
+ * const values = await storageCall.call();
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/common/StorageAccessible.sol#L17
  */
-async function getStorageAt(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	storage: Readonly<{ slot: Quantity; length?: bigint }>,
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<Hex[]> {
+const getStorageAt: StateReadFunction<
+	{
+		safeAddress: Address;
+		slot: Quantity;
+		length?: bigint;
+	},
+	Hex[]
+> = <O extends StateReadOptions = StateReadOptions<void>>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: {
+		safeAddress: Address;
+		slot: Quantity;
+		length?: bigint;
+	},
+	options?: O,
+) => {
+	const { safeAddress, slot, length = 1n } = params;
+	const { block = "latest" } = options || {};
+
 	const getStorageAtSelector = "0x5624b25b";
-	const callData: Hex = encodeWithSelector(
-		getStorageAtSelector,
-		storage.slot,
-		storage.length ?? 1n,
-	);
-	const result = await provider.request({
-		method: "eth_call",
-		params: [
-			{
-				to: safeAddress,
-				data: callData,
-			},
-			block,
-		],
-	});
-	if (result === "0x") {
-		throw new Error(
-			`Failed to retrieve storage at slot ${storage.slot} for Safe at ${safeAddress}`,
-		);
-	}
+	const callData: Hex = encodeWithSelector(getStorageAtSelector, slot, length);
 
-	const decodedResult: Hex[] = [];
-	// We start at 64 byte (128 in hex, +2 for '0x' prefix) because the first 64 bytes are the offset + length of the result
-	for (let i = 130; i < result.length; i += 64) {
-		decodedResult.push(`0x${result.slice(i, i + 64)}`);
-	}
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: callData,
+		block,
+	};
 
-	return decodedResult;
-}
+	const decoder = (result: Hex): Hex[] => {
+		if (result === "0x") {
+			throw new Error(
+				`Failed to retrieve storage at slot ${slot} for Safe at ${safeAddress}`,
+			);
+		}
+
+		const decodedResult: Hex[] = [];
+		// We start at 64 byte (128 in hex, +2 for '0x' prefix) because the first 64 bytes are the offset + length of the result
+		for (let i = 130; i < result.length; i += 64) {
+			decodedResult.push(`0x${result.slice(i, i + 64)}`);
+		}
+
+		return decodedResult;
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<Hex[], O>;
+};
 
 /**
  * Retrieves the current transaction nonce for a Safe contract by reading its storage slot.
@@ -130,9 +168,13 @@ async function getStorageAt(
  * This design enables batching multiple getStorageAt calls into a single RPC request via a multicall contract.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
- * @param safeAddress - The address of the Safe contract whose nonce is being fetched
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns The current nonce value as a bigint
+ * @param params - Parameters for the nonce read
+ *                 - `safeAddress`: The address of the Safe contract whose nonce is being fetched
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns The current nonce value as a bigint, or a wrapped call object
  * @throws {Error} If no storage value is returned (e.g., invalid Safe address)
  * @example
  * ```typescript
@@ -142,37 +184,66 @@ async function getStorageAt(
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
+ * // Immediate execution (default)
  * const nonce = await getNonce(
  *   provider,
- *   '0x742d35Cc6634C0532925a3b844Bc9e7595f4278'
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' }
  * );
  * console.log('Current nonce:', nonce); // e.g., 5n
  *
  * // Query nonce at specific block
  * const historicalNonce = await getNonce(
  *   provider,
- *   '0x742d35Cc6634C0532925a3b844Bc9e7595f4278',
- *   '0x112a880' // block number as hex
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
+ *   { block: '0x112a880' } // block number as hex
  * );
+ *
+ * // Lazy evaluation for batching
+ * const nonceCall = await getNonce(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
+ *   { lazy: true }
+ * );
+ * const nonce = await nonceCall.call();
  * ```
  */
-async function getNonce(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<bigint> {
-	const [nonce] = await getStorageAt(
-		provider,
-		safeAddress,
-		{ slot: SAFE_STORAGE_SLOTS.nonce },
-		block,
-	);
-	if (!nonce) {
-		throw new Error(`Failed to retrieve nonce for Safe at ${safeAddress}`);
-	}
+const getNonce: StateReadFunction<{ safeAddress: Address }, bigint> = <
+	O extends StateReadOptions = StateReadOptions<void>,
+>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: { safeAddress: Address },
+	options?: O,
+) => {
+	const { safeAddress } = params;
+	const { block = "latest" } = options || {};
 
-	return BigInt(nonce);
-}
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.nonce, 1n),
+		block,
+	};
+
+	const decoder = (result: Hex): bigint => {
+		if (result === "0x") {
+			throw new Error(`Failed to retrieve nonce for Safe at ${safeAddress}`);
+		}
+
+		// Decode the nonce from the result
+		// Skip offset (64) + length (64) = 128 chars, then read 64 chars
+		const nonceHex = result.slice(130, 194);
+		if (!nonceHex) {
+			throw new Error(`Failed to retrieve nonce for Safe at ${safeAddress}`);
+		}
+		return BigInt(`0x${nonceHex}`);
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<bigint, O>;
+};
 
 /**
  * Retrieves the fallback handler address for a Safe contract by reading its storage slot.
@@ -184,9 +255,13 @@ async function getNonce(
  * This design enables batching multiple fallback handler reads into a single RPC request via a multicall contract.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
- * @param safeAddress - The address of the Safe contract
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns The fallback handler address, or zero address if none configured
+ * @param params - Parameters for the fallback handler read
+ *                 - `safeAddress`: The address of the Safe contract
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns The fallback handler address, or zero address if none configured, or a wrapped call object
  * @throws {Error} If no storage value is returned (e.g., invalid Safe address)
  * @example
  * ```typescript
@@ -196,34 +271,63 @@ async function getNonce(
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
+ * // Immediate execution (default)
  * const handler = await getFallbackHandler(
  *   provider,
- *   '0x742d35Cc6634C0532925a3b844Bc9e7595f4278'
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' }
  * );
  * console.log('Fallback handler:', handler);
  * // e.g., '0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99'
+ *
+ * // Lazy evaluation for batching
+ * const handlerCall = await getFallbackHandler(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
+ *   { lazy: true }
+ * );
+ * const handler = await handlerCall.call();
  * ```
  */
-async function getFallbackHandler(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<Address> {
-	const [fallbackHandler] = await getStorageAt(
-		provider,
-		safeAddress,
-		{ slot: SAFE_STORAGE_SLOTS.fallbackHandler },
-		block,
-	);
-	if (!fallbackHandler) {
-		throw new Error(
-			`Failed to retrieve fallback handler for Safe at ${safeAddress}`,
-		);
-	}
+const getFallbackHandler: StateReadFunction<
+	{ safeAddress: Address },
+	Address
+> = <O extends StateReadOptions = StateReadOptions<void>>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: { safeAddress: Address },
+	options?: O,
+) => {
+	const { safeAddress } = params;
+	const { block = "latest" } = options || {};
 
-	// Storage returns 32 bytes, extract the address (last 20 bytes)
-	return `0x${fallbackHandler.slice(-40)}`;
-}
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: encodeWithSelector(
+			"0x5624b25b",
+			SAFE_STORAGE_SLOTS.fallbackHandler,
+			1n,
+		),
+		block,
+	};
+
+	const decoder = (result: Hex): Address => {
+		if (result === "0x") {
+			throw new Error(
+				`Failed to retrieve fallback handler for Safe at ${safeAddress}`,
+			);
+		}
+		// Decode the address from the result
+		// Skip offset (64) + length (64) = 128 chars, then read last 40 chars of the 64-char slot
+		const addressHex = result.slice(130, 194).slice(-40);
+		return checksumAddress(`0x${addressHex}`);
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<Address, O>;
+};
 
 /**
  * Retrieves the number of owners configured on a Safe contract by reading its storage slot.
@@ -233,9 +337,13 @@ async function getFallbackHandler(
  * This design enables batching multiple ownerCount reads into a single RPC request via a multicall contract.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
- * @param safeAddress - The address of the Safe contract whose owner count is being fetched
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns The current owner count value as a bigint
+ * @param params - Parameters for the owner count read
+ *                 - `safeAddress`: The address of the Safe contract whose owner count is being fetched
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns The current owner count value as a bigint, or a wrapped call object
  * @throws {Error} If no storage value is returned (e.g., invalid Safe address)
  * @example
  * ```typescript
@@ -245,28 +353,54 @@ async function getFallbackHandler(
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
- * const count = await getOwnerCount(provider, safeAddress);
+ * // Immediate execution (default)
+ * const count = await getOwnerCount(provider, { safeAddress });
  * console.log('Owner count:', count); // e.g., 2n
+ *
+ * // Lazy evaluation for batching
+ * const countCall = await getOwnerCount(
+ *   provider,
+ *   { safeAddress },
+ *   { lazy: true }
+ * );
+ * const count = await countCall.call();
  * ```
  */
-async function getOwnerCount(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<bigint> {
-	const [raw] = await getStorageAt(
-		provider,
-		safeAddress,
-		{ slot: SAFE_STORAGE_SLOTS.ownerCount },
+const getOwnerCount: StateReadFunction<{ safeAddress: Address }, bigint> = <
+	O extends StateReadOptions = StateReadOptions<void>,
+>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: { safeAddress: Address },
+	options?: O,
+) => {
+	const { safeAddress } = params;
+	const { block = "latest" } = options || {};
+
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.ownerCount, 1n),
 		block,
-	);
-	if (!raw) {
-		throw new Error(
-			`Failed to retrieve owner count for Safe at ${safeAddress}`,
-		);
-	}
-	return BigInt(raw);
-}
+	};
+
+	const decoder = (result: Hex): bigint => {
+		if (result === "0x") {
+			throw new Error(
+				`Failed to retrieve owner count for Safe at ${safeAddress}`,
+			);
+		}
+		// Decode the count from the result
+		// Skip offset (64) + length (64) = 128 chars, then read 64 chars
+		const countHex = result.slice(130, 194);
+		return BigInt(`0x${countHex}`);
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<bigint, O>;
+};
 
 /**
  * Retrieves the threshold (minimum signatures required) for a Safe contract by reading its storage slot.
@@ -276,9 +410,13 @@ async function getOwnerCount(
  * This design enables batching multiple threshold reads into a single RPC request via a multicall contract.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
- * @param safeAddress - The address of the Safe contract whose threshold is being fetched
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns The current threshold value as a bigint
+ * @param params - Parameters for the threshold read
+ *                 - `safeAddress`: The address of the Safe contract whose threshold is being fetched
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns The current threshold value as a bigint, or a wrapped call object
  * @throws {Error} If no storage value is returned (e.g., invalid Safe address)
  * @example
  * ```typescript
@@ -288,26 +426,54 @@ async function getOwnerCount(
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
- * const threshold = await getThreshold(provider, safeAddress);
+ * // Immediate execution (default)
+ * const threshold = await getThreshold(provider, { safeAddress });
  * console.log('Threshold:', threshold); // e.g., 1n
+ *
+ * // Lazy evaluation for batching
+ * const thresholdCall = await getThreshold(
+ *   provider,
+ *   { safeAddress },
+ *   { lazy: true }
+ * );
+ * const threshold = await thresholdCall.call();
  * ```
  */
-async function getThreshold(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<bigint> {
-	const [raw] = await getStorageAt(
-		provider,
-		safeAddress,
-		{ slot: SAFE_STORAGE_SLOTS.threshold },
+const getThreshold: StateReadFunction<{ safeAddress: Address }, bigint> = <
+	O extends StateReadOptions = StateReadOptions<void>,
+>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: { safeAddress: Address },
+	options?: O,
+) => {
+	const { safeAddress } = params;
+	const { block = "latest" } = options || {};
+
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.threshold, 1n),
 		block,
-	);
-	if (!raw) {
-		throw new Error(`Failed to retrieve threshold for Safe at ${safeAddress}`);
-	}
-	return BigInt(raw);
-}
+	};
+
+	const decoder = (result: Hex): bigint => {
+		if (result === "0x") {
+			throw new Error(
+				`Failed to retrieve threshold for Safe at ${safeAddress}`,
+			);
+		}
+		// Decode the threshold from the result
+		// Skip offset (64) + length (64) = 128 chars, then read 64 chars
+		const thresholdHex = result.slice(130, 194);
+		return BigInt(`0x${thresholdHex}`);
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<bigint, O>;
+};
 
 /**
  * Retrieves the guard address for a Safe contract by reading its storage slot.
@@ -318,9 +484,13 @@ async function getThreshold(
  * This design enables batching multiple guard reads into a single RPC request via a multicall contract.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
- * @param safeAddress - The address of the Safe contract whose guard is being fetched
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns The guard contract address, or zero address if none configured
+ * @param params - Parameters for the guard read
+ *                 - `safeAddress`: The address of the Safe contract whose guard is being fetched
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns The guard contract address, or zero address if none configured, or a wrapped call object
  * @throws {Error} If no storage value is returned (e.g., invalid Safe address)
  * @example
  * ```typescript
@@ -330,26 +500,52 @@ async function getThreshold(
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
- * const guard = await getGuard(provider, safeAddress);
+ * // Immediate execution (default)
+ * const guard = await getGuard(provider, { safeAddress });
  * console.log('Guard address:', guard);
+ *
+ * // Lazy evaluation for batching
+ * const guardCall = await getGuard(
+ *   provider,
+ *   { safeAddress },
+ *   { lazy: true }
+ * );
+ * const guard = await guardCall.call();
  * ```
  */
-async function getGuard(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<Address> {
-	const [raw] = await getStorageAt(
-		provider,
-		safeAddress,
-		{ slot: SAFE_STORAGE_SLOTS.guard },
+const getGuard: StateReadFunction<{ safeAddress: Address }, Address> = <
+	O extends StateReadOptions = StateReadOptions<void>,
+>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: { safeAddress: Address },
+	options?: O,
+) => {
+	const { safeAddress } = params;
+	const { block = "latest" } = options || {};
+
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.guard, 1n),
 		block,
-	);
-	if (!raw) {
-		throw new Error(`Failed to retrieve guard for Safe at ${safeAddress}`);
-	}
-	return `0x${raw.slice(-40)}`;
-}
+	};
+
+	const decoder = (result: Hex): Address => {
+		if (result === "0x") {
+			throw new Error(`Failed to retrieve guard for Safe at ${safeAddress}`);
+		}
+		// Decode the address from the result
+		// Skip offset (64) + length (64) = 128 chars, then read last 40 chars of the 64-char slot
+		const addressHex = result.slice(130, 194).slice(-40);
+		return checksumAddress(`0x${addressHex}`);
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<Address, O>;
+};
 
 /**
  * Retrieves the singleton address for a Safe contract by reading its storage slot.
@@ -360,9 +556,13 @@ async function getGuard(
  * This design enables batching multiple singleton reads into a single RPC request via a multicall contract.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
- * @param safeAddress - The address of the Safe contract whose singleton is being fetched
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns The singleton implementation contract address
+ * @param params - Parameters for the singleton read
+ *                 - `safeAddress`: The address of the Safe contract whose singleton is being fetched
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns The singleton implementation contract address, or a wrapped call object
  * @throws {Error} If no storage value is returned (e.g., invalid Safe address)
  * @example
  * ```typescript
@@ -372,26 +572,54 @@ async function getGuard(
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
- * const impl = await getSingleton(provider, safeAddress);
+ * // Immediate execution (default)
+ * const impl = await getSingleton(provider, { safeAddress });
  * console.log('Implementation address:', impl);
+ *
+ * // Lazy evaluation for batching
+ * const singletonCall = await getSingleton(
+ *   provider,
+ *   { safeAddress },
+ *   { lazy: true }
+ * );
+ * const impl = await singletonCall.call();
  * ```
  */
-async function getSingleton(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<Address> {
-	const [raw] = await getStorageAt(
-		provider,
-		safeAddress,
-		{ slot: SAFE_STORAGE_SLOTS.singleton },
+const getSingleton: StateReadFunction<{ safeAddress: Address }, Address> = <
+	O extends StateReadOptions = StateReadOptions<void>,
+>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: { safeAddress: Address },
+	options?: O,
+) => {
+	const { safeAddress } = params;
+	const { block = "latest" } = options || {};
+
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.singleton, 1n),
 		block,
-	);
-	if (!raw) {
-		throw new Error(`Failed to retrieve singleton for Safe at ${safeAddress}`);
-	}
-	return `0x${raw.slice(-40)}`;
-}
+	};
+
+	const decoder = (result: Hex): Address => {
+		if (result === "0x") {
+			throw new Error(
+				`Failed to retrieve singleton for Safe at ${safeAddress}`,
+			);
+		}
+		// Decode the address from the result
+		// Skip offset (64) + length (64) = 128 chars, then read last 40 chars of the 64-char slot
+		const addressHex = result.slice(130, 194).slice(-40);
+		return checksumAddress(`0x${addressHex}`);
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<Address, O>;
+};
 
 /**
  * Gets all owners of a Safe.
@@ -400,9 +628,13 @@ async function getSingleton(
  * stored in the Safe's internal linked list structure.
  *
  * @param provider - EIP-1193 compatible provider for blockchain interaction
- * @param safeAddress - Ethereum address of the Safe contract to query
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns {Promise<Address[]>} Array of checksummed owner addresses in the order they are stored
+ * @param params - Parameters for the owners read
+ *                 - `safeAddress`: Ethereum address of the Safe contract to query
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns {Promise<Address[]>} Array of checksummed owner addresses in the order they are stored, or a wrapped call object
  * @throws {Error} When address validation fails
  * @throws {Error} When the RPC call fails
  * @example
@@ -413,10 +645,10 @@ async function getSingleton(
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
- * // Get all owners of a Safe
+ * // Get all owners of a Safe - immediate execution (default)
  * const owners = await getOwners(
  *   provider,
- *   "0x742d35Cc6634C0532925a3b844Bc9e7595f4d3e2"
+ *   { safeAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f4d3e2" }
  * );
  * console.log(`Safe has ${owners.length} owners:`);
  * owners.forEach((owner, index) => {
@@ -427,55 +659,74 @@ async function getSingleton(
  * //   1. 0xabc0000000000000000000000000000000000001
  * //   2. 0xdef0000000000000000000000000000000000002
  * //   3. 0x1230000000000000000000000000000000000003
+ *
+ * // Lazy evaluation for batching
+ * const ownersCall = await getOwners(
+ *   provider,
+ *   { safeAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f4d3e2" },
+ *   { lazy: true }
+ * );
+ * const owners = await ownersCall.call();
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L148
  */
-export async function getOwners(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<Address[]> {
+export const getOwners: StateReadFunction<
+	{ safeAddress: Address },
+	Address[]
+> = <O extends StateReadOptions = StateReadOptions<void>>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: { safeAddress: Address },
+	options?: O,
+) => {
+	const { safeAddress } = params;
+	const { block = "latest" } = options || {};
+
 	// selector for `getOwners() returns(address[] memory)`
 	const getOwnersSelector = "0xa0e67e2b";
 
-	const raw = await provider.request({
-		method: "eth_call",
-		params: [
-			{
-				to: safeAddress,
-				data: getOwnersSelector,
-			},
-			block,
-		],
-	});
-	if (raw === "0x") {
-		throw new Error(`Failed to retrieve owners for Safe at ${safeAddress}`);
-	}
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: getOwnersSelector,
+		block,
+	};
 
-	// Inline decoding of the dynamic address array returned by Safe
-	// The ABI encoding for dynamic arrays includes:
-	// 1. Offset pointer (32 bytes) - points to where the array data starts
-	// 2. Array length (32 bytes) - number of elements
-	// 3. Array elements (32 bytes each) - the actual addresses
+	const decoder = (raw: Hex): Address[] => {
+		if (raw === "0x") {
+			throw new Error(`Failed to retrieve owners for Safe at ${safeAddress}`);
+		}
 
-	// Skip the offset pointer (first 32 bytes = 64 hex chars after "0x")
-	// Read the array length from the next 32 bytes
-	const lengthHex = raw.slice(66, 130); // Skip "0x" + offset pointer, read length
-	const length = Number.parseInt(lengthHex, 16);
+		// Inline decoding of the dynamic address array returned by Safe
+		// The ABI encoding for dynamic arrays includes:
+		// 1. Offset pointer (32 bytes) - points to where the array data starts
+		// 2. Array length (32 bytes) - number of elements
+		// 3. Array elements (32 bytes each) - the actual addresses
 
-	const owners: Address[] = [];
-	// Start reading addresses after offset pointer + length field
-	const dataOffset = 130; // "0x" + offset pointer (64) + length field (64)
+		// Skip the offset pointer (first 32 bytes = 64 hex chars after "0x")
+		// Read the array length from the next 32 bytes
+		const lengthHex = raw.slice(66, 130); // Skip "0x" + offset pointer, read length
+		const length = Number.parseInt(lengthHex, 16);
 
-	for (let i = 0; i < length; i++) {
-		// Each address is stored in a 32-byte slot, right-padded with zeros
-		const start = dataOffset + i * 64;
-		const addressHex = raw.slice(start + 24, start + 64); // Last 20 bytes of the 32-byte slot
-		owners.push(checksumAddress(`0x${addressHex}`));
-	}
+		const owners: Address[] = [];
+		// Start reading addresses after offset pointer + length field
+		const dataOffset = 130; // "0x" + offset pointer (64) + length field (64)
 
-	return owners;
-}
+		for (let i = 0; i < length; i++) {
+			// Each address is stored in a 32-byte slot, right-padded with zeros
+			const start = dataOffset + i * 64;
+			const addressHex = raw.slice(start + 24, start + 64); // Last 20 bytes of the 32-byte slot
+			owners.push(checksumAddress(`0x${addressHex}`));
+		}
+
+		return owners;
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<Address[], O>;
+};
 
 /**
  * Retrieves a paginated list of enabled modules for a Safe account.
@@ -487,12 +738,15 @@ export async function getOwners(
  * number of modules is large. The modules are stored in a linked list structure within the Safe contract.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
- * @param safeAddress - The address of the Safe contract whose modules are being fetched
- * @param options - Optional pagination parameters
- * @param options.start - The address to start the page from. Use the `next` value from a previous call to get the next page. Defaults to SENTINEL_NODE (0x1)
- * @param options.pageSize - The number of modules to retrieve per page. Defaults to 100
- * @param block - Optional block number or tag to query at (defaults to "latest")
- * @returns An object containing the list of checksummed module addresses for the current page and the address to start the next page from
+ * @param params - Parameters for the modules read
+ *                 - `safeAddress`: The address of the Safe contract whose modules are being fetched
+ *                 - `start`: The address to start the page from. Use the `next` value from a previous call to get the next page. Defaults to SENTINEL_NODE (0x1)
+ *                 - `pageSize`: The number of modules to retrieve per page. Defaults to 100
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ * @returns An object containing the list of checksummed module addresses for the current page and the address to start the next page from, or a wrapped call object
  * @throws {Error} If the eth_call fails or returns invalid data
  * @example
  * ```typescript
@@ -504,11 +758,10 @@ export async function getOwners(
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  * const safeAddress: Address = "0xA063Cda916194a4b344255447895429f531407e4";
  *
- * // Get first page of modules
+ * // Get first page of modules - immediate execution (default)
  * const firstPage = await getModulesPaginated(
  *   provider,
- *   safeAddress,
- *   { pageSize: 10 }
+ *   { safeAddress, pageSize: 10 }
  * );
  * console.log('First page modules:', firstPage.modules);
  * console.log('Next page starts at:', firstPage.next);
@@ -520,68 +773,93 @@ export async function getOwners(
  * while (nextModule && nextModule !== SENTINEL_NODE) {
  *   const page = await getModulesPaginated(
  *     provider,
- *     safeAddress,
- *     { start: nextModule, pageSize: 100 }
+ *     { safeAddress, start: nextModule, pageSize: 100 }
  *   );
  *   allModules.push(...page.modules);
  *   nextModule = page.modules.length === 100 ? page.next : undefined;
  * }
  *
  * console.log(`Total modules: ${allModules.length}`);
+ *
+ * // Lazy evaluation for batching
+ * const modulesCall = await getModulesPaginated(
+ *   provider,
+ *   { safeAddress },
+ *   { lazy: true }
+ * );
+ * const modules = await modulesCall.call();
  * ```
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L144
  */
-async function getModulesPaginated(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
+const getModulesPaginated: StateReadFunction<
 	{
-		start = SENTINEL_NODE,
-		pageSize = 100,
-	}: Readonly<{ start?: Address; pageSize?: number }> = {},
-	block: PicosafeRpcBlockIdentifier = "latest",
-): Promise<{ modules: Address[]; next: Address }> {
+		safeAddress: Address;
+		start?: Address;
+		pageSize?: number;
+	},
+	{ modules: Address[]; next: Address }
+> = <O extends StateReadOptions = StateReadOptions<void>>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: {
+		safeAddress: Address;
+		start?: Address;
+		pageSize?: number;
+	},
+	options?: O,
+) => {
+	const { safeAddress, start = SENTINEL_NODE, pageSize = 100 } = params;
+	const { block = "latest" } = options || {};
+
 	const getModulesPaginatedSelector = "0xcc2f8452";
-	const data = encodeWithSelector(getModulesPaginatedSelector, start, pageSize);
+	const callData = encodeWithSelector(
+		getModulesPaginatedSelector,
+		start,
+		pageSize,
+	);
 
-	const result = await provider.request({
-		method: "eth_call",
-		params: [
-			{
-				to: safeAddress,
-				data,
-			},
-			block,
-		],
-	});
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: callData,
+		block,
+	};
 
-	if (result === "0x") {
-		throw new Error(`Failed to retrieve modules for Safe at ${safeAddress}`);
-	}
+	const decoder = (result: Hex): { modules: Address[]; next: Address } => {
+		if (result === "0x") {
+			throw new Error(`Failed to retrieve modules for Safe at ${safeAddress}`);
+		}
 
-	// The ABI-encoded response contains a pointer to the start of the data, the 'next' address,
-	// the array length, and then the array elements.
-	// We parse this response manually to avoid adding a full ABI decoder dependency.
+		// The ABI-encoded response contains a pointer to the start of the data, the 'next' address,
+		// the array length, and then the array elements.
+		// We parse this response manually to avoid adding a full ABI decoder dependency.
 
-	// Remove 0x prefix for slicing
-	const hex = result.slice(2);
+		// Remove 0x prefix for slicing
+		const hex = result.slice(2);
 
-	// Decode 'next' address (bytes32 padded)
-	const next = `0x${hex.slice(64, 128).slice(-40)}` as Address;
+		// Decode 'next' address (bytes32 padded)
+		const next = `0x${hex.slice(64, 128).slice(-40)}` as Address;
 
-	// Decode array length
-	const arrayLength = Number.parseInt(hex.slice(128, 192), 16);
+		// Decode array length
+		const arrayLength = Number.parseInt(hex.slice(128, 192), 16);
 
-	// Decode module addresses
-	const modules: Address[] = [];
-	for (let i = 0; i < arrayLength; i++) {
-		const offset = 192 + i * 64;
-		// Extract address from padded bytes32 value
-		const addressHex = hex.slice(offset + 24, offset + 64);
-		modules.push(checksumAddress(`0x${addressHex}`));
-	}
+		// Decode module addresses
+		const modules: Address[] = [];
+		for (let i = 0; i < arrayLength; i++) {
+			const offset = 192 + i * 64;
+			// Extract address from padded bytes32 value
+			const addressHex = hex.slice(offset + 24, offset + 64);
+			modules.push(checksumAddress(`0x${addressHex}`));
+		}
 
-	return { modules, next };
-}
+		return { modules, next };
+	};
+
+	return wrapStateReadWithOptions(
+		provider,
+		call,
+		decoder,
+		options,
+	) as StateReadResult<{ modules: Address[]; next: Address }, O>;
+};
 
 export {
 	getStorageAt,

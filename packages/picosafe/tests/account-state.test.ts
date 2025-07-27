@@ -29,6 +29,7 @@ import { deploySafeAccount } from "../src/deployment";
 import { V141_ADDRESSES } from "../src/safe-contracts";
 import { SENTINEL_NODE, ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
+import { randomAddress } from "./utils";
 
 describe("Account State Functions", () => {
 	const clients = createClients();
@@ -55,7 +56,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const nonce = await getNonce(publicClient, deployment.data.safeAddress);
+			const nonce = await getNonce(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 			expect(nonce).toBe(0n);
 		});
 
@@ -73,8 +76,8 @@ describe("Account State Functions", () => {
 
 			const nonce = await getNonce(
 				publicClient,
-				deployment.data.safeAddress,
-				toHex(blockNumber),
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
 			);
 			expect(nonce).toBe(0n);
 
@@ -82,8 +85,8 @@ describe("Account State Functions", () => {
 			await expect(
 				getNonce(
 					publicClient,
-					deployment.data.safeAddress,
-					toHex(blockNumber - 1n),
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -100,10 +103,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const handler = await getFallbackHandler(
-				publicClient,
-				deployment.data.safeAddress,
-			);
+			const handler = await getFallbackHandler(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 
 			expect(handler.toLowerCase()).toBe(
 				V141_ADDRESSES.CompatibilityFallbackHandler.toLowerCase(),
@@ -121,10 +123,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const handler = await getFallbackHandler(
-				publicClient,
-				deployment.data.safeAddress,
-			);
+			const handler = await getFallbackHandler(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 			expect(handler).toBe(ZERO_ADDRESS);
 		});
 
@@ -145,8 +146,8 @@ describe("Account State Functions", () => {
 
 			const handler = await getFallbackHandler(
 				publicClient,
-				deployment.data.safeAddress,
-				toHex(blockNumber),
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
 			);
 			expect(handler.toLowerCase()).toBe(
 				V141_ADDRESSES.CompatibilityFallbackHandler.toLowerCase(),
@@ -156,8 +157,8 @@ describe("Account State Functions", () => {
 			await expect(
 				getFallbackHandler(
 					publicClient,
-					deployment.data.safeAddress,
-					toHex(blockNumber - 1n),
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -174,7 +175,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const guard = await getGuard(publicClient, deployment.data.safeAddress);
+			const guard = await getGuard(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 			expect(guard).toBe(ZERO_ADDRESS);
 		});
 
@@ -188,7 +191,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const guard = await getGuard(publicClient, deployment.data.safeAddress);
+			const guard = await getGuard(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 			expect(guard).toBe(ZERO_ADDRESS);
 		});
 
@@ -206,8 +211,8 @@ describe("Account State Functions", () => {
 
 			const guard = await getGuard(
 				publicClient,
-				deployment.data.safeAddress,
-				toHex(blockNumber),
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
 			);
 			expect(guard).toBe(ZERO_ADDRESS);
 
@@ -215,8 +220,8 @@ describe("Account State Functions", () => {
 			await expect(
 				getGuard(
 					publicClient,
-					deployment.data.safeAddress,
-					toHex(blockNumber - 1n),
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -233,13 +238,10 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const [slotValue1] = await getStorageAt(
-				publicClient,
-				deployment.data.safeAddress,
-				{
-					slot: "0x0",
-				},
-			);
+			const [slotValue1] = await getStorageAt(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+				slot: "0x0",
+			});
 			const storageFromRpc = await publicClient.getStorageAt({
 				address: deployment.data.safeAddress,
 				slot: "0x0",
@@ -262,11 +264,11 @@ describe("Account State Functions", () => {
 
 			const [slotValue1] = await getStorageAt(
 				publicClient,
-				deployment.data.safeAddress,
 				{
+					safeAddress: deployment.data.safeAddress,
 					slot: "0x0",
 				},
-				toHex(blockNumber),
+				{ block: toHex(blockNumber) },
 			);
 
 			const storageFromRpc = await publicClient.getStorageAt({
@@ -281,11 +283,11 @@ describe("Account State Functions", () => {
 			await expect(
 				getStorageAt(
 					publicClient,
-					deployment.data.safeAddress,
 					{
+						safeAddress: deployment.data.safeAddress,
 						slot: "0x0",
 					},
-					toHex(blockNumber - 1n),
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -313,13 +315,10 @@ describe("Account State Functions", () => {
 					args: [BigInt(slot), 1n],
 				});
 
-				const [storage] = await getStorageAt(
-					publicClient,
-					deployment.data.safeAddress,
-					{
-						slot: slot as Hex,
-					},
-				);
+				const [storage] = await getStorageAt(publicClient, {
+					safeAddress: deployment.data.safeAddress,
+					slot: slot as Hex,
+				});
 
 				expect(slotValue).toBe(storage);
 			}
@@ -337,10 +336,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const count = await getOwnerCount(
-				publicClient,
-				deployment.data.safeAddress,
-			);
+			const count = await getOwnerCount(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 			expect(count).toBe(1n);
 		});
 
@@ -358,8 +356,8 @@ describe("Account State Functions", () => {
 
 			const count = await getOwnerCount(
 				publicClient,
-				deployment.data.safeAddress,
-				toHex(blockNumber),
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
 			);
 			expect(count).toBe(1n);
 
@@ -367,8 +365,8 @@ describe("Account State Functions", () => {
 			await expect(
 				getOwnerCount(
 					publicClient,
-					deployment.data.safeAddress,
-					toHex(blockNumber - 1n),
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -385,10 +383,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const singleton = await getSingleton(
-				publicClient,
-				deployment.data.safeAddress,
-			);
+			const singleton = await getSingleton(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 			expect(singleton).toBeDefined();
 		});
 
@@ -406,8 +403,8 @@ describe("Account State Functions", () => {
 
 			const singleton = await getSingleton(
 				publicClient,
-				deployment.data.safeAddress,
-				toHex(blockNumber),
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
 			);
 			expect(singleton).toBeDefined();
 
@@ -415,8 +412,8 @@ describe("Account State Functions", () => {
 			await expect(
 				getSingleton(
 					publicClient,
-					deployment.data.safeAddress,
-					toHex(blockNumber - 1n),
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -433,10 +430,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const threshold = await getThreshold(
-				publicClient,
-				deployment.data.safeAddress,
-			);
+			const threshold = await getThreshold(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 			expect(threshold).toBe(1n);
 		});
 
@@ -454,8 +450,8 @@ describe("Account State Functions", () => {
 
 			const threshold = await getThreshold(
 				publicClient,
-				deployment.data.safeAddress,
-				toHex(blockNumber),
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
 			);
 			expect(threshold).toBe(1n);
 
@@ -463,8 +459,8 @@ describe("Account State Functions", () => {
 			await expect(
 				getThreshold(
 					publicClient,
-					deployment.data.safeAddress,
-					toHex(blockNumber - 1n),
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -481,7 +477,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const owners = await getOwners(publicClient, deployment.data.safeAddress);
+			const owners = await getOwners(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 			expect(owners).toBeDefined();
 		});
 
@@ -499,8 +497,8 @@ describe("Account State Functions", () => {
 
 			const owners = await getOwners(
 				publicClient,
-				deployment.data.safeAddress,
-				toHex(blockNumber),
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
 			);
 			expect(owners).toBeDefined();
 
@@ -508,8 +506,8 @@ describe("Account State Functions", () => {
 			await expect(
 				getOwners(
 					publicClient,
-					deployment.data.safeAddress,
-					toHex(blockNumber - 1n),
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -526,10 +524,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const result = await getModulesPaginated(
-				publicClient,
-				deployment.data.safeAddress,
-			);
+			const result = await getModulesPaginated(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 
 			expect(result.modules).toEqual([]);
 			expect(result.next).toBe(SENTINEL_NODE);
@@ -548,13 +545,10 @@ describe("Account State Functions", () => {
 
 			// For this test, we'll simulate having modules by checking the response format
 			// In a real scenario, we'd enable modules first
-			const result = await getModulesPaginated(
-				publicClient,
-				deployment.data.safeAddress,
-				{
-					pageSize: 10,
-				},
-			);
+			const result = await getModulesPaginated(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+				pageSize: 10,
+			});
 
 			expect(result).toHaveProperty("modules");
 			expect(result).toHaveProperty("next");
@@ -573,13 +567,10 @@ describe("Account State Functions", () => {
 
 			// Using SENTINEL_NODE as start address since Safe has no modules
 			// Any other address would cause GS105 error (Invalid owner address provided)
-			const result = await getModulesPaginated(
-				publicClient,
-				deployment.data.safeAddress,
-				{
-					start: SENTINEL_NODE,
-				},
-			);
+			const result = await getModulesPaginated(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+				start: SENTINEL_NODE,
+			});
 
 			expect(result.modules).toEqual([]);
 			expect(result.next).toBe(SENTINEL_NODE);
@@ -600,7 +591,8 @@ describe("Account State Functions", () => {
 
 			// The Safe contract will revert with GS105 error
 			await expect(
-				getModulesPaginated(publicClient, deployment.data.safeAddress, {
+				getModulesPaginated(publicClient, {
+					safeAddress: deployment.data.safeAddress,
 					start: invalidStart,
 				}),
 			).rejects.toThrow();
@@ -616,14 +608,11 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const result = await getModulesPaginated(
-				publicClient,
-				deployment.data.safeAddress,
-				{
-					start: SENTINEL_NODE,
-					pageSize: 5,
-				},
-			);
+			const result = await getModulesPaginated(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+				start: SENTINEL_NODE,
+				pageSize: 5,
+			});
 
 			expect(result).toBeDefined();
 			expect(result.modules).toBeDefined();
@@ -644,9 +633,8 @@ describe("Account State Functions", () => {
 
 			const result = await getModulesPaginated(
 				publicClient,
-				deployment.data.safeAddress,
-				{},
-				toHex(blockNumber),
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
 			);
 
 			expect(result.modules).toEqual([]);
@@ -656,9 +644,8 @@ describe("Account State Functions", () => {
 			await expect(
 				getModulesPaginated(
 					publicClient,
-					deployment.data.safeAddress,
-					{},
-					toHex(blockNumber - 1n),
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
 				),
 			).rejects.toThrow();
 		});
@@ -674,13 +661,10 @@ describe("Account State Functions", () => {
 			});
 
 			// Test with a large page size
-			const result = await getModulesPaginated(
-				publicClient,
-				deployment.data.safeAddress,
-				{
-					pageSize: 1000,
-				},
-			);
+			const result = await getModulesPaginated(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+				pageSize: 1000,
+			});
 
 			expect(result).toBeDefined();
 			expect(result.modules).toEqual([]);
@@ -697,10 +681,9 @@ describe("Account State Functions", () => {
 				hash: txHash,
 			});
 
-			const result = await getModulesPaginated(
-				publicClient,
-				deployment.data.safeAddress,
-			);
+			const result = await getModulesPaginated(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
 
 			// Verify the structure matches expected format
 			expect(result).toMatchObject({
@@ -716,8 +699,209 @@ describe("Account State Functions", () => {
 			const invalidAddress = "0x0000000000000000000000000000000000000000";
 
 			await expect(
-				getModulesPaginated(publicClient, invalidAddress),
+				getModulesPaginated(publicClient, { safeAddress: invalidAddress }),
 			).rejects.toThrow();
+		});
+	});
+
+	describe("Lazy Evaluation", () => {
+		it("should support lazy evaluation for getNonce", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			// Get lazy call object
+			const nonceCall = await getNonce(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true },
+			);
+
+			// Verify structure
+			expect(nonceCall).toHaveProperty("rawCall");
+			expect(nonceCall).toHaveProperty("call");
+			expect(nonceCall.rawCall).toMatchObject({
+				to: deployment.data.safeAddress,
+				data: expect.stringMatching(/^0x5624b25b/), // getStorageAt selector
+			});
+
+			// Execute the call
+			const nonce = await nonceCall.call();
+			expect(nonce).toBe(0n);
+		});
+
+		it("should support lazy evaluation with custom data", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			// Get lazy call object with custom data
+			const customData = { purpose: "batch-validation", id: 123 };
+			const thresholdCall = await getThreshold(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true, data: customData },
+			);
+
+			// Verify structure includes custom data
+			expect(thresholdCall).toHaveProperty("rawCall");
+			expect(thresholdCall).toHaveProperty("call");
+			expect(thresholdCall).toHaveProperty("data");
+			expect(thresholdCall.data).toEqual(customData);
+
+			// Execute the call
+			const threshold = await thresholdCall.call();
+			expect(threshold).toBe(1n);
+		});
+
+		it("should support lazy evaluation for getOwners", async () => {
+			const owners = [
+				walletClient.account.address,
+				randomAddress(),
+				randomAddress(),
+			];
+			const deployment = await deploySafeAccount(walletClient, {
+				owners,
+				threshold: 2n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			// Get lazy call object
+			const ownersCall = await getOwners(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true },
+			);
+
+			// Verify structure
+			expect(ownersCall).toHaveProperty("rawCall");
+			expect(ownersCall).toHaveProperty("call");
+			expect(ownersCall.rawCall).toMatchObject({
+				to: deployment.data.safeAddress,
+				data: "0xa0e67e2b", // getOwners selector
+			});
+
+			// Execute the call
+			const retrievedOwners = await ownersCall.call();
+			expect(retrievedOwners.length).toBe(owners.length);
+			expect(retrievedOwners.map((o) => o.toLowerCase()).sort()).toEqual(
+				owners.map((o) => o.toLowerCase()).sort(),
+			);
+		});
+
+		it("should support lazy evaluation with specific block", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			const blockNumber = await publicClient.getBlockNumber();
+
+			// Get lazy call object with specific block
+			const nonceCall = await getNonce(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true, block: toHex(blockNumber) },
+			);
+
+			// Verify block is included in raw call
+			expect(nonceCall.rawCall.block).toBe(toHex(blockNumber));
+
+			// Execute the call
+			const nonce = await nonceCall.call();
+			expect(nonce).toBe(0n);
+		});
+
+		it("should support lazy evaluation for getModulesPaginated", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			// Get lazy call object
+			const modulesCall = await getModulesPaginated(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress, pageSize: 10 },
+				{ lazy: true },
+			);
+
+			// Verify structure
+			expect(modulesCall).toHaveProperty("rawCall");
+			expect(modulesCall).toHaveProperty("call");
+			expect(modulesCall.rawCall).toMatchObject({
+				to: deployment.data.safeAddress,
+				data: expect.stringMatching(/^0xcc2f8452/), // getModulesPaginated selector
+			});
+
+			// Execute the call
+			const result = await modulesCall.call();
+			expect(result.modules).toEqual([]);
+			expect(result.next).toBe(SENTINEL_NODE);
+		});
+
+		it("should allow batching multiple lazy calls", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			// Get multiple lazy calls
+			const nonceCall = await getNonce(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true },
+			);
+			const thresholdCall = await getThreshold(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true },
+			);
+			const ownerCountCall = await getOwnerCount(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true },
+			);
+
+			// All calls should have raw call data that could be batched
+			expect(nonceCall.rawCall).toBeDefined();
+			expect(thresholdCall.rawCall).toBeDefined();
+			expect(ownerCountCall.rawCall).toBeDefined();
+
+			// Execute individually (multicall batching would be implemented separately)
+			const [nonce, threshold, ownerCount] = await Promise.all([
+				nonceCall.call(),
+				thresholdCall.call(),
+				ownerCountCall.call(),
+			]);
+
+			expect(nonce).toBe(0n);
+			expect(threshold).toBe(1n);
+			expect(ownerCount).toBe(1n);
 		});
 	});
 });

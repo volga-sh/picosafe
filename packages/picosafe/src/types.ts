@@ -306,6 +306,72 @@ type SignatureValidationContext = {
 	safeAddress?: Address;
 };
 
+/**
+ * Represents a call to read state from a contract
+ * @property {Address} to - The contract address to call
+ * @property {Hex} data - The encoded function call data
+ * @property {PicosafeRpcBlockIdentifier} block - Optional block number or tag to query at
+ */
+type StateReadCall = {
+	to: Address;
+	data: Hex;
+	block?: PicosafeRpcBlockIdentifier;
+};
+
+/**
+ * Options for state read functions
+ * @property {boolean} lazy - If true, returns a wrapped call object instead of executing immediately
+ * @property {PicosafeRpcBlockIdentifier} block - Block number or tag to query at
+ * @property {A} data - Optional additional data to attach to the wrapped call
+ */
+type StateReadOptions<A = void> = {
+	lazy?: boolean;
+	block?: PicosafeRpcBlockIdentifier;
+	data?: A;
+};
+
+/**
+ * Wrapped state read object returned when using lazy evaluation
+ * @property {StateReadCall} rawCall - The raw RPC call parameters
+ * @property {() => Promise<T>} call - Function to execute the call
+ * @property {A} data - Optional additional data attached to the call
+ */
+type WrappedStateRead<T, A = void> = A extends void
+	? {
+			rawCall: StateReadCall;
+			call: () => Promise<T>;
+		}
+	: {
+			rawCall: StateReadCall;
+			call: () => Promise<T>;
+			data: A;
+		};
+
+/**
+ * Conditional return type for state read functions based on options
+ * Returns a Promise<T> for immediate execution or WrappedStateRead<T> for lazy evaluation
+ */
+type StateReadResult<T, O extends StateReadOptions> = O extends {
+	lazy: true;
+}
+	? O extends { data: infer A }
+		? WrappedStateRead<T, A>
+		: WrappedStateRead<T>
+	: Promise<T>;
+
+/**
+ * Generic state read function type that handles both immediate and lazy evaluation
+ * @template P - The parameters type for the function
+ * @template T - The return type when the state is read
+ */
+type StateReadFunction<P, T> = <
+	O extends StateReadOptions = StateReadOptions<void>,
+>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: P,
+	options?: O,
+) => StateReadResult<T, O>;
+
 export { Operation, SignatureTypeVByte };
 export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
 export type {
@@ -323,4 +389,9 @@ export type {
 	Prettify,
 	SafeSignaturesParam,
 	SignatureValidationContext,
+	StateReadCall,
+	StateReadOptions,
+	WrappedStateRead,
+	StateReadResult,
+	StateReadFunction,
 };

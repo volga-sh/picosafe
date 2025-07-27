@@ -153,7 +153,7 @@ async function getRemoveOwnerTransaction(
 	);
 	let { prevOwner } = removeOwnerParams;
 	if (!prevOwner) {
-		const currentOwners = await getOwners(provider, safeAddress);
+		const currentOwners = await getOwners(provider, { safeAddress });
 		const ownerIndex = currentOwners.indexOf(normalizedTargetOwner);
 		if (ownerIndex === -1) {
 			throw new Error(
