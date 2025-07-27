@@ -13,6 +13,7 @@ import type {
 	StateReadFunction,
 	StateReadOptions,
 	StateReadResult,
+	WrappedStateRead,
 } from "./types.js";
 import {
 	isApprovedHashSignature,
@@ -206,14 +207,13 @@ function encodeSafeSignaturesBytes(
  * - ECDSA signatures use ecrecover with appropriate hash handling
  *
  * @param provider - EIP-1193 provider to interact with the blockchain
- * @param safeAddress - Address of the Safe contract
  * @param params - Verification parameters
  * @param params.dataHash - The hash of the data that was signed (transaction hash or message hash)
  * @param params.data - The original data that was signed (used for EIP-1271 validation)
- * @param params.signatures - Array of signatures to verify or encoded signatures hex
+ * @param params.signatures - Array of signatures to verify or encoded signatures hex {@link SafeSignaturesParam}
  * @param params.requiredSignatures - Number of valid signatures required (must be > 0 and <= threshold)
- * @param params.block - Optional block number or tag to use for the RPC call
- * @returns Promise that resolves to true if signatures are valid, false otherwise
+ * @param options - Optional execution options {@link StateReadOptions}
+ * @returns Promise that resolves to validation result with valid flag and optional error, or a wrapped call object {@link WrappedStateRead}
  * @throws {Error} If requiredSignatures is <= 0
  * @example
  * ```typescript
@@ -310,17 +310,30 @@ const checkNSignatures: StateReadFunction<
 		};
 
 		if ("data" in options && options.data !== undefined) {
-			return {
+			const failedResultWithData = {
 				rawCall: failedCall,
 				data: options.data,
 				call: () => Promise.resolve(errorResult),
-			} as unknown as StateReadResult<{ valid: boolean; error?: Error }, O>;
+			};
+			// TypeScript's conditional types require assertions here due to complexity
+			// of StateReadResult's type inference with generic parameter O
+			return failedResultWithData as unknown as StateReadResult<
+				{ valid: boolean; error?: Error },
+				O
+			>;
 		}
 
-		return {
+		const failedResultWithoutData: WrappedStateRead<{
+			valid: boolean;
+			error?: Error;
+		}> = {
 			rawCall: failedCall,
 			call: () => Promise.resolve(errorResult),
-		} as StateReadResult<{ valid: boolean; error?: Error }, O>;
+		};
+		return failedResultWithoutData as StateReadResult<
+			{ valid: boolean; error?: Error },
+			O
+		>;
 	}
 
 	const callData = encodeFunctionData({
@@ -371,9 +384,12 @@ const checkNSignatures: StateReadFunction<
 	};
 
 	// For lazy evaluation, we need to create a custom wrapper
+	// This allows deferring the actual RPC call until the user explicitly calls it,
+	// enabling batching multiple signature checks into a single multicall transaction
 	if (options?.lazy === true) {
 		// We need to handle the error case differently for lazy evaluation
-		// First, let's define the call wrapper function that includes error handling
+		// The wrapper function captures the RPC call logic and error handling,
+		// ensuring consistent behavior whether called immediately or deferred
 		const wrappedCallFunction = async (): Promise<{
 			valid: boolean;
 			error?: Error;
@@ -390,19 +406,34 @@ const checkNSignatures: StateReadFunction<
 		};
 
 		// Now create the wrapped object based on whether we have data
+		// TypeScript requires different return types based on whether custom data is attached,
+		// so we branch here to create the correctly typed wrapped result
 		if ("data" in options && options.data !== undefined) {
-			// Version with data - explicitly cast through unknown to avoid type inference issues
-			return {
+			// Version with data - create properly typed result
+			const resultWithData = {
 				rawCall: call,
 				data: options.data,
 				call: wrappedCallFunction,
-			} as unknown as StateReadResult<{ valid: boolean; error?: Error }, O>;
+			};
+			// TypeScript's conditional types require assertions here due to complexity
+			// of StateReadResult's type inference with generic parameter O
+			return resultWithData as unknown as StateReadResult<
+				{ valid: boolean; error?: Error },
+				O
+			>;
 		}
 		// Version without data
-		return {
+		const resultWithoutData: WrappedStateRead<{
+			valid: boolean;
+			error?: Error;
+		}> = {
 			rawCall: call,
 			call: wrappedCallFunction,
-		} as StateReadResult<{ valid: boolean; error?: Error }, O>;
+		};
+		return resultWithoutData as StateReadResult<
+			{ valid: boolean; error?: Error },
+			O
+		>;
 	}
 
 	// For immediate execution, handle the async call properly

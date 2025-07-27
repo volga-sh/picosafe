@@ -17,11 +17,11 @@ import type {
  * reducing the number of RPC requests and improving performance.
  *
  * @param {EIP1193ProviderWithRequestFn} provider - EIP-1193 compatible provider for blockchain interaction
- * @param {StateReadCall} call - The RPC call parameters (to, data, block)
+ * @param {StateReadCall} call - The RPC call parameters (to, data, block) {@link StateReadCall}
  * @param {(result: Hex) => T} decoder - Function to decode the raw hex result into the desired type
- * @param {StateReadOptions} options - Options for lazy evaluation and additional metadata
+ * @param {StateReadOptions} options - Options for lazy evaluation and additional metadata {@link StateReadOptions}
  *
- * @returns {Promise<T> | WrappedStateRead<T>} The decoded result or a wrapped call object based on options
+ * @returns {Promise<T> | WrappedStateRead<T>} The decoded result or a wrapped call object based on options {@link WrappedStateRead}
  *
  * @example
  * // Immediate execution (default)

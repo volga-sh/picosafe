@@ -12,6 +12,25 @@ import { encodeWithSelector, padStartHex } from "./utilities/encoding.js";
 import { wrapStateReadWithOptions } from "./utilities/wrapStateRead";
 
 /**
+ * State Read Functions Design Note
+ * ================================
+ *
+ * State read functions in this module follow a different pattern than transaction-generating functions.
+ * While transaction functions return `{ rawTransaction, send() }`, state reads return either:
+ * - A direct value (e.g., `bigint`, `Address[]`) for immediate execution
+ * - A `WrappedStateRead` object with `{ rawCall, call() }` for lazy evaluation
+ *
+ * This deviation is intentional because:
+ * 1. State reads are eth_call operations that don't modify blockchain state
+ * 2. The lazy evaluation pattern enables efficient batching via multicall contracts
+ * 3. Direct value returns provide better ergonomics for simple read operations
+ * 4. The pattern aligns with common RPC provider interfaces for read operations
+ *
+ * The lazy evaluation mode is particularly valuable for reading multiple Safe parameters
+ * in a single RPC request, reducing latency and improving performance.
+ */
+
+/**
  * Defines the well-known storage slot addresses used by Safe contracts.
  * These slots are used to store critical Safe configuration parameters like owners, threshold, nonce, and module/guard addresses.
  * The values are represented as 32-byte hexadecimal strings, padded with leading zeros to match the EVM storage slot size.
@@ -170,11 +189,11 @@ const getStorageAt: StateReadFunction<
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
  * @param params - Parameters for the nonce read
  *                 - `safeAddress`: The address of the Safe contract whose nonce is being fetched
- * @param options - Optional execution options
+ * @param options - Optional execution options {@link StateReadOptions}
  *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
  *                  - `block`: Block number or tag to query at (defaults to "latest")
  *                  - `data`: Optional additional data to attach to the wrapped call
- * @returns The current nonce value as a bigint, or a wrapped call object
+ * @returns The current nonce value as a bigint, or a wrapped call object {@link WrappedStateRead}
  * @throws {Error} If no storage value is returned (e.g., invalid Safe address)
  * @example
  * ```typescript
