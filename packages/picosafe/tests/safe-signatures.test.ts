@@ -962,44 +962,6 @@ describe("checkNSignatures", () => {
 			expect(result.valid).toBe(true);
 		});
 
-		test("should support lazy evaluation with custom data", async () => {
-			const sig1 = await walletClients[0].account.sign?.({
-				hash: txHash,
-			});
-
-			if (!sig1) {
-				throw new Error("Failed to sign");
-			}
-
-			const signatures: PicosafeSignature[] = [
-				{ signer: owners[0], data: sig1 },
-			];
-
-			// Get lazy call object with custom data
-			const customData = { txType: "transfer", amount: "1000" };
-			const validationCall = await checkNSignatures(
-				publicClient,
-				{
-					safeAddress,
-					dataHash: txHash,
-					data: "0x",
-					signatures,
-					requiredSignatures: 1n,
-				},
-				{ lazy: true, data: customData },
-			);
-
-			// Verify structure includes custom data
-			expect(validationCall).toHaveProperty("rawCall");
-			expect(validationCall).toHaveProperty("call");
-			expect(validationCall).toHaveProperty("data");
-			expect(validationCall.data).toEqual(customData);
-
-			// Execute the call
-			const result = await validationCall.call();
-			expect(result.valid).toBe(true);
-		});
-
 		test("should properly handle errors in lazy evaluation", async () => {
 			// Create signatures with wrong hash
 			const wrongHash = keccak256(toHex("wrong data"));

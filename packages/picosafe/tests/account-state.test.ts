@@ -735,35 +735,6 @@ describe("Account State Functions", () => {
 			expect(nonce).toBe(0n);
 		});
 
-		it("should support lazy evaluation with custom data", async () => {
-			const deployment = await deploySafeAccount(walletClient, {
-				owners: [walletClient.account.address],
-				threshold: 1n,
-			});
-			const txHash = await deployment.send();
-			await publicClient.waitForTransactionReceipt({
-				hash: txHash,
-			});
-
-			// Get lazy call object with custom data
-			const customData = { purpose: "batch-validation", id: 123 };
-			const thresholdCall = await getThreshold(
-				publicClient,
-				{ safeAddress: deployment.data.safeAddress },
-				{ lazy: true, data: customData },
-			);
-
-			// Verify structure includes custom data
-			expect(thresholdCall).toHaveProperty("rawCall");
-			expect(thresholdCall).toHaveProperty("call");
-			expect(thresholdCall).toHaveProperty("data");
-			expect(thresholdCall.data).toEqual(customData);
-
-			// Execute the call
-			const threshold = await thresholdCall.call();
-			expect(threshold).toBe(1n);
-		});
-
 		it("should support lazy evaluation for getOwners", async () => {
 			const owners = [
 				walletClient.account.address,

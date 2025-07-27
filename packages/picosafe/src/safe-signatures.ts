@@ -289,15 +289,38 @@ const checkNSignatures: StateReadFunction<
 			encodedSignatures = signatures as Hex;
 		}
 	} catch (error) {
-		// If encoding fails, return immediately for non-lazy evaluation
+		// If encoding fails, return error result for both lazy and non-lazy modes
+		const errorResult = {
+			valid: false,
+			error: error as Error,
+		};
+
 		if (!options?.lazy) {
-			return Promise.resolve({
-				valid: false,
-				error: error as Error,
-			}) as StateReadResult<{ valid: boolean; error?: Error }, O>;
+			return Promise.resolve(errorResult) as StateReadResult<
+				{ valid: boolean; error?: Error },
+				O
+			>;
 		}
-		// For lazy evaluation, we'll let it fail later when called
-		encodedSignatures = "0x";
+
+		// For lazy mode, return a wrapped call that immediately returns the error
+		const failedCall: StateReadCall = {
+			to: safeAddress,
+			data: "0x",
+			block,
+		};
+
+		if ("data" in options && options.data !== undefined) {
+			return {
+				rawCall: failedCall,
+				data: options.data,
+				call: () => Promise.resolve(errorResult),
+			} as unknown as StateReadResult<{ valid: boolean; error?: Error }, O>;
+		}
+
+		return {
+			rawCall: failedCall,
+			call: () => Promise.resolve(errorResult),
+		} as StateReadResult<{ valid: boolean; error?: Error }, O>;
 	}
 
 	const callData = encodeFunctionData({
@@ -368,26 +391,18 @@ const checkNSignatures: StateReadFunction<
 
 		// Now create the wrapped object based on whether we have data
 		if ("data" in options && options.data !== undefined) {
-			// Version with data
-			const wrappedResult = {
+			// Version with data - explicitly cast through unknown to avoid type inference issues
+			return {
 				rawCall: call,
 				data: options.data,
 				call: wrappedCallFunction,
-			};
-			return wrappedResult as StateReadResult<
-				{ valid: boolean; error?: Error },
-				O
-			>;
+			} as unknown as StateReadResult<{ valid: boolean; error?: Error }, O>;
 		}
 		// Version without data
-		const wrappedResult = {
+		return {
 			rawCall: call,
 			call: wrappedCallFunction,
-		};
-		return wrappedResult as StateReadResult<
-			{ valid: boolean; error?: Error },
-			O
-		>;
+		} as StateReadResult<{ valid: boolean; error?: Error }, O>;
 	}
 
 	// For immediate execution, handle the async call properly
