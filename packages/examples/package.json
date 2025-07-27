@@ -9,8 +9,8 @@
 		"test": "echo 'No tests'"
 	},
 	"dependencies": {
-		"@volga/picosafe": "workspace:*",
-		"@volga/anvil-manager": "workspace:*",
+		"@volga/picosafe": "*",
+		"@volga/anvil-manager": "*",
 		"viem": "^2.33.1"
 	},
 	"devDependencies": {
