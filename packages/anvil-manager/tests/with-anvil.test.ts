@@ -23,17 +23,13 @@ describe("withAnvil", () => {
 	});
 
 	it("should clean up even if the callback throws", async () => {
-		const port = 8554;
 		let instanceRpcUrl = "";
 
 		await expect(
-			withAnvil(
-				async (instance) => {
-					instanceRpcUrl = instance.rpcUrl;
-					throw new Error("Test error");
-				},
-				{ port },
-			),
+			withAnvil(async (instance) => {
+				instanceRpcUrl = instance.rpcUrl;
+				throw new Error("Test error");
+			}),
 		).rejects.toThrow("Test error");
 
 		// Verify the instance was cleaned up by trying to connect
@@ -49,7 +45,7 @@ describe("withAnvil", () => {
 	it("should pass through options correctly", async () => {
 		await withAnvil(
 			async (instance) => {
-				expect(instance.port).toBe(8555);
+				expect(instance.port).toBeGreaterThanOrEqual(8545);
 
 				const _client = createPublicClient({
 					chain: anvil,
@@ -64,7 +60,6 @@ describe("withAnvil", () => {
 				expect(accounts.length).toBe(3);
 			},
 			{
-				port: 8555,
 				accounts: 3,
 			},
 		);

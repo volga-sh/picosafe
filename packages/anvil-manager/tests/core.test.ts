@@ -5,10 +5,11 @@ import { startAnvil } from "../src/core.js";
 
 describe("Core Anvil Management", () => {
 	it("should start and stop an Anvil instance", async () => {
-		const instance = await startAnvil({ port: 8547 });
+		// Let AnvilManager find an available port automatically
+		const instance = await startAnvil();
 
-		expect(instance.port).toBe(8547);
-		expect(instance.rpcUrl).toBe("http://127.0.0.1:8547");
+		expect(instance.port).toBeGreaterThanOrEqual(8545);
+		expect(instance.rpcUrl).toBe(`http://127.0.0.1:${instance.port}`);
 		expect(instance.process.pid).toBeDefined();
 
 		// Verify it's actually running
@@ -34,11 +35,11 @@ describe("Core Anvil Management", () => {
 	});
 
 	it("should handle multiple instances on different ports", async () => {
-		const instance1 = await startAnvil({ port: 8548 });
-		const instance2 = await startAnvil({ port: 8549 });
+		// Let AnvilManager find available ports automatically
+		const instance1 = await startAnvil();
+		const instance2 = await startAnvil();
 
-		expect(instance1.port).toBe(8548);
-		expect(instance2.port).toBe(8549);
+		expect(instance1.port).not.toBe(instance2.port);
 
 		// Both should be accessible
 		const client1 = createPublicClient({
@@ -63,10 +64,14 @@ describe("Core Anvil Management", () => {
 	});
 
 	it("should handle port conflicts gracefully", async () => {
-		const instance1 = await startAnvil({ port: 8550 });
+		// Use a random port in a high range to avoid conflicts
+		const port = 30000 + Math.floor(Math.random() * 1000);
+		const instance1 = await startAnvil({ port });
 
 		// Attempt to start another instance on the same port
-		await expect(startAnvil({ port: 8550 })).rejects.toThrow();
+		await expect(startAnvil({ port })).rejects.toThrow(
+			`Port ${port} is already in use`,
+		);
 
 		// Verify the first instance is still working
 		const client = createPublicClient({
@@ -79,14 +84,13 @@ describe("Core Anvil Management", () => {
 		await instance1.stop();
 
 		// Now we should be able to start on the same port
-		const instance2 = await startAnvil({ port: 8550 });
-		expect(instance2.port).toBe(8550);
+		const instance2 = await startAnvil({ port });
+		expect(instance2.port).toBe(port);
 		await instance2.stop();
 	});
 
 	it("should respect custom options", async () => {
 		const instance = await startAnvil({
-			port: 8551,
 			accounts: 5,
 			balance: "1000",
 		});
@@ -112,7 +116,7 @@ describe("Core Anvil Management", () => {
 	});
 
 	it("should handle stop being called multiple times", async () => {
-		const instance = await startAnvil({ port: 8552 });
+		const instance = await startAnvil();
 
 		await instance.stop();
 		// Should not throw on second stop
@@ -124,7 +128,6 @@ describe("Core Anvil Management", () => {
 		// to ensure cleanup happens on failure
 		await expect(
 			startAnvil({
-				port: 8553,
 				additionalArgs: ["--invalid-flag-that-does-not-exist"],
 			}),
 		).rejects.toThrow(/Anvil process exited with code/);
@@ -132,9 +135,9 @@ describe("Core Anvil Management", () => {
 		// Wait a bit to ensure any spawned process has time to exit
 		await new Promise((resolve) => setTimeout(resolve, 500));
 
-		// Verify no orphaned process by trying to use the port
-		const instance = await startAnvil({ port: 8553 });
-		expect(instance.port).toBe(8553);
+		// Verify no orphaned process by trying to start a new instance
+		const instance = await startAnvil();
+		expect(instance.port).toBeGreaterThanOrEqual(8545);
 		await instance.stop();
 	}, 10000); // Increase timeout for this test
 

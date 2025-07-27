@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { waitForAnvil } from "./health.js";
+import { checkPortAvailable, findAvailablePort } from "./port-utils.js";
 import type { AnvilInstance, AnvilOptions } from "./types.js";
 
 const DEFAULT_PORT = 8545;
@@ -32,7 +33,7 @@ export async function startAnvil(
 	options: AnvilOptions = {},
 ): Promise<AnvilInstance> {
 	const {
-		port = DEFAULT_PORT,
+		port: requestedPort,
 		accounts = DEFAULT_ACCOUNTS,
 		balance = DEFAULT_BALANCE,
 		genesisPath,
@@ -42,12 +43,30 @@ export async function startAnvil(
 		additionalArgs = [],
 	} = options;
 
-	// Validate port number
-	if (port < 1024 || port > 65535) {
-		throw new Error(
-			`Invalid port number: ${port}. Port must be between 1024 and 65535. ` +
-				"Ports 1-1023 are privileged and require root access.",
-		);
+	// Use requested port or find an available one
+	let port: number;
+	if (requestedPort !== undefined) {
+		// Validate port number if explicitly provided
+		if (requestedPort < 1024 || requestedPort > 65535) {
+			throw new Error(
+				`Invalid port number: ${requestedPort}. Port must be between 1024 and 65535. ` +
+					"Ports 1-1023 are privileged and require root access.",
+			);
+		}
+
+		// Check if the requested port is available
+		const isAvailable = await checkPortAvailable(requestedPort);
+		if (!isAvailable) {
+			throw new Error(
+				`Port ${requestedPort} is already in use. ` +
+					"Please specify a different port or omit the port option to use automatic port discovery.",
+			);
+		}
+
+		port = requestedPort;
+	} else {
+		// Find an available port automatically
+		port = await findAvailablePort(DEFAULT_PORT);
 	}
 
 	const args: string[] = [

@@ -4,7 +4,7 @@ import type { AnvilOptions } from "./types.js";
 /**
  * Calculate a unique port for a test worker to avoid conflicts in parallel test runs
  * @param workerId - The worker ID (typically from VITEST_WORKER_ID environment variable)
- * @param basePort - The base port to start from
+ * @param basePort - The base port to start from (can also be set via ANVIL_BASE_PORT env var)
  * @returns A unique port number for the worker
  * @example
  * ```typescript
@@ -15,21 +15,24 @@ import type { AnvilOptions } from "./types.js";
  * console.log(`Worker ${workerId} will use port ${port}`);
  * ```
  */
-export function getTestAnvilPort(workerId: number, basePort = 8545): number {
+export function getTestAnvilPort(workerId: number, basePort?: number): number {
+	// Allow environment variable to override base port
+	const effectiveBasePort =
+		basePort ?? (Number(process.env.ANVIL_BASE_PORT) || 8545);
 	if (workerId < 0 || !Number.isInteger(workerId)) {
 		throw new Error(
 			`Invalid workerId: ${workerId}. Expected a non-negative integer.`,
 		);
 	}
 
-	const port = basePort + workerId;
+	const port = effectiveBasePort + workerId;
 
 	// Validate resulting port is in valid range
 	if (port < 1024 || port > 65535) {
 		throw new Error(
 			`Calculated port ${port} is out of valid range. ` +
 				"Port must be between 1024 and 65535. " +
-				`Consider using a different base port (current: ${basePort}) or limiting worker count.`,
+				`Consider using a different base port (current: ${effectiveBasePort}) or limiting worker count.`,
 		);
 	}
 

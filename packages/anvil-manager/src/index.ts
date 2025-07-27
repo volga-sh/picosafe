@@ -1,6 +1,7 @@
 // Core functionality
 export { startAnvil, stopAnvil } from "./core.js";
 export { waitForAnvil } from "./health.js";
+export { checkPortAvailable, findAvailablePort } from "./port-utils.js";
 // Test utilities
 export {
 	createTestAnvilOptions,

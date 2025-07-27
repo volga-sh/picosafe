@@ -9,6 +9,8 @@ A TypeScript library for managing Anvil (Foundry) instances in tests and example
 - 🔄 **Lifecycle Management** - Automatic cleanup and graceful shutdown
 - 📦 **Zero Config** - Sensible defaults that just work
 - 🛡️ **Type-Safe** - Full TypeScript support with comprehensive types
+- 🔍 **Automatic Port Discovery** - Finds available ports automatically when not specified
+- ⚡ **Port Conflict Detection** - Validates port availability for explicit port requests
 
 ## Why anvil-manager?
 
@@ -33,14 +35,16 @@ npm install --save-dev @volga/anvil-manager
 ```typescript
 import { startAnvil } from "@volga/anvil-manager";
 
-// Start an Anvil instance
-const anvil = await startAnvil({
+// Start with automatic port discovery (recommended)
+const anvil = await startAnvil();
+console.log(`Anvil running at ${anvil.rpcUrl}`); // e.g., http://127.0.0.1:8545
+
+// Or specify a port explicitly
+const anvilWithPort = await startAnvil({
   port: 8545,
   accounts: 10,
   balance: "10000",
 });
-
-console.log(`Anvil running at ${anvil.rpcUrl}`);
 
 // Use the instance...
 
@@ -67,6 +71,8 @@ const result = await withAnvil(async (anvil) => {
 
 ### Test Setup (Vitest)
 
+With automatic port discovery, parallel test execution is now simpler:
+
 ```typescript
 // vitest.config.ts
 export default {
@@ -76,18 +82,46 @@ export default {
 };
 
 // test-setup.ts
-import { startAnvil, createTestAnvilOptions } from "@volga/anvil-manager";
+import { startAnvil } from "@volga/anvil-manager";
 import { afterAll } from "vitest";
 
-const workerId = parseInt(process.env.VITEST_WORKER_ID || "0");
-const options = createTestAnvilOptions(workerId);
-const anvil = await startAnvil(options);
+// Automatic port discovery handles parallel test workers
+const anvil = await startAnvil();
 
 process.env.ANVIL_RPC_URL = anvil.rpcUrl;
 
 afterAll(async () => {
   await anvil.stop();
 });
+```
+
+## Parallel Testing
+
+Anvil Manager makes it easy to run tests in parallel without port conflicts:
+
+### Automatic Port Discovery (Recommended)
+
+Simply omit the port option and Anvil Manager will find an available port:
+
+```typescript
+// Each test worker gets a unique port automatically
+const anvil = await startAnvil();
+```
+
+### Manual Port Management
+
+If you need specific ports, use the test utilities:
+
+```typescript
+const workerId = parseInt(process.env.VITEST_WORKER_ID || "0");
+const port = getTestAnvilPort(workerId); // 8545, 8546, 8547...
+
+// Or with a custom base port
+const port = getTestAnvilPort(workerId, 9000); // 9000, 9001, 9002...
+
+// Or via environment variable
+process.env.ANVIL_BASE_PORT = "9000";
+const port = getTestAnvilPort(workerId); // 9000, 9001, 9002...
 ```
 
 ## API Reference
@@ -98,7 +132,7 @@ Starts a new Anvil instance with the specified options.
 
 **Parameters:**
 - `options` (optional): Configuration options
-  - `port`: Port number (default: 8545)
+  - `port`: Port number. If not specified, automatically finds an available port starting from 8545
   - `accounts`: Number of test accounts (default: 10)
   - `balance`: Initial balance per account in ETH (default: "10000")
   - `genesisPath`: Path to genesis JSON file
@@ -108,6 +142,10 @@ Starts a new Anvil instance with the specified options.
   - `additionalArgs`: Additional CLI arguments
 
 **Returns:** `Promise<AnvilInstance>`
+
+**Port Behavior:**
+- If `port` is omitted: Automatically finds an available port
+- If `port` is specified: Validates the port is available before starting, throws an error if in use
 
 ### `withAnvil(callback, options?)`
 
@@ -119,9 +157,14 @@ Executes a function with a temporary Anvil instance that is automatically cleane
 
 **Returns:** The result of the callback function
 
+### Port Utilities
+
+- `findAvailablePort(preferredPort?, maxAttempts?)`: Find an available port starting from a preferred port
+- `checkPortAvailable(port)`: Check if a specific port is available
+
 ### Test Utilities
 
-- `getTestAnvilPort(workerId)`: Calculate unique port for test worker
+- `getTestAnvilPort(workerId, basePort?)`: Calculate unique port for test worker (supports `ANVIL_BASE_PORT` env var)
 - `createTestAnvilOptions(workerId, genesisPath?)`: Create options for test environments
 
 ## License
