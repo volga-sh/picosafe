@@ -62,7 +62,7 @@ const result = await withAnvil(async (anvil) => {
   const client = createPublicClient({
     transport: http(anvil.rpcUrl),
   });
-  
+
   const blockNumber = await client.getBlockNumber();
   return blockNumber;
 });
@@ -237,7 +237,3 @@ If you notice orphaned Anvil processes after tests:
 - `ANVIL_BASE_PORT`: Override default base port for test utilities
 - `ANVIL_DEBUG`: Enable debug logging when set to "true"
 - `ANVIL_VERBOSE`: Enable verbose Anvil output when set to "true"
-
-## License
-
-MIT
