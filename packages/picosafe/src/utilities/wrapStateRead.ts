@@ -145,16 +145,14 @@ function wrapStateReadWithOptions<T, A = void>(
 		return wrapStateRead(provider, call, decoder);
 	}
 
-	if ("data" in options && options.data !== undefined) {
-		return wrapStateRead(provider, call, decoder, {
-			lazy: true,
-			data: options.data,
-		}) as WrappedStateRead<T, A>;
-	}
+	// Build the options object conditionally including data if it exists
+	const lazyOptions = {
+		lazy: true as const,
+		...("data" in options &&
+			options.data !== undefined && { data: options.data }),
+	};
 
-	return wrapStateRead(provider, call, decoder, {
-		lazy: true,
-	}) as WrappedStateRead<T, A>;
+	return wrapStateRead(provider, call, decoder, lazyOptions);
 }
 
 export { wrapStateRead, wrapStateReadWithOptions };

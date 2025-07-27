@@ -12,6 +12,34 @@ import { encodeWithSelector, padStartHex } from "./utilities/encoding.js";
 import { wrapStateReadWithOptions } from "./utilities/wrapStateRead";
 
 /**
+ * Constant offsets for parsing storage results from getStorageAt calls.
+ * The ABI encoding for getStorageAt returns:
+ * - Bytes 0-63: Offset pointer to the data array (always 0x20)
+ * - Bytes 64-127: Length of the data array
+ * - Bytes 128+: Actual storage slot values (32 bytes each)
+ */
+const STORAGE_RESULT_OFFSET_START = 130; // Skip "0x" + offset (64) + length (64)
+const STORAGE_RESULT_OFFSET_END = 194; // Read 64 chars (32 bytes)
+
+/**
+ * Parses an Ethereum address from a storage slot result.
+ * Storage slots are 32 bytes, but addresses are only 20 bytes.
+ * Addresses are right-aligned in their slots, so we take the last 40 hex chars.
+ *
+ * @param result - The raw hex result from a storage read
+ * @returns The checksummed address extracted from the storage slot
+ * @internal
+ */
+function parseAddressFromStorageResult(result: Hex): Address {
+	// Skip offset (64) + length (64) = 128 chars, then read 64 chars for the slot
+	// Take the last 40 chars (20 bytes) which contain the address
+	const addressHex = result
+		.slice(STORAGE_RESULT_OFFSET_START, STORAGE_RESULT_OFFSET_END)
+		.slice(-40);
+	return checksumAddress(`0x${addressHex}`);
+}
+
+/**
  * State Read Functions Design Note
  * ================================
  *
@@ -248,8 +276,10 @@ const getNonce: StateReadFunction<{ safeAddress: Address }, bigint> = <
 		}
 
 		// Decode the nonce from the result
-		// Skip offset (64) + length (64) = 128 chars, then read 64 chars
-		const nonceHex = result.slice(130, 194);
+		const nonceHex = result.slice(
+			STORAGE_RESULT_OFFSET_START,
+			STORAGE_RESULT_OFFSET_END,
+		);
 		if (!nonceHex) {
 			throw new Error(`Failed to retrieve nonce for Safe at ${safeAddress}`);
 		}
@@ -334,10 +364,7 @@ const getFallbackHandler: StateReadFunction<
 				`Failed to retrieve fallback handler for Safe at ${safeAddress}`,
 			);
 		}
-		// Decode the address from the result
-		// Skip offset (64) + length (64) = 128 chars, then read last 40 chars of the 64-char slot
-		const addressHex = result.slice(130, 194).slice(-40);
-		return checksumAddress(`0x${addressHex}`);
+		return parseAddressFromStorageResult(result);
 	};
 
 	return wrapStateReadWithOptions(
@@ -408,8 +435,10 @@ const getOwnerCount: StateReadFunction<{ safeAddress: Address }, bigint> = <
 			);
 		}
 		// Decode the count from the result
-		// Skip offset (64) + length (64) = 128 chars, then read 64 chars
-		const countHex = result.slice(130, 194);
+		const countHex = result.slice(
+			STORAGE_RESULT_OFFSET_START,
+			STORAGE_RESULT_OFFSET_END,
+		);
 		return BigInt(`0x${countHex}`);
 	};
 
@@ -481,8 +510,10 @@ const getThreshold: StateReadFunction<{ safeAddress: Address }, bigint> = <
 			);
 		}
 		// Decode the threshold from the result
-		// Skip offset (64) + length (64) = 128 chars, then read 64 chars
-		const thresholdHex = result.slice(130, 194);
+		const thresholdHex = result.slice(
+			STORAGE_RESULT_OFFSET_START,
+			STORAGE_RESULT_OFFSET_END,
+		);
 		return BigInt(`0x${thresholdHex}`);
 	};
 
@@ -552,10 +583,7 @@ const getGuard: StateReadFunction<{ safeAddress: Address }, Address> = <
 		if (result === "0x") {
 			throw new Error(`Failed to retrieve guard for Safe at ${safeAddress}`);
 		}
-		// Decode the address from the result
-		// Skip offset (64) + length (64) = 128 chars, then read last 40 chars of the 64-char slot
-		const addressHex = result.slice(130, 194).slice(-40);
-		return checksumAddress(`0x${addressHex}`);
+		return parseAddressFromStorageResult(result);
 	};
 
 	return wrapStateReadWithOptions(
@@ -626,10 +654,7 @@ const getSingleton: StateReadFunction<{ safeAddress: Address }, Address> = <
 				`Failed to retrieve singleton for Safe at ${safeAddress}`,
 			);
 		}
-		// Decode the address from the result
-		// Skip offset (64) + length (64) = 128 chars, then read last 40 chars of the 64-char slot
-		const addressHex = result.slice(130, 194).slice(-40);
-		return checksumAddress(`0x${addressHex}`);
+		return parseAddressFromStorageResult(result);
 	};
 
 	return wrapStateReadWithOptions(

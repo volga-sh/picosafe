@@ -667,7 +667,19 @@ describe("checkNSignatures", () => {
 			// Test with too short signature
 			const shortSig = "0x1234";
 
-			// First test with a single short signature that will return invalid
+			// Verify that checkNSignatures does not throw for malformed signatures
+			// but instead returns invalid with an error
+			await expect(
+				checkNSignatures(publicClient, {
+					safeAddress,
+					dataHash: txHash,
+					data: "0x",
+					signatures: [{ signer: owners[0], data: shortSig }],
+					requiredSignatures: 1n,
+				}),
+			).resolves.not.toThrow();
+
+			// Now verify it returns invalid with proper error
 			const { valid: shortSigValid, error } = await checkNSignatures(
 				publicClient,
 				{
