@@ -219,7 +219,7 @@ function createCheckNSignaturesErrorResult<
 		};
 		// TypeScript's conditional types require assertions here due to complexity
 		// of WrapResult's type inference with generic parameter O
-		return failedResultWithData as unknown as WrapResult<
+		return failedResultWithData as WrapResult<
 			{ valid: boolean; error?: Error },
 			A,
 			O
@@ -433,7 +433,7 @@ function checkNSignatures<
 			};
 			// TypeScript's conditional types require assertions here due to complexity
 			// of WrapResult's type inference with generic parameter O
-			return resultWithData as unknown as WrapResult<
+			return resultWithData as WrapResult<
 				{ valid: boolean; error?: Error },
 				A,
 				O

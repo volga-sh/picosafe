@@ -191,11 +191,7 @@ function getStorageAt<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		return decodedResult;
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		Hex[],
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 /**
@@ -276,11 +272,7 @@ function getNonce<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		return BigInt(`0x${nonceHex}`);
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		bigint,
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 /**
@@ -356,11 +348,7 @@ function getFallbackHandler<
 		return parseAddressFromStorageResult(result);
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		Address,
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 /**
@@ -431,11 +419,7 @@ function getOwnerCount<
 		return BigInt(`0x${countHex}`);
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		bigint,
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 /**
@@ -503,11 +487,7 @@ function getThreshold<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		return BigInt(`0x${thresholdHex}`);
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		bigint,
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 /**
@@ -569,11 +549,7 @@ function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		return parseAddressFromStorageResult(result);
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		Address,
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 /**
@@ -637,11 +613,7 @@ function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		return parseAddressFromStorageResult(result);
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		Address,
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 /**
@@ -748,11 +720,7 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		return owners;
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		Address[],
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 /**
@@ -887,11 +855,7 @@ function getModulesPaginated<
 		return { modules, next };
 	};
 
-	return wrapStateRead(provider, call, decoder, options) as WrapResult<
-		{ modules: Address[]; next: Address },
-		A,
-		O
-	>;
+	return wrapStateRead(provider, call, decoder, options);
 }
 
 export {
