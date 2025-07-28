@@ -721,14 +721,22 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		// 2. Array length (32 bytes) - number of elements
 		// 3. Array elements (32 bytes each) - the actual addresses
 
+		// Define offsets for parsing array results
+		const ARRAY_LENGTH_OFFSET_START = 66; // Skip "0x" + offset pointer
+		const ARRAY_LENGTH_OFFSET_END = 130; // Read length field
+		const ARRAY_DATA_OFFSET_START = 130; // Start of array elements
+
 		// Skip the offset pointer (first 32 bytes = 64 hex chars after "0x")
 		// Read the array length from the next 32 bytes
-		const lengthHex = raw.slice(66, 130); // Skip "0x" + offset pointer, read length
+		const lengthHex = raw.slice(
+			ARRAY_LENGTH_OFFSET_START,
+			ARRAY_LENGTH_OFFSET_END,
+		);
 		const length = Number.parseInt(lengthHex, 16);
 
 		const owners: Address[] = [];
 		// Start reading addresses after offset pointer + length field
-		const dataOffset = 130; // "0x" + offset pointer (64) + length field (64)
+		const dataOffset = ARRAY_DATA_OFFSET_START;
 
 		for (let i = 0; i < length; i++) {
 			// Each address is stored in a 32-byte slot, right-padded with zeros
@@ -847,19 +855,30 @@ function getModulesPaginated<
 		// the array length, and then the array elements.
 		// We parse this response manually to avoid adding a full ABI decoder dependency.
 
+		// Define offsets for parsing module pagination results
+		const MODULE_NEXT_OFFSET_START = 64;
+		const MODULE_NEXT_OFFSET_END = 128;
+		const MODULE_LENGTH_OFFSET_START = 128;
+		const MODULE_LENGTH_OFFSET_END = 192;
+		const MODULE_DATA_OFFSET_START = 192;
+
 		// Remove 0x prefix for slicing
 		const hex = result.slice(2);
 
 		// Decode 'next' address (bytes32 padded)
-		const next = `0x${hex.slice(64, 128).slice(-40)}` as Address;
+		const next =
+			`0x${hex.slice(MODULE_NEXT_OFFSET_START, MODULE_NEXT_OFFSET_END).slice(-40)}` as Address;
 
 		// Decode array length
-		const arrayLength = Number.parseInt(hex.slice(128, 192), 16);
+		const arrayLength = Number.parseInt(
+			hex.slice(MODULE_LENGTH_OFFSET_START, MODULE_LENGTH_OFFSET_END),
+			16,
+		);
 
 		// Decode module addresses
 		const modules: Address[] = [];
 		for (let i = 0; i < arrayLength; i++) {
-			const offset = 192 + i * 64;
+			const offset = MODULE_DATA_OFFSET_START + i * 64;
 			// Extract address from padded bytes32 value
 			const addressHex = hex.slice(offset + 24, offset + 64);
 			modules.push(checksumAddress(`0x${addressHex}`));
