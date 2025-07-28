@@ -376,16 +376,16 @@ function getFallbackHandler<
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
  * // Immediate execution (default)
- * const count = await getOwnerCount(provider, { safeAddress });
- * console.log('Owner count:', count); // e.g., 2n
+ * const ownerCount = await getOwnerCount(provider, { safeAddress });
+ * console.log('Owner count:', ownerCount); // e.g., 2n
  *
  * // Lazy evaluation for batching
- * const countCall = await getOwnerCount(
+ * const ownerCountCall = await getOwnerCount(
  *   provider,
  *   { safeAddress },
  *   { lazy: true }
  * );
- * const count = await countCall.call();
+ * const ownerCount = await ownerCountCall.call();
  * ```
  */
 function getOwnerCount<
@@ -447,8 +447,8 @@ function getOwnerCount<
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
  * // Immediate execution (default)
- * const threshold = await getThreshold(provider, { safeAddress });
- * console.log('Threshold:', threshold); // e.g., 1n
+ * const signatureThreshold = await getThreshold(provider, { safeAddress });
+ * console.log('Signature threshold:', signatureThreshold); // e.g., 1n
  *
  * // Lazy evaluation for batching
  * const thresholdCall = await getThreshold(
@@ -456,7 +456,7 @@ function getOwnerCount<
  *   { safeAddress },
  *   { lazy: true }
  * );
- * const threshold = await thresholdCall.call();
+ * const signatureThreshold = await thresholdCall.call();
  * ```
  */
 function getThreshold<A = void, O extends MaybeLazy<A> | undefined = undefined>(
