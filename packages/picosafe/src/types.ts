@@ -231,23 +231,17 @@ enum SignatureTypeVByte {
  *
  * @example
  * ```typescript
- * import { checkNSignatures, encodeSafeSignaturesBytes } from "picosafe";
+ * import { executeSafeTransaction, encodeSafeSignaturesBytes } from "picosafe";
  *
  * // Pass as array of signature objects
- * await checkNSignatures(provider, safeAddress, {
- *   signatures: [
- *     { signer: owner1, data: sig1 },
- *     { signer: owner2, data: sig2 }
- *   ],
- *   // ... other params
- * });
+ * await executeSafeTransaction(provider, safeAddress, safeTx, [
+ *   { signer: owner1, data: sig1 },
+ *   { signer: owner2, data: sig2 }
+ * ]);
  *
  * // Or pass as encoded hex string
  * const encoded = encodeSafeSignaturesBytes(signatures);
- * await checkNSignatures(provider, safeAddress, {
- *   signatures: encoded, // "0x..."
- *   // ... other params
- * });
+ * await executeSafeTransaction(provider, safeAddress, safeTx, encoded);
  * ```
  */
 type SafeSignaturesParam = readonly PicosafeSignature[] | Hex;

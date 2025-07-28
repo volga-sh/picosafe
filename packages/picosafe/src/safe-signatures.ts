@@ -1,19 +1,13 @@
 import type { Address, Hex } from "viem";
-import { encodeFunctionData, hashMessage, recoverAddress } from "viem";
-import { PARSED_SAFE_ABI } from "./abis.js";
+import { hashMessage, recoverAddress } from "viem";
 import { getOwners, getThreshold } from "./account-state.js";
 import type { SignatureValidationResult } from "./signature-validation.js";
 import { validateSignature } from "./signature-validation.js";
 import type {
 	EIP1193ProviderWithRequestFn,
-	MaybeLazy,
-	PicosafeRpcBlockIdentifier,
 	PicosafeSignature,
 	SafeSignaturesParam,
 	SignatureValidationContext,
-	StateReadCall,
-	WrappedStateRead,
-	WrapResult,
 } from "./types.js";
 import {
 	isApprovedHashSignature,
@@ -22,7 +16,6 @@ import {
 	SignatureTypeVByte,
 } from "./types.js";
 import { checksumAddress } from "./utilities/address.js";
-import { captureError } from "./utilities/captureError.js";
 import {
 	ECDSA_SIGNATURE_LENGTH_BYTES,
 	ECDSA_SIGNATURE_LENGTH_HEX,
@@ -171,303 +164,6 @@ function encodeSafeSignaturesBytes(
 	}
 
 	return concatHex(staticPart, dynamicPart);
-}
-
-/**
- * Parameters for on-chain signature verification using Safe's checkNSignatures
- * @property {Address} safeAddress - The Safe contract address
- * @property {Hex} dataHash - The hash of the data that was signed
- * @property {Hex} data - The original data that was signed
- * @property {SafeSignaturesParam} signatures - Array of signatures to verify or encoded signatures hex
- * @property {bigint} requiredSignatures - Number of valid signatures required
- */
-
-/**
- * Helper function to handle error results for both lazy and non-lazy modes in checkNSignatures
- * This reduces code duplication when creating error results across different error scenarios
- */
-function createCheckNSignaturesErrorResult<
-	A,
-	O extends MaybeLazy<A> | undefined,
->(
-	errorResult: { valid: boolean; error?: Error },
-	options: O | undefined,
-	safeAddress: Address,
-	block: PicosafeRpcBlockIdentifier,
-): WrapResult<{ valid: boolean; error?: Error }, A, O> {
-	// Handle non-lazy mode
-	if (!options?.lazy) {
-		return Promise.resolve(errorResult) as WrapResult<
-			{ valid: boolean; error?: Error },
-			A,
-			O
-		>;
-	}
-
-	// Handle lazy mode
-	const failedCall: StateReadCall = {
-		to: safeAddress,
-		data: "0x",
-		block,
-	};
-
-	if ("data" in options && options.data !== undefined) {
-		const failedResultWithData = {
-			rawCall: failedCall,
-			data: options.data,
-			call: () => Promise.resolve(errorResult),
-		};
-		// TypeScript's conditional types require assertions here due to complexity
-		// of WrapResult's type inference with generic parameter O
-		return failedResultWithData as WrapResult<
-			{ valid: boolean; error?: Error },
-			A,
-			O
-		>;
-	}
-
-	const failedResultWithoutData = {
-		rawCall: failedCall,
-		call: () => Promise.resolve(errorResult),
-	};
-	return failedResultWithoutData as WrapResult<
-		{ valid: boolean; error?: Error },
-		A,
-		O
-	>;
-}
-
-/**
- * Verifies Safe signatures by calling the Safe contract's checkNSignatures function on-chain
- *
- * This function calls the Safe contract's checkNSignatures method to verify
- * that the provided signatures are valid for the given data hash. The Safe contract
- * performs comprehensive validation including:
- *
- * - ECDSA signature recovery and verification
- * - EIP-1271 contract signature validation
- * - Pre-approved hash checking
- * - Owner validation and ordering checks
- * - Duplicate signer prevention
- *
- * The function gracefully handles reverts - if the Safe contract reverts (invalid
- * signatures), this function returns false rather than throwing.
- *
- * Signature validation rules enforced by Safe:
- * - Signers must be current Safe owners
- * - Signers must be ordered by address (ascending)
- * - No duplicate signers allowed
- * - Contract signatures (v=0) call isValidSignature on the signer
- * - Pre-validated signatures (v=1) check approvedHashes mapping
- * - ECDSA signatures use ecrecover with appropriate hash handling
- *
- * @param provider - EIP-1193 provider to interact with the blockchain
- * @param params - Verification parameters
- * @param params.dataHash - The hash of the data that was signed (transaction hash or message hash)
- * @param params.data - The original data that was signed (used for EIP-1271 validation)
- * @param params.signatures - Array of signatures to verify or encoded signatures hex {@link SafeSignaturesParam}
- * @param params.requiredSignatures - Number of valid signatures required (must be > 0 and <= threshold)
- * @param options - Optional execution options
- * @returns Promise that resolves to validation result with valid flag and optional error, or a wrapped call object {@link WrappedStateRead}
- * @throws {Error} If requiredSignatures is <= 0
- * @example
- * ```typescript
- * import { checkNSignatures, buildSafeTransaction, calculateSafeTransactionHash } from "picosafe";
- *
- * // Build a Safe transaction
- * const safeTx = buildSafeTransaction({
- *   to: "0x742d35Cc6634C0532925a3b844Bc9e7595f8fA8e",
- *   value: 0n,
- *   data: "0x",
- *   // ... other parameters
- * });
- *
- * // Calculate transaction hash
- * const txHash = await calculateSafeTransactionHash(provider, safeAddress, safeTx);
- *
- * // Verify signatures for the transaction
- * const isValid = await checkNSignatures(provider, safeAddress, {
- *   dataHash: txHash,
- *   data: "0x", // Original data (empty for ETH transfer)
- *   signatures: [
- *     { signer: "0x...", data: "0x..." }, // ECDSA signature
- *     { signer: "0x...", data: "0x...", dynamic: true } // Contract signature
- *   ],
- *   requiredSignatures: 2n
- * });
- * console.log('Signatures valid:', isValid);
- * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
- */
-function checkNSignatures<
-	A = void,
-	O extends MaybeLazy<A> | undefined = undefined,
->(
-	provider: EIP1193ProviderWithRequestFn,
-	params: {
-		safeAddress: Address;
-		dataHash: Hex;
-		data: Hex;
-		signatures: SafeSignaturesParam;
-		requiredSignatures: bigint;
-	},
-	options?: O,
-): WrapResult<{ valid: boolean; error?: Error }, A, O> {
-	const { safeAddress, dataHash, data, signatures, requiredSignatures } =
-		params;
-	const { block = "latest" } = options || {};
-
-	if (requiredSignatures <= 0n) {
-		throw new Error("Required signatures must be greater than 0");
-	}
-
-	// Encode signatures
-	let encodedSignatures: Hex;
-	try {
-		if (Array.isArray(signatures)) {
-			// Handle empty array case - provide minimal valid signature bytes
-			if (signatures.length === 0) {
-				encodedSignatures = "0x";
-			} else {
-				encodedSignatures = encodeSafeSignaturesBytes(signatures);
-			}
-		} else {
-			encodedSignatures = signatures as Hex;
-		}
-	} catch (error) {
-		// If encoding fails, return error result for both lazy and non-lazy modes
-		const encodingError = new Error(
-			`Failed to encode signatures: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const errorResult = {
-			valid: false,
-			error: encodingError,
-		};
-
-		return createCheckNSignaturesErrorResult(
-			errorResult,
-			options,
-			safeAddress,
-			block,
-		);
-	}
-
-	const callData = encodeFunctionData({
-		abi: PARSED_SAFE_ABI,
-		functionName: "checkNSignatures",
-		args: [dataHash, data, encodedSignatures, requiredSignatures],
-	});
-
-	const call: StateReadCall = {
-		to: safeAddress,
-		data: callData,
-		block,
-	};
-
-	// Custom decoder that checks if result indicates a successful call
-	const decoder = async (
-		_result: Hex | null,
-	): Promise<{ valid: boolean; error?: Error }> => {
-		// First check if the contract exists at this address
-		const [code, codeError] = await captureError(
-			() =>
-				provider.request({
-					method: "eth_getCode",
-					params: [safeAddress, block],
-				}),
-			`Failed to get code for ${safeAddress}`,
-		);
-
-		// If there's no code at the address, it's not a contract
-		if (codeError || !code || code === "0x" || code === "0x0") {
-			return {
-				valid: false,
-				error: codeError || new Error("Address is not a contract"),
-			};
-		}
-
-		// checkNSignatures doesn't return anything on success
-		// If we get here without an error and there's a contract, the validation passed
-		return { valid: true };
-	};
-
-	// Custom error handler that returns valid: false for all errors
-	const errorHandler = async (
-		error: Error,
-	): Promise<{ valid: boolean; error?: Error }> => {
-		// All errors mean the signatures are invalid
-		return { valid: false, error };
-	};
-
-	// For lazy evaluation, we need to create a custom wrapper
-	// This allows deferring the actual RPC call until the user explicitly calls it,
-	// enabling batching multiple signature checks into a single multicall transaction
-	if (options?.lazy === true) {
-		// We need to handle the error case differently for lazy evaluation
-		// The wrapper function captures the RPC call logic and error handling,
-		// ensuring consistent behavior whether called immediately or deferred
-		const wrappedCallFunction = async (): Promise<{
-			valid: boolean;
-			error?: Error;
-		}> => {
-			try {
-				const result = await provider.request({
-					method: "eth_call",
-					params: [{ to: safeAddress, data: callData }, block],
-				});
-				return await decoder(result);
-			} catch (error) {
-				return await errorHandler(error as Error);
-			}
-		};
-
-		// Now create the wrapped object based on whether we have data
-		// TypeScript requires different return types based on whether custom data is attached,
-		// so we branch here to create the correctly typed wrapped result
-		if ("data" in options && options.data !== undefined) {
-			// Version with data - create properly typed result
-			const resultWithData = {
-				rawCall: call,
-				data: options.data,
-				call: wrappedCallFunction,
-			};
-			// TypeScript's conditional types require assertions here due to complexity
-			// of WrapResult's type inference with generic parameter O
-			return resultWithData as WrapResult<
-				{ valid: boolean; error?: Error },
-				A,
-				O
-			>;
-		}
-		// Version without data
-		const resultWithoutData: WrappedStateRead<{
-			valid: boolean;
-			error?: Error;
-		}> = {
-			rawCall: call,
-			call: wrappedCallFunction,
-		};
-		return resultWithoutData as WrapResult<
-			{ valid: boolean; error?: Error },
-			A,
-			O
-		>;
-	}
-
-	// For immediate execution, handle the async call properly
-	const executeCall = async () => {
-		try {
-			const result = await provider.request({
-				method: "eth_call",
-				params: [{ to: safeAddress, data: callData }, block],
-			});
-			return await decoder(result);
-		} catch (error) {
-			return await errorHandler(error as Error);
-		}
-	};
-
-	return executeCall() as WrapResult<{ valid: boolean; error?: Error }, A, O>;
 }
 
 /**
@@ -820,7 +516,6 @@ type SafeConfigurationForValidation = {
  * );
  * ```
  * @see {@link validateSignature} for single signature validation
- * @see {@link checkNSignatures} for on-chain validation via Safe contract
  */
 async function validateSignaturesForSafe(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
@@ -957,7 +652,6 @@ function getApprovedHashSignatureBytes(signer: Address): Hex {
 export {
 	encodeSafeSignaturesBytes,
 	decodeSafeSignatureBytesToPicosafeSignatures,
-	checkNSignatures,
 	validateSignature,
 	validateSignaturesForSafe,
 	getSignatureTypeVByte,
