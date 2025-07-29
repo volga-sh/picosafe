@@ -445,6 +445,12 @@ type SafeConfigurationForValidation = {
  * The function accepts signatures either as an array of {@link PicosafeSignature} objects
  * or as an encoded hex string (which will be decoded automatically).
  *
+ * **Security Note**: This function is the preferred method for validating signatures
+ * compared to calling `checkSignatures` or `checkNSignatures` on-chain. The on-chain
+ * functions have semantic issues that can lead to security vulnerabilities. While this
+ * function doesn't guarantee 100% safety, it provides a higher degree of assurance by
+ * fetching the current owners and threshold directly via `getOwners` and `getThreshold`.
+ *
  * @param provider - EIP-1193 provider to interact with the blockchain
  * @param safeAddress - Address of the Safe contract
  * @param validationParams - Parameters for signature validation
@@ -457,6 +463,7 @@ type SafeConfigurationForValidation = {
  * @returns Promise resolving to validation results
  * @returns result.valid - True if enough valid owner signatures are present
  * @returns result.results - Array of individual signature validation results
+ * @see https://github.com/safe-global/safe-smart-account/issues/1027
  * @example
  * ```typescript
  * import { validateSignaturesForSafe, calculateSafeTransactionHash, buildSafeTransaction } from "picosafe";
