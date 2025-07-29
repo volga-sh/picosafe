@@ -388,13 +388,16 @@ function getFallbackHandler<
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
  * // Immediate execution (default)
- * const ownerCount = await getOwnerCount(provider, { safeAddress });
+ * const ownerCount = await getOwnerCount(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' }
+ * );
  * console.log('Owner count:', ownerCount); // e.g., 2n
  *
  * // Lazy evaluation for batching
  * const ownerCountCall = await getOwnerCount(
  *   provider,
- *   { safeAddress },
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
  *   { lazy: true }
  * );
  * const ownerCount = await ownerCountCall.call();
@@ -459,13 +462,16 @@ function getOwnerCount<
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
  * // Immediate execution (default)
- * const signatureThreshold = await getThreshold(provider, { safeAddress });
+ * const signatureThreshold = await getThreshold(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' }
+ * );
  * console.log('Signature threshold:', signatureThreshold); // e.g., 1n
  *
  * // Lazy evaluation for batching
  * const thresholdCall = await getThreshold(
  *   provider,
- *   { safeAddress },
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
  *   { lazy: true }
  * );
  * const signatureThreshold = await thresholdCall.call();
@@ -528,13 +534,16 @@ function getThreshold<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
  * // Immediate execution (default)
- * const guard = await getGuard(provider, { safeAddress });
+ * const guard = await getGuard(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' }
+ * );
  * console.log('Guard address:', guard);
  *
  * // Lazy evaluation for batching
  * const guardCall = await getGuard(
  *   provider,
- *   { safeAddress },
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
  *   { lazy: true }
  * );
  * const guard = await guardCall.call();
@@ -590,13 +599,16 @@ function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
  *
  * // Immediate execution (default)
- * const impl = await getSingleton(provider, { safeAddress });
+ * const impl = await getSingleton(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' }
+ * );
  * console.log('Implementation address:', impl);
  *
  * // Lazy evaluation for batching
  * const singletonCall = await getSingleton(
  *   provider,
- *   { safeAddress },
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
  *   { lazy: true }
  * );
  * const impl = await singletonCall.call();
