@@ -1,12 +1,10 @@
 import type { Address, Hex } from "viem";
-import { encodeFunctionData, hashMessage, recoverAddress } from "viem";
-import { PARSED_SAFE_ABI } from "./abis.js";
+import { hashMessage, recoverAddress } from "viem";
 import { getOwners, getThreshold } from "./account-state.js";
 import type { SignatureValidationResult } from "./signature-validation.js";
 import { validateSignature } from "./signature-validation.js";
 import type {
 	EIP1193ProviderWithRequestFn,
-	PicosafeRpcBlockIdentifier,
 	PicosafeSignature,
 	SafeSignaturesParam,
 	SignatureValidationContext,
@@ -18,7 +16,6 @@ import {
 	SignatureTypeVByte,
 } from "./types.js";
 import { checksumAddress } from "./utilities/address.js";
-import { captureError } from "./utilities/captureError.js";
 import {
 	ECDSA_SIGNATURE_LENGTH_BYTES,
 	ECDSA_SIGNATURE_LENGTH_HEX,
@@ -167,164 +164,6 @@ function encodeSafeSignaturesBytes(
 	}
 
 	return concatHex(staticPart, dynamicPart);
-}
-
-/**
- * Parameters for on-chain signature verification using Safe's checkNSignatures
- * @property {Address} safeAddress - The Safe contract address
- * @property {Hex} dataHash - The hash of the data that was signed
- * @property {Hex} data - The original data that was signed
- * @property {SafeSignaturesParam} signatures - Array of signatures to verify or encoded signatures hex
- * @property {bigint} requiredSignatures - Number of valid signatures required
- */
-type CheckNSignaturesVerificationParams = {
-	dataHash: Hex;
-	data: Hex;
-	signatures: SafeSignaturesParam;
-	requiredSignatures: bigint;
-	block?: PicosafeRpcBlockIdentifier;
-};
-
-/**
- * Verifies Safe signatures by calling the Safe contract's checkNSignatures function on-chain
- *
- * This function calls the Safe contract's checkNSignatures method to verify
- * that the provided signatures are valid for the given data hash. The Safe contract
- * performs comprehensive validation including:
- *
- * - ECDSA signature recovery and verification
- * - EIP-1271 contract signature validation
- * - Pre-approved hash checking
- * - Owner validation and ordering checks
- * - Duplicate signer prevention
- *
- * The function gracefully handles reverts - if the Safe contract reverts (invalid
- * signatures), this function returns false rather than throwing.
- *
- * Signature validation rules enforced by Safe:
- * - Signers must be current Safe owners
- * - Signers must be ordered by address (ascending)
- * - No duplicate signers allowed
- * - Contract signatures (v=0) call isValidSignature on the signer
- * - Pre-validated signatures (v=1) check approvedHashes mapping
- * - ECDSA signatures use ecrecover with appropriate hash handling
- *
- * @param provider - EIP-1193 provider to interact with the blockchain
- * @param safeAddress - Address of the Safe contract
- * @param params - Verification parameters
- * @param params.dataHash - The hash of the data that was signed (transaction hash or message hash)
- * @param params.data - The original data that was signed (used for EIP-1271 validation)
- * @param params.signatures - Array of signatures to verify or encoded signatures hex
- * @param params.requiredSignatures - Number of valid signatures required (must be > 0 and <= threshold)
- * @param params.block - Optional block number or tag to use for the RPC call
- * @returns Promise that resolves to true if signatures are valid, false otherwise
- * @throws {Error} If requiredSignatures is <= 0
- * @example
- * ```typescript
- * import { checkNSignatures, buildSafeTransaction, calculateSafeTransactionHash } from "picosafe";
- *
- * // Build a Safe transaction
- * const safeTx = buildSafeTransaction({
- *   to: "0x742d35Cc6634C0532925a3b844Bc9e7595f8fA8e",
- *   value: 0n,
- *   data: "0x",
- *   // ... other parameters
- * });
- *
- * // Calculate transaction hash
- * const txHash = await calculateSafeTransactionHash(provider, safeAddress, safeTx);
- *
- * // Verify signatures for the transaction
- * const isValid = await checkNSignatures(provider, safeAddress, {
- *   dataHash: txHash,
- *   data: "0x", // Original data (empty for ETH transfer)
- *   signatures: [
- *     { signer: "0x...", data: "0x..." }, // ECDSA signature
- *     { signer: "0x...", data: "0x...", dynamic: true } // Contract signature
- *   ],
- *   requiredSignatures: 2n
- * });
- * console.log('Signatures valid:', isValid);
- * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
- */
-async function checkNSignatures(
-	provider: Readonly<EIP1193ProviderWithRequestFn>,
-	safeAddress: Address,
-	params: Readonly<CheckNSignaturesVerificationParams>,
-): Promise<{
-	valid: boolean;
-	error?: Error;
-}> {
-	if (params.requiredSignatures <= 0n) {
-		throw new Error("Required signatures must be greater than 0");
-	}
-
-	// checkNSignatures doesn't return anything on success
-	// If we get a result, it should be "0x" (empty) for success
-	// If calling an EOA, we'll get "0x" as well, but the call succeeds which is wrong
-	// So we need to check if the contract exists first
-	let [code, error] = await captureError(
-		() =>
-			provider.request({
-				method: "eth_getCode",
-				params: [safeAddress, params.block ?? "latest"],
-			}),
-		`Failed to get code for ${safeAddress}`,
-	);
-
-	// If there's no code at the address, it's not a contract
-	if (error || code === "0x" || code === "0x0") {
-		return { valid: false, error };
-	}
-
-	// We skip additional runtime validation checks (e.g., validating addresses, signature formats)
-	// because the Safe contract's checkNSignatures function will handle all validation
-	// and revert if signatures are invalid, which we catch and return as false
-	let encodedSignatures: Hex;
-	if (Array.isArray(params.signatures)) {
-		// Handle empty array case - provide minimal valid signature bytes
-		if (params.signatures.length === 0) {
-			encodedSignatures = "0x";
-		} else {
-			encodedSignatures = encodeSafeSignaturesBytes(params.signatures);
-		}
-	} else {
-		encodedSignatures = params.signatures as Hex;
-	}
-
-	const data = encodeFunctionData({
-		abi: PARSED_SAFE_ABI,
-		functionName: "checkNSignatures",
-		args: [
-			params.dataHash,
-			params.data,
-			encodedSignatures,
-			params.requiredSignatures,
-		],
-	});
-
-	// CheckNSignatures doesn't return anything on success, that's why we omit the result
-	[, error] = await captureError(
-		() =>
-			provider.request({
-				method: "eth_call",
-				params: [
-					{
-						to: safeAddress,
-						data,
-					},
-					params.block ?? "latest",
-				],
-			}),
-		`checkNSignatures failed for ${safeAddress}`,
-	);
-
-	if (error) {
-		return { valid: false, error };
-	}
-
-	return { valid: true };
 }
 
 /**
@@ -606,6 +445,12 @@ type SafeConfigurationForValidation = {
  * The function accepts signatures either as an array of {@link PicosafeSignature} objects
  * or as an encoded hex string (which will be decoded automatically).
  *
+ * **Security Note**: This function is the preferred method for validating signatures
+ * compared to calling `checkSignatures` or `checkNSignatures` on-chain. The on-chain
+ * functions have semantic issues that can lead to security vulnerabilities. While this
+ * function doesn't guarantee 100% safety, it provides a higher degree of assurance by
+ * fetching the current owners and threshold directly via `getOwners` and `getThreshold`.
+ *
  * @param provider - EIP-1193 provider to interact with the blockchain
  * @param safeAddress - Address of the Safe contract
  * @param validationParams - Parameters for signature validation
@@ -618,6 +463,7 @@ type SafeConfigurationForValidation = {
  * @returns Promise resolving to validation results
  * @returns result.valid - True if enough valid owner signatures are present
  * @returns result.results - Array of individual signature validation results
+ * @see https://github.com/safe-global/safe-smart-account/issues/1027
  * @example
  * ```typescript
  * import { validateSignaturesForSafe, calculateSafeTransactionHash, buildSafeTransaction } from "picosafe";
@@ -677,7 +523,6 @@ type SafeConfigurationForValidation = {
  * );
  * ```
  * @see {@link validateSignature} for single signature validation
- * @see {@link checkNSignatures} for on-chain validation via Safe contract
  */
 async function validateSignaturesForSafe(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
@@ -689,9 +534,9 @@ async function validateSignaturesForSafe(
 	results: SignatureValidationResult<PicosafeSignature>[];
 }> {
 	const safeOwners =
-		safeConfig?.owners ?? (await getOwners(provider, safeAddress));
+		safeConfig?.owners ?? (await getOwners(provider, { safeAddress }));
 	const requiredSignatures =
-		safeConfig?.threshold ?? (await getThreshold(provider, safeAddress));
+		safeConfig?.threshold ?? (await getThreshold(provider, { safeAddress }));
 	const seenOwners = new Set<Address>();
 
 	const signatures = Array.isArray(validationParams.signatures)
@@ -814,7 +659,6 @@ function getApprovedHashSignatureBytes(signer: Address): Hex {
 export {
 	encodeSafeSignaturesBytes,
 	decodeSafeSignatureBytesToPicosafeSignatures,
-	checkNSignatures,
 	validateSignature,
 	validateSignaturesForSafe,
 	getSignatureTypeVByte,

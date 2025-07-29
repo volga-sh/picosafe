@@ -197,20 +197,20 @@ describe("Safe Deployment Functions", () => {
 			expect(bytecode).not.toBe("0x");
 
 			// Verify account state using account-state functions
-			const owners = await getOwners(publicClient, safeAddress);
+			const owners = await getOwners(publicClient, { safeAddress });
 			expect(owners).toEqual([owner]);
 
-			const threshold = await getThreshold(publicClient, safeAddress);
+			const threshold = await getThreshold(publicClient, { safeAddress });
 			expect(threshold).toBe(1n);
 
-			const ownerCount = await getOwnerCount(publicClient, safeAddress);
+			const ownerCount = await getOwnerCount(publicClient, { safeAddress });
 			expect(ownerCount).toBe(1n);
 
-			const nonce = await getNonce(publicClient, safeAddress);
+			const nonce = await getNonce(publicClient, { safeAddress });
 			expect(nonce).toBe(0n); // Should be 0 for newly deployed Safe
 
 			// Verify singleton is set to the expected Safe implementation
-			const singleton = await getSingleton(publicClient, safeAddress);
+			const singleton = await getSingleton(publicClient, { safeAddress });
 			expect(singleton.toLowerCase()).toBe(V141_ADDRESSES.SafeL2.toLowerCase());
 		});
 
@@ -241,17 +241,19 @@ describe("Safe Deployment Functions", () => {
 				expect(bytecode).not.toBe("0x");
 
 				// Verify account state
-				const deployedOwners = await getOwners(publicClient, safeAddress);
+				const deployedOwners = await getOwners(publicClient, { safeAddress });
 				expect(deployedOwners.length).toBe(owners.length);
 				// Compare owners (case-insensitive)
 				expect(deployedOwners.map((o) => o.toLowerCase()).sort()).toEqual(
 					owners.map((o) => o.toLowerCase()).sort(),
 				);
 
-				const deployedThreshold = await getThreshold(publicClient, safeAddress);
+				const deployedThreshold = await getThreshold(publicClient, {
+					safeAddress,
+				});
 				expect(deployedThreshold).toBe(threshold);
 
-				const ownerCount = await getOwnerCount(publicClient, safeAddress);
+				const ownerCount = await getOwnerCount(publicClient, { safeAddress });
 				expect(ownerCount).toBe(BigInt(owners.length));
 			}
 		});
@@ -440,7 +442,7 @@ describe("Safe Deployment Functions", () => {
 			expect(bytecode).not.toBe("0x");
 
 			// Verify the singleton address is set correctly
-			const singleton = await getSingleton(publicClient, safeAddress);
+			const singleton = await getSingleton(publicClient, { safeAddress });
 			expect(singleton.toLowerCase()).toBe(V141_ADDRESSES.Safe.toLowerCase());
 		});
 
@@ -470,10 +472,9 @@ describe("Safe Deployment Functions", () => {
 			expect(bytecode).not.toBe("0x");
 
 			// Verify the fallback handler address is set correctly
-			const fallbackHandler = await getFallbackHandler(
-				publicClient,
+			const fallbackHandler = await getFallbackHandler(publicClient, {
 				safeAddress,
-			);
+			});
 			expect(fallbackHandler.toLowerCase()).toBe(
 				customFallbackHandler.toLowerCase(),
 			);

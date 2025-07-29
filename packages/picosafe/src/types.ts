@@ -231,23 +231,17 @@ enum SignatureTypeVByte {
  *
  * @example
  * ```typescript
- * import { checkNSignatures, encodeSafeSignaturesBytes } from "picosafe";
+ * import { executeSafeTransaction, encodeSafeSignaturesBytes } from "picosafe";
  *
  * // Pass as array of signature objects
- * await checkNSignatures(provider, safeAddress, {
- *   signatures: [
- *     { signer: owner1, data: sig1 },
- *     { signer: owner2, data: sig2 }
- *   ],
- *   // ... other params
- * });
+ * await executeSafeTransaction(provider, safeAddress, safeTx, [
+ *   { signer: owner1, data: sig1 },
+ *   { signer: owner2, data: sig2 }
+ * ]);
  *
  * // Or pass as encoded hex string
  * const encoded = encodeSafeSignaturesBytes(signatures);
- * await checkNSignatures(provider, safeAddress, {
- *   signatures: encoded, // "0x..."
- *   // ... other params
- * });
+ * await executeSafeTransaction(provider, safeAddress, safeTx, encoded);
  * ```
  */
 type SafeSignaturesParam = readonly PicosafeSignature[] | Hex;
@@ -306,6 +300,55 @@ type SignatureValidationContext = {
 	safeAddress?: Address;
 };
 
+/**
+ * Minimal description of an `eth_call` that is safe to batch or execute
+ * immediately. The `block` field is optional and defaults to the node's
+ * `latest` state.
+ */
+type StateReadCall = {
+	/** Destination contract address */
+	to: Address;
+	/** Calldata (selector + encoded args) */
+	data: Hex;
+	/**
+	 * Block context – either a tag ("latest", "pending", …) or an explicit block
+	 * number/hash.
+	 */
+	block?: PicosafeRpcBlockIdentifier;
+};
+
+/**
+ * Object returned when `wrapStateRead` is used in **lazy** mode. It contains
+ * the raw call descriptor, a convenience `call()` method that performs the
+ * RPC request, and – optionally – a user‑supplied metadata payload.
+ */
+type WrappedStateRead<T, A = void> = {
+	rawCall: StateReadCall;
+	call: () => Promise<T>;
+	data?: A;
+};
+
+/**
+ * A discriminated‑union that toggles lazy execution and optionally carries a
+ * strongly‑typed metadata payload and block context.
+ *
+ * - `lazy?: false` (default)  ➜ immediate execution; block option available.
+ * - `lazy: true`             ➜ returns a wrapper; `data` and `block` may be supplied.
+ *
+ * @template A  Caller‑supplied metadata shape.
+ */
+type MaybeLazy<A = void> =
+	| { lazy?: false; data?: never; block?: PicosafeRpcBlockIdentifier }
+	| { lazy: true; data?: A; block?: PicosafeRpcBlockIdentifier };
+
+/**
+ * Derives the return type of wrapStateRead from the caller‑supplied
+ * `options` argument.
+ */
+type WrapResult<T, A, O> = O extends { lazy: true }
+	? WrappedStateRead<T, A>
+	: Promise<T>;
+
 export { Operation, SignatureTypeVByte };
 export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
 export type {
@@ -323,4 +366,8 @@ export type {
 	Prettify,
 	SafeSignaturesParam,
 	SignatureValidationContext,
+	StateReadCall,
+	WrappedStateRead,
+	MaybeLazy,
+	WrapResult,
 };

@@ -124,7 +124,7 @@ async function buildSafeTransaction(
 	// Use provided nonce or fetch current nonce from the Safe contract
 	// Better set explicitly but using the current nonce is a common pattern
 	const nonce =
-		transactionOptions?.nonce ?? (await getNonce(provider, safeAddress));
+		transactionOptions?.nonce ?? (await getNonce(provider, { safeAddress }));
 
 	// Ensure all addresses use EIP-55 checksum casing so that callers
 	// consistently receive checksummed values, no matter the input.

@@ -279,7 +279,7 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 			expect(removeOwnerTx.refundReceiver).toBe(ZERO_ADDRESS);
 
 			// Get owners to find the previous owner
-			const owners = await getOwners(walletClient, safeAddress);
+			const owners = await getOwners(walletClient, { safeAddress });
 			const ownerIndex = owners.indexOf(owner2);
 			const prevOwner =
 				ownerIndex === 0 ? SENTINEL_NODE : owners[ownerIndex - 1];
@@ -310,7 +310,7 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 			const safeAddress = safeDeployment.data.safeAddress;
 
 			// Get initial owners to verify order
-			const initialOwners = await getOwners(walletClient, safeAddress);
+			const initialOwners = await getOwners(walletClient, { safeAddress });
 			const firstOwner = initialOwners[0];
 			if (!firstOwner) {
 				throw new Error("No first owner found");
