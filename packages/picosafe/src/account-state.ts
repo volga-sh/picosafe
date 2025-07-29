@@ -20,14 +20,26 @@ import { wrapStateRead } from "./utilities/wrapStateRead";
  */
 const STORAGE_RESULT_OFFSET_START = 130; // Skip "0x" + offset (64) + length (64)
 const STORAGE_RESULT_OFFSET_END = 194; // Read 64 chars (32 bytes)
+const ADDRESS_HEX_LENGTH = 40; // 20 bytes = 40 hex chars for an Ethereum address
 
 /**
  * Parses an Ethereum address from a storage slot result.
- * Storage slots are 32 bytes, but addresses are only 20 bytes.
- * Addresses are right-aligned in their slots, so we take the last 40 hex chars.
  *
- * @param result - The raw hex result from a storage read
- * @returns The checksummed address extracted from the storage slot
+ * Safe contracts store addresses in 32-byte storage slots using the standard Solidity
+ * storage layout. Since Ethereum addresses are only 20 bytes (160 bits), they are
+ * right-aligned (left-padded with zeros) within the 32-byte slot.
+ *
+ * The storage result format from getStorageAt is:
+ * - Bytes 0-1: "0x" prefix
+ * - Bytes 2-65: Offset pointer (32 bytes as hex = 64 chars)
+ * - Bytes 66-129: Array length (32 bytes as hex = 64 chars)
+ * - Bytes 130-193: Storage slot value (32 bytes as hex = 64 chars)
+ *
+ * Within the storage slot value, the address occupies the rightmost 40 hex characters
+ * (20 bytes), with the leftmost 24 hex characters (12 bytes) being zero padding.
+ *
+ * @param result - The raw hex result from a getStorageAt call
+ * @returns The checksummed Ethereum address extracted from the storage slot
  * @internal
  */
 function parseAddressFromStorageResult(result: Hex): Address {
@@ -35,7 +47,7 @@ function parseAddressFromStorageResult(result: Hex): Address {
 	// Take the last 40 chars (20 bytes) which contain the address
 	const addressHex = result
 		.slice(STORAGE_RESULT_OFFSET_START, STORAGE_RESULT_OFFSET_END)
-		.slice(-40);
+		.slice(-ADDRESS_HEX_LENGTH);
 	return checksumAddress(`0x${addressHex}`);
 }
 
@@ -835,7 +847,7 @@ function getModulesPaginated<
 
 		// Decode 'next' address (bytes32 padded)
 		const next =
-			`0x${hex.slice(MODULE_NEXT_OFFSET_START, MODULE_NEXT_OFFSET_END).slice(-40)}` as Address;
+			`0x${hex.slice(MODULE_NEXT_OFFSET_START, MODULE_NEXT_OFFSET_END).slice(-ADDRESS_HEX_LENGTH)}` as Address;
 
 		// Decode array length
 		const arrayLength = Number.parseInt(
