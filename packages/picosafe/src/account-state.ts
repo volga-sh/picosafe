@@ -12,44 +12,9 @@ import { encodeWithSelector, padStartHex } from "./utilities/encoding.js";
 import { wrapStateRead } from "./utilities/wrapStateRead";
 
 /**
- * Constant offsets for parsing storage results from getStorageAt calls.
- * The ABI encoding for getStorageAt returns:
- * - Bytes 0-63: Offset pointer to the data array (always 0x20)
- * - Bytes 64-127: Length of the data array
- * - Bytes 128+: Actual storage slot values (32 bytes each)
+ * Constant for address hex length
  */
-const STORAGE_RESULT_OFFSET_START = 130; // Skip "0x" + offset (64) + length (64)
-const STORAGE_RESULT_OFFSET_END = 194; // Read 64 chars (32 bytes)
 const ADDRESS_HEX_LENGTH = 40; // 20 bytes = 40 hex chars for an Ethereum address
-
-/**
- * Parses an Ethereum address from a storage slot result.
- *
- * Safe contracts store addresses in 32-byte storage slots using the standard Solidity
- * storage layout. Since Ethereum addresses are only 20 bytes (160 bits), they are
- * right-aligned (left-padded with zeros) within the 32-byte slot.
- *
- * The storage result format from getStorageAt is:
- * - Bytes 0-1: "0x" prefix
- * - Bytes 2-65: Offset pointer (32 bytes as hex = 64 chars)
- * - Bytes 66-129: Array length (32 bytes as hex = 64 chars)
- * - Bytes 130-193: Storage slot value (32 bytes as hex = 64 chars)
- *
- * Within the storage slot value, the address occupies the rightmost 40 hex characters
- * (20 bytes), with the leftmost 24 hex characters (12 bytes) being zero padding.
- *
- * @param result - The raw hex result from a getStorageAt call
- * @returns The checksummed Ethereum address extracted from the storage slot
- * @internal
- */
-function parseAddressFromStorageResult(result: Hex): Address {
-	// Skip offset (64) + length (64) = 128 chars, then read 64 chars for the slot
-	// Take the last 40 chars (20 bytes) which contain the address
-	const addressHex = result
-		.slice(STORAGE_RESULT_OFFSET_START, STORAGE_RESULT_OFFSET_END)
-		.slice(-ADDRESS_HEX_LENGTH);
-	return checksumAddress(`0x${addressHex}`);
-}
 
 /**
  * State Read Functions Design Note
@@ -260,31 +225,34 @@ function getNonce<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	options?: O,
 ): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
-	const { block = "latest" } = options || {};
 
-	const call: StateReadCall = {
-		to: safeAddress,
-		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.nonce, 1n),
-		block,
-	};
+	// Use getStorageAt to read the nonce
+	const storageCall = getStorageAt(
+		provider,
+		{
+			safeAddress,
+			slot: SAFE_STORAGE_SLOTS.nonce,
+		},
+		{ ...options, lazy: true },
+	);
 
-	const decoder = (result: Hex): bigint => {
-		if (result === "0x") {
+	const decoder = async (): Promise<bigint> => {
+		const values = await storageCall.call();
+		const [value] = values;
+		if (!value) {
 			throw new Error(`Failed to retrieve nonce for Safe at ${safeAddress}`);
 		}
-
-		// Decode the nonce from the result
-		const nonceHex = result.slice(
-			STORAGE_RESULT_OFFSET_START,
-			STORAGE_RESULT_OFFSET_END,
-		);
-		if (!nonceHex) {
-			throw new Error(`Failed to retrieve nonce for Safe at ${safeAddress}`);
-		}
-		return BigInt(`0x${nonceHex}`);
+		return BigInt(value);
 	};
 
-	return wrapStateRead(provider, call, decoder, options);
+	if (options?.lazy) {
+		return {
+			rawCall: storageCall.rawCall,
+			call: decoder,
+		} as WrapResult<bigint, A, O>;
+	}
+
+	return decoder() as WrapResult<bigint, A, O>;
 }
 
 /**
@@ -339,28 +307,38 @@ function getFallbackHandler<
 	options?: O,
 ): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
-	const { block = "latest" } = options || {};
 
-	const call: StateReadCall = {
-		to: safeAddress,
-		data: encodeWithSelector(
-			"0x5624b25b",
-			SAFE_STORAGE_SLOTS.fallbackHandler,
-			1n,
-		),
-		block,
-	};
+	// Use getStorageAt to read the fallback handler
+	const storageCall = getStorageAt(
+		provider,
+		{
+			safeAddress,
+			slot: SAFE_STORAGE_SLOTS.fallbackHandler,
+		},
+		{ ...options, lazy: true },
+	);
 
-	const decoder = (result: Hex): Address => {
-		if (result === "0x") {
+	const decoder = async (): Promise<Address> => {
+		const values = await storageCall.call();
+		const [value] = values;
+		if (!value) {
 			throw new Error(
 				`Failed to retrieve fallback handler for Safe at ${safeAddress}`,
 			);
 		}
-		return parseAddressFromStorageResult(result);
+		// Extract address from the storage slot value (last 40 hex chars)
+		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
+		return checksumAddress(`0x${addressHex}`);
 	};
 
-	return wrapStateRead(provider, call, decoder, options);
+	if (options?.lazy) {
+		return {
+			rawCall: storageCall.rawCall,
+			call: decoder,
+		} as WrapResult<Address, A, O>;
+	}
+
+	return decoder() as WrapResult<Address, A, O>;
 }
 
 /**
@@ -412,29 +390,36 @@ function getOwnerCount<
 	options?: O,
 ): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
-	const { block = "latest" } = options || {};
 
-	const call: StateReadCall = {
-		to: safeAddress,
-		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.ownerCount, 1n),
-		block,
-	};
+	// Use getStorageAt to read the owner count
+	const storageCall = getStorageAt(
+		provider,
+		{
+			safeAddress,
+			slot: SAFE_STORAGE_SLOTS.ownerCount,
+		},
+		{ ...options, lazy: true },
+	);
 
-	const decoder = (result: Hex): bigint => {
-		if (result === "0x") {
+	const decoder = async (): Promise<bigint> => {
+		const values = await storageCall.call();
+		const [value] = values;
+		if (!value) {
 			throw new Error(
 				`Failed to retrieve owner count for Safe at ${safeAddress}`,
 			);
 		}
-		// Decode the count from the result
-		const countHex = result.slice(
-			STORAGE_RESULT_OFFSET_START,
-			STORAGE_RESULT_OFFSET_END,
-		);
-		return BigInt(`0x${countHex}`);
+		return BigInt(value);
 	};
 
-	return wrapStateRead(provider, call, decoder, options);
+	if (options?.lazy) {
+		return {
+			rawCall: storageCall.rawCall,
+			call: decoder,
+		} as WrapResult<bigint, A, O>;
+	}
+
+	return decoder() as WrapResult<bigint, A, O>;
 }
 
 /**
@@ -483,29 +468,36 @@ function getThreshold<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	options?: O,
 ): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
-	const { block = "latest" } = options || {};
 
-	const call: StateReadCall = {
-		to: safeAddress,
-		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.threshold, 1n),
-		block,
-	};
+	// Use getStorageAt to read the threshold
+	const storageCall = getStorageAt(
+		provider,
+		{
+			safeAddress,
+			slot: SAFE_STORAGE_SLOTS.threshold,
+		},
+		{ ...options, lazy: true },
+	);
 
-	const decoder = (result: Hex): bigint => {
-		if (result === "0x") {
+	const decoder = async (): Promise<bigint> => {
+		const values = await storageCall.call();
+		const [value] = values;
+		if (!value) {
 			throw new Error(
 				`Failed to retrieve threshold for Safe at ${safeAddress}`,
 			);
 		}
-		// Decode the threshold from the result
-		const thresholdHex = result.slice(
-			STORAGE_RESULT_OFFSET_START,
-			STORAGE_RESULT_OFFSET_END,
-		);
-		return BigInt(`0x${thresholdHex}`);
+		return BigInt(value);
 	};
 
-	return wrapStateRead(provider, call, decoder, options);
+	if (options?.lazy) {
+		return {
+			rawCall: storageCall.rawCall,
+			call: decoder,
+		} as WrapResult<bigint, A, O>;
+	}
+
+	return decoder() as WrapResult<bigint, A, O>;
 }
 
 /**
@@ -555,22 +547,36 @@ function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	options?: O,
 ): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
-	const { block = "latest" } = options || {};
 
-	const call: StateReadCall = {
-		to: safeAddress,
-		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.guard, 1n),
-		block,
-	};
+	// Use getStorageAt to read the guard
+	const storageCall = getStorageAt(
+		provider,
+		{
+			safeAddress,
+			slot: SAFE_STORAGE_SLOTS.guard,
+		},
+		{ ...options, lazy: true },
+	);
 
-	const decoder = (result: Hex): Address => {
-		if (result === "0x") {
+	const decoder = async (): Promise<Address> => {
+		const values = await storageCall.call();
+		const [value] = values;
+		if (!value) {
 			throw new Error(`Failed to retrieve guard for Safe at ${safeAddress}`);
 		}
-		return parseAddressFromStorageResult(result);
+		// Extract address from the storage slot value (last 40 hex chars)
+		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
+		return checksumAddress(`0x${addressHex}`);
 	};
 
-	return wrapStateRead(provider, call, decoder, options);
+	if (options?.lazy) {
+		return {
+			rawCall: storageCall.rawCall,
+			call: decoder,
+		} as WrapResult<Address, A, O>;
+	}
+
+	return decoder() as WrapResult<Address, A, O>;
 }
 
 /**
@@ -620,24 +626,38 @@ function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	options?: O,
 ): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
-	const { block = "latest" } = options || {};
 
-	const call: StateReadCall = {
-		to: safeAddress,
-		data: encodeWithSelector("0x5624b25b", SAFE_STORAGE_SLOTS.singleton, 1n),
-		block,
-	};
+	// Use getStorageAt to read the singleton
+	const storageCall = getStorageAt(
+		provider,
+		{
+			safeAddress,
+			slot: SAFE_STORAGE_SLOTS.singleton,
+		},
+		{ ...options, lazy: true },
+	);
 
-	const decoder = (result: Hex): Address => {
-		if (result === "0x") {
+	const decoder = async (): Promise<Address> => {
+		const values = await storageCall.call();
+		const [value] = values;
+		if (!value) {
 			throw new Error(
 				`Failed to retrieve singleton for Safe at ${safeAddress}`,
 			);
 		}
-		return parseAddressFromStorageResult(result);
+		// Extract address from the storage slot value (last 40 hex chars)
+		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
+		return checksumAddress(`0x${addressHex}`);
 	};
 
-	return wrapStateRead(provider, call, decoder, options);
+	if (options?.lazy) {
+		return {
+			rawCall: storageCall.rawCall,
+			call: decoder,
+		} as WrapResult<Address, A, O>;
+	}
+
+	return decoder() as WrapResult<Address, A, O>;
 }
 
 /**
