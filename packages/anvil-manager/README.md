@@ -22,6 +22,15 @@ We chose to build anvil-manager instead of using existing solutions like [prool]
 
 3. **Lower Overhead**: No HTTP proxy layer or server management - just direct process control. This reduces complexity and potential points of failure while maintaining full functionality.
 
+## Platform Support
+
+This package supports:
+- ✅ Linux
+- ✅ macOS
+- ❌ Windows (not supported)
+
+Windows support is not available at this time. The cleanup scripts and process management utilities are designed for Unix-like systems only.
+
 ## Installation
 
 ```bash

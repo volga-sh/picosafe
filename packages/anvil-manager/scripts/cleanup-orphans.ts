@@ -6,6 +6,7 @@
  */
 
 import { execSync } from "node:child_process";
+import { platform } from "node:os";
 
 const isDryRun = process.argv.includes("--dry-run");
 
@@ -15,8 +16,15 @@ interface AnvilProcess {
 }
 
 function findAnvilProcesses(): AnvilProcess[] {
+	// Check platform support
+	if (platform() === "win32") {
+		console.error("Error: This script only supports Linux and macOS.");
+		console.error("Windows support is not available at this time.");
+		process.exit(1);
+	}
+
 	try {
-		// Use ps to find all anvil processes
+		// Use ps to find all anvil processes (Linux/macOS)
 		const output = execSync("ps aux | grep '[a]nvil' || true", {
 			encoding: "utf-8",
 		});

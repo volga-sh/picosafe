@@ -113,8 +113,8 @@ process.on("uncaughtException", (error) => {
 		error,
 	);
 	cleanupAnvilProcess();
-	// Re-throw to maintain original behavior
-	process.exit(1);
+	// Let Node.js handle the exit naturally
+	throw error;
 });
 
 process.on("unhandledRejection", (reason, _promise) => {
@@ -123,6 +123,6 @@ process.on("unhandledRejection", (reason, _promise) => {
 		reason,
 	);
 	cleanupAnvilProcess();
-	// Exit to prevent hanging
-	process.exit(1);
+	// Convert unhandled rejection to uncaught exception to ensure process exits
+	throw reason;
 });
