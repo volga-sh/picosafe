@@ -22,7 +22,9 @@
 		"prepare": "npm run build",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"cleanup-orphans": "tsx scripts/cleanup-orphans.ts",
+		"cleanup-orphans:dry": "tsx scripts/cleanup-orphans.ts --dry-run"
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.5",

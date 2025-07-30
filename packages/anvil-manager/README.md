@@ -22,6 +22,15 @@ We chose to build anvil-manager instead of using existing solutions like [prool]
 
 3. **Lower Overhead**: No HTTP proxy layer or server management - just direct process control. This reduces complexity and potential points of failure while maintaining full functionality.
 
+## Platform Support
+
+This package supports:
+- ✅ Linux
+- ✅ macOS
+- ❌ Windows (not supported)
+
+Windows support is not available at this time. The cleanup scripts and process management utilities are designed for Unix-like systems only.
+
 ## Installation
 
 ```bash
@@ -187,6 +196,26 @@ foundryup
 1. Use automatic port discovery by omitting the `port` option
 2. Check for orphaned Anvil processes: `pkill anvil`
 3. Use a different port range: `startAnvil({ port: 9545 })`
+
+#### Orphaned Anvil processes after test failures
+
+When tests fail or are interrupted, Anvil processes might not be cleaned up properly. This package includes enhanced cleanup mechanisms to minimize orphan processes:
+
+- Automatic cleanup on process exit, SIGINT, and SIGTERM
+- Cleanup on uncaught exceptions and unhandled promise rejections
+- Force kill with SIGKILL if graceful shutdown fails
+
+**Manual cleanup:**
+```bash
+# Check for orphaned processes (dry run)
+npm run cleanup-orphans:dry -w @volga/anvil-manager
+
+# Kill all orphaned Anvil processes
+npm run cleanup-orphans -w @volga/anvil-manager
+
+# Or manually with pkill
+pkill -9 anvil
+```
 
 #### Tests hang or timeout
 

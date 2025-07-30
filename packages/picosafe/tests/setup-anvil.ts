@@ -77,8 +77,17 @@ if (!existingProcess || existingProcess.killed) {
 		if (isVerbose) {
 			console.log(`[Worker ${workerId}] Stopping Anvil...`);
 		}
-		await anvilInstance.stop();
-		setGlobalAnvilProcess(undefined);
+		try {
+			await anvilInstance.stop();
+		} catch (error) {
+			console.error(`[Worker ${workerId}] Error stopping Anvil:`, error);
+			// Force kill if graceful stop fails
+			if (anvilInstance.process && !anvilInstance.process.killed) {
+				anvilInstance.process.kill("SIGKILL");
+			}
+		} finally {
+			setGlobalAnvilProcess(undefined);
+		}
 	});
 } else {
 	if (isVerbose) {
