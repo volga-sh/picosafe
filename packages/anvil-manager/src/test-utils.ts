@@ -94,7 +94,10 @@ export function setGlobalAnvilProcess(
 const cleanupAnvilProcess = () => {
 	const anvilProcess = getGlobalAnvilProcess();
 	if (anvilProcess && !anvilProcess.killed) {
+		// Force kill the process
 		anvilProcess.kill("SIGKILL");
+		// Clear the global reference immediately
+		setGlobalAnvilProcess(undefined);
 	}
 };
 
@@ -102,3 +105,24 @@ const cleanupAnvilProcess = () => {
 process.on("exit", cleanupAnvilProcess);
 process.on("SIGINT", cleanupAnvilProcess);
 process.on("SIGTERM", cleanupAnvilProcess);
+
+// Also handle unexpected errors that might skip normal cleanup
+process.on("uncaughtException", (error) => {
+	console.error(
+		"Uncaught exception in test, cleaning up Anvil process:",
+		error,
+	);
+	cleanupAnvilProcess();
+	// Re-throw to maintain original behavior
+	process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, _promise) => {
+	console.error(
+		"Unhandled rejection in test, cleaning up Anvil process:",
+		reason,
+	);
+	cleanupAnvilProcess();
+	// Exit to prevent hanging
+	process.exit(1);
+});

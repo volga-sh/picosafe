@@ -188,6 +188,26 @@ foundryup
 2. Check for orphaned Anvil processes: `pkill anvil`
 3. Use a different port range: `startAnvil({ port: 9545 })`
 
+#### Orphaned Anvil processes after test failures
+
+When tests fail or are interrupted, Anvil processes might not be cleaned up properly. This package includes enhanced cleanup mechanisms to minimize orphan processes:
+
+- Automatic cleanup on process exit, SIGINT, and SIGTERM
+- Cleanup on uncaught exceptions and unhandled promise rejections
+- Force kill with SIGKILL if graceful shutdown fails
+
+**Manual cleanup:**
+```bash
+# Check for orphaned processes (dry run)
+npm run cleanup-orphans:dry -w @volga/anvil-manager
+
+# Kill all orphaned Anvil processes
+npm run cleanup-orphans -w @volga/anvil-manager
+
+# Or manually with pkill
+pkill -9 anvil
+```
+
 #### Tests hang or timeout
 
 **Possible causes:**

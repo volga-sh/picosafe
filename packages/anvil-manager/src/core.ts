@@ -200,6 +200,25 @@ export async function startAnvil(
 		},
 	};
 
+	// Register cleanup handler for this specific process
+	const cleanup = () => {
+		if (!stopped && anvilProcess && !anvilProcess.killed) {
+			anvilProcess.kill("SIGKILL");
+		}
+	};
+
+	// Clean up if the parent process exits unexpectedly
+	process.once("exit", cleanup);
+	process.once("SIGINT", cleanup);
+	process.once("SIGTERM", cleanup);
+
+	// Remove cleanup handlers when process is properly stopped
+	anvilProcess.once("exit", () => {
+		process.removeListener("exit", cleanup);
+		process.removeListener("SIGINT", cleanup);
+		process.removeListener("SIGTERM", cleanup);
+	});
+
 	// Log output if not in verbose mode (verbose mode uses inherit)
 	if (!verbose) {
 		anvilProcess.stdout?.on("data", (data) => {
@@ -268,7 +287,18 @@ export async function stopAnvil(
 	// Force kill if still running after timeout
 	if (process.exitCode === null && !process.killed) {
 		process.kill("SIGKILL");
-		// Wait for process to actually exit
-		await exitPromise;
+		// Wait for process to actually exit with a timeout
+		await Promise.race([
+			exitPromise,
+			new Promise<void>((resolve) => setTimeout(resolve, 1000)),
+		]);
+
+		// If process is still not dead after SIGKILL + 1 second, log a warning
+		if (process.exitCode === null && !process.killed) {
+			console.error(
+				`Warning: Anvil process (PID: ${process.pid}) did not terminate after SIGKILL. ` +
+					"This process may need to be manually killed.",
+			);
+		}
 	}
 }
