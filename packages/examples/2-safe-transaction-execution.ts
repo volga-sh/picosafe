@@ -97,7 +97,7 @@ await withAnvil(
 		 * 3. BUILD & SIGN SAFE TRANSACTION
 		 * -------------------------------------------------------------------
 		 */
-		// vitalik.eth
+		// Mainnet address associated with vitalik.eth (not the ENS name itself)
 		const recipient = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 		const transferValue = parseEther("0.001"); // 0.001 ETH
 
