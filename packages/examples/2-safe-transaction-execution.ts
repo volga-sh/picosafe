@@ -41,6 +41,8 @@ await withAnvil(
 		console.log("   Using pre-deployed Safe contracts via genesis\n");
 
 		// Use the first Anvil test account as wallet/Safe owner
+		// This hard-coded private key is safe ONLY because it is Anvil's well-known test key.
+		// Never use hard-coded private keys in production or with real funds!
 		const OWNER_PRIVATE_KEY =
 			"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
