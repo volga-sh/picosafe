@@ -5,6 +5,7 @@ export * from "./guard";
 export * from "./modules";
 export * from "./multisend";
 export * from "./owners";
+export * from "./safe-contracts";
 export * from "./safe-signatures";
 export * from "./transactions";
 export * from "./types";
