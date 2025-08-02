@@ -24,7 +24,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "test": "echo 'No tests'"
   },
   "keywords": [
     "safe",
@@ -33,7 +34,6 @@
     "ethereum",
     "smart-account"
   ],
-  "author": "",
   "license": "Unlicense",
   "repository": {
     "type": "git",
