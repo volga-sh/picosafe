@@ -1,8 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Get the absolute path to the genesis.json file containing pre-deployed Safe Smart Account v1.4.1 contracts.
