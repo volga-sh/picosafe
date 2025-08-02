@@ -5,9 +5,6 @@
  * package to handle Anvil instance lifecycle management.
  */
 
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
 	createTestAnvilOptions,
 	getGlobalAnvilProcess,
@@ -15,6 +12,7 @@ import {
 	setGlobalAnvilProcess,
 	startAnvil,
 } from "@volga/anvil-manager";
+import { getSafeGenesisPath } from "@volga/safe-genesis";
 import { afterAll } from "vitest";
 
 /**
@@ -26,9 +24,6 @@ function setTestAnvilEnvironment(port: number): void {
 	process.env.TEST_ANVIL_PORT = String(port);
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 // Parse worker ID for unique port allocation
 const workerIdRaw = process.env.VITEST_WORKER_ID;
 const workerId = workerIdRaw ? Number.parseInt(workerIdRaw, 10) : 0;
@@ -39,13 +34,7 @@ if (Number.isNaN(workerId) || workerId < 0) {
 }
 
 // Pre-deployed Safe contracts via genesis dramatically speed up tests
-const genesisPath = join(__dirname, "scripts", "genesis.json");
-
-if (!existsSync(genesisPath)) {
-	throw new Error(
-		`Genesis file not found at ${genesisPath}. This file is required for pre-deployed Safe contracts.`,
-	);
-}
+const genesisPath = getSafeGenesisPath();
 
 const isVerbose = process.env.ANVIL_VERBOSE === "true";
 

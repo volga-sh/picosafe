@@ -1,0 +1,53 @@
+{
+	"name": "@volga/safe-genesis",
+	"version": "0.0.1",
+	"description": "Genesis configuration for Safe Smart Account v1.4.1 contracts used in tests and examples",
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		},
+		"./genesis.json": {
+			"import": "./dist/genesis.json",
+			"require": "./dist/genesis.json"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"typecheck": "tsc --noEmit",
+		"prepare": "npm run build",
+		"test": "echo 'No tests'"
+	},
+	"keywords": [
+		"safe",
+		"genesis",
+		"anvil",
+		"ethereum",
+		"smart-account"
+	],
+	"author": "mmv08",
+	"license": "Unlicense",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/mmv08/picosafe.git",
+		"directory": "packages/safe-genesis"
+	},
+	"bugs": {
+		"url": "https://github.com/mmv08/picosafe/issues"
+	},
+	"homepage": "https://github.com/mmv08/picosafe/tree/main/packages/safe-genesis#readme",
+	"devDependencies": {
+		"@types/node": "^22.14.0",
+		"tsup": "^8.3.5",
+		"typescript": "^5.9.2"
+	}
+}

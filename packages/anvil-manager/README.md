@@ -25,6 +25,7 @@ We chose to build anvil-manager instead of using existing solutions like [prool]
 ## Platform Support
 
 This package supports:
+
 - ✅ Linux
 - ✅ macOS
 - ❌ Windows (not supported)
@@ -42,39 +43,39 @@ npm install --save-dev @volga/anvil-manager
 ### Basic Usage
 
 ```typescript
-import { startAnvil } from "@volga/anvil-manager";
+import { startAnvil } from "@volga/anvil-manager"
 
 // Start with automatic port discovery (recommended)
-const anvil = await startAnvil();
-console.log(`Anvil running at ${anvil.rpcUrl}`); // e.g., http://127.0.0.1:8545
+const anvil = await startAnvil()
+console.log(`Anvil running at ${anvil.rpcUrl}`) // e.g., http://127.0.0.1:8545
 
 // Or specify a port explicitly
 const anvilWithPort = await startAnvil({
   port: 8545,
   accounts: 10,
   balance: "10000",
-});
+})
 
 // Use the instance...
 
 // Stop when done
-await anvil.stop();
+await anvil.stop()
 ```
 
 ### With Automatic Cleanup
 
 ```typescript
-import { withAnvil } from "@volga/anvil-manager";
-import { createPublicClient, http } from "viem";
+import { withAnvil } from "@volga/anvil-manager"
+import { createPublicClient, http } from "viem"
 
 const result = await withAnvil(async (anvil) => {
   const client = createPublicClient({
     transport: http(anvil.rpcUrl),
-  });
+  })
 
-  const blockNumber = await client.getBlockNumber();
-  return blockNumber;
-});
+  const blockNumber = await client.getBlockNumber()
+  return blockNumber
+})
 // Anvil is automatically stopped after the callback
 ```
 
@@ -88,20 +89,20 @@ export default {
   test: {
     setupFiles: ["./test-setup.ts"],
   },
-};
+}
 
 // test-setup.ts
-import { startAnvil } from "@volga/anvil-manager";
-import { afterAll } from "vitest";
+import { startAnvil } from "@volga/anvil-manager"
+import { afterAll } from "vitest"
 
 // Automatic port discovery handles parallel test workers
-const anvil = await startAnvil();
+const anvil = await startAnvil()
 
-process.env.ANVIL_RPC_URL = anvil.rpcUrl;
+process.env.ANVIL_RPC_URL = anvil.rpcUrl
 
 afterAll(async () => {
-  await anvil.stop();
-});
+  await anvil.stop()
+})
 ```
 
 ## Parallel Testing
@@ -114,7 +115,7 @@ Simply omit the port option and Anvil Manager will find an available port:
 
 ```typescript
 // Each test worker gets a unique port automatically
-const anvil = await startAnvil();
+const anvil = await startAnvil()
 ```
 
 ### Manual Port Management
@@ -122,15 +123,15 @@ const anvil = await startAnvil();
 If you need specific ports, use the test utilities:
 
 ```typescript
-const workerId = parseInt(process.env.VITEST_WORKER_ID || "0");
-const port = getTestAnvilPort(workerId); // 8545, 8546, 8547...
+const workerId = parseInt(process.env.VITEST_WORKER_ID || "0")
+const port = getTestAnvilPort(workerId) // 8545, 8546, 8547...
 
 // Or with a custom base port
-const port = getTestAnvilPort(workerId, 9000); // 9000, 9001, 9002...
+const port = getTestAnvilPort(workerId, 9000) // 9000, 9001, 9002...
 
 // Or via environment variable
-process.env.ANVIL_BASE_PORT = "9000";
-const port = getTestAnvilPort(workerId); // 9000, 9001, 9002...
+process.env.ANVIL_BASE_PORT = "9000"
+const port = getTestAnvilPort(workerId) // 9000, 9001, 9002...
 ```
 
 ## API Reference
@@ -140,6 +141,7 @@ const port = getTestAnvilPort(workerId); // 9000, 9001, 9002...
 Starts a new Anvil instance with the specified options.
 
 **Parameters:**
+
 - `options` (optional): Configuration options
   - `port`: Port number. If not specified, automatically finds an available port starting from 8545
   - `accounts`: Number of test accounts (default: 10)
@@ -153,6 +155,7 @@ Starts a new Anvil instance with the specified options.
 **Returns:** `Promise<AnvilInstance>`
 
 **Port Behavior:**
+
 - If `port` is omitted: Automatically finds an available port
 - If `port` is specified: Validates the port is available before starting, throws an error if in use
 
@@ -163,6 +166,7 @@ Starts a new Anvil instance with the specified options.
 Executes a function with a temporary Anvil instance that is automatically cleaned up.
 
 **Parameters:**
+
 - `callback`: Function to execute with the Anvil instance
 - `options`: Same as `startAnvil` options
 
@@ -185,6 +189,7 @@ Executes a function with a temporary Anvil instance that is automatically cleane
 #### "Anvil is not installed or not found in PATH"
 
 **Solution:** Install Foundry by running:
+
 ```bash
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
@@ -193,9 +198,12 @@ foundryup
 #### "Port already in use" errors
 
 **Solutions:**
+
 1. Use automatic port discovery by omitting the `port` option
 2. Check for orphaned Anvil processes: `pkill anvil`
 3. Use a different port range: `startAnvil({ port: 9545 })`
+
+# <<<<<<< HEAD
 
 #### Orphaned Anvil processes after test failures
 
@@ -206,6 +214,7 @@ When tests fail or are interrupted, Anvil processes might not be cleaned up prop
 - Force kill with SIGKILL if graceful shutdown fails
 
 **Manual cleanup:**
+
 ```bash
 # Check for orphaned processes (dry run)
 npm run cleanup-orphans:dry -w @volga/anvil-manager
@@ -217,14 +226,18 @@ npm run cleanup-orphans -w @volga/anvil-manager
 pkill -9 anvil
 ```
 
+> > > > > > > 4336355aba9e3942f8e1e791ac6083f5a5aaa965
+
 #### Tests hang or timeout
 
 **Possible causes:**
+
 - Anvil failed to start - check console for error messages
 - Port conflicts in parallel tests - ensure using automatic port discovery or unique ports per worker
 - Insufficient system resources - reduce parallel test workers
 
 **Debug steps:**
+
 1. Enable verbose logging: `startAnvil({ verbose: true })`
 2. Set `ANVIL_DEBUG=true` environment variable
 3. Run tests serially to isolate the issue
@@ -232,11 +245,13 @@ pkill -9 anvil
 #### "Failed to connect to Anvil" errors
 
 **Common causes:**
+
 - Anvil process crashed during startup
 - Network/firewall blocking localhost connections
 - Anvil binary is corrupted
 
 **Solutions:**
+
 1. Test Anvil manually: `anvil --port 8545`
 2. Check system logs for crash reports
 3. Reinstall Foundry: `foundryup`
@@ -246,17 +261,19 @@ pkill -9 anvil
 If you notice orphaned Anvil processes after tests:
 
 1. Ensure proper test cleanup:
+
    ```typescript
    afterAll(async () => {
-     await anvil.stop();
-   });
+     await anvil.stop()
+   })
    ```
 
 2. Use `withAnvil` for automatic cleanup:
+
    ```typescript
    await withAnvil(async (anvil) => {
      // Your test code
-   }); // Automatically cleaned up
+   }) // Automatically cleaned up
    ```
 
 3. Emergency cleanup: `pkill -f anvil`
