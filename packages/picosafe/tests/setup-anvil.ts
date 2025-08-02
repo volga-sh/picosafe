@@ -77,8 +77,6 @@ if (!existingProcess || existingProcess.killed) {
 		} finally {
 			setGlobalAnvilProcess(undefined);
 		}
-		await anvilInstance.stop();
-		setGlobalAnvilProcess(undefined);
 	});
 } else {
 	if (isVerbose) {
