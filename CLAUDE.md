@@ -55,6 +55,7 @@ picosafe/
 ├── packages/
 │   ├── picosafe/        # Main SDK package (@volga/picosafe)
 │   ├── anvil-manager/   # Anvil process management for tests and examples (@volga/anvil-manager)
+│   ├── safe-genesis/    # Genesis configuration with pre-deployed Safe contracts (@volga/safe-genesis)
 │   └── examples/        # Example applications
 ├── package.json         # Root package.json with workspace configuration
 └── CLAUDE.md           # This file
@@ -210,6 +211,7 @@ The PicoSafe package includes an automated Anvil setup for testing. When running
 - The setup is handled by `packages/picosafe/tests/setup-anvil.ts`
 - Tests run in isolated Anvil instances to enable parallel execution
 - Each test gets a clean blockchain state
+- Pre-deployed contracts are provided by `@volga/safe-genesis` package
 
 ## Build Configuration
 

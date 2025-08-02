@@ -3,14 +3,14 @@
 	"version": "0.0.1",
 	"description": "A TypeScript SDK for Safe Smart Account contracts",
 	"type": "module",
-	"main": "./dist/index.js",
-	"module": "./dist/index.mjs",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"import": "./dist/index.mjs",
-			"require": "./dist/index.js"
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
 		}
 	},
 	"files": [
@@ -35,11 +35,12 @@
 		"@vitest/coverage-v8": "^3.2.4",
 		"@vitest/ui": "^3.2.4",
 		"@volga/anvil-manager": "*",
-		"rollup": "^4.45.3",
+		"@volga/safe-genesis": "*",
+		"rollup": "^4.46.2",
 		"tsup": "^8.5.0",
 		"vitest": "^3.2.4"
 	},
 	"dependencies": {
-		"viem": "^2.33.1"
+		"viem": "^2.33.2"
 	}
 }

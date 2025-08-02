@@ -70,6 +70,7 @@ This is a monorepo managed with npm workspaces, containing:
 
 - `packages/picosafe` - The main PicoSafe SDK
 - `packages/anvil-manager` - Anvil process management for tests and examples
+- `packages/safe-genesis` - Genesis configuration with pre-deployed Safe v1.4.1 contracts
 - `packages/examples` - Example applications demonstrating SDK usage
 
 ## Development

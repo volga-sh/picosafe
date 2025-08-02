@@ -1,5 +1,5 @@
-import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import type { AnvilOptions } from "./types.js";
+import type { ChildProcessWithoutNullStreams } from "node:child_process"
+import type { AnvilOptions } from "./types.js"
 
 /**
  * Calculate a unique port for a test worker to avoid conflicts in parallel test runs
@@ -16,27 +16,24 @@ import type { AnvilOptions } from "./types.js";
  * ```
  */
 export function getTestAnvilPort(workerId: number, basePort?: number): number {
-	// Allow environment variable to override base port
-	const effectiveBasePort =
-		basePort ?? (Number(process.env.ANVIL_BASE_PORT) || 8545);
-	if (workerId < 0 || !Number.isInteger(workerId)) {
-		throw new Error(
-			`Invalid workerId: ${workerId}. Expected a non-negative integer.`,
-		);
-	}
+  // Allow environment variable to override base port
+  const effectiveBasePort = basePort ?? (Number(process.env.ANVIL_BASE_PORT) || 8545)
+  if (workerId < 0 || !Number.isInteger(workerId)) {
+    throw new Error(`Invalid workerId: ${workerId}. Expected a non-negative integer.`)
+  }
 
-	const port = effectiveBasePort + workerId;
+  const port = effectiveBasePort + workerId
 
-	// Validate resulting port is in valid range
-	if (port < 1024 || port > 65535) {
-		throw new Error(
-			`Calculated port ${port} is out of valid range. ` +
-				"Port must be between 1024 and 65535. " +
-				`Consider using a different base port (current: ${effectiveBasePort}) or limiting worker count.`,
-		);
-	}
+  // Validate resulting port is in valid range
+  if (port < 1024 || port > 65535) {
+    throw new Error(
+      `Calculated port ${port} is out of valid range. ` +
+        "Port must be between 1024 and 65535. " +
+        `Consider using a different base port (current: ${effectiveBasePort}) or limiting worker count.`
+    )
+  }
 
-	return port;
+  return port
 }
 
 /**
@@ -53,20 +50,17 @@ export function getTestAnvilPort(workerId: number, basePort?: number): number {
  * const anvil = await startAnvil(options);
  * ```
  */
-export function createTestAnvilOptions(
-	workerId: number,
-	genesisPath?: string,
-): AnvilOptions {
-	const port = getTestAnvilPort(workerId);
+export function createTestAnvilOptions(workerId: number, genesisPath?: string): AnvilOptions {
+  const port = getTestAnvilPort(workerId)
 
-	return {
-		port,
-		accounts: 10,
-		balance: "10000",
-		genesisPath,
-		verbose: process.env.ANVIL_VERBOSE === "true",
-		autoMine: true,
-	};
+  return {
+    port,
+    accounts: 10,
+    balance: "10000",
+    genesisPath,
+    verbose: process.env.ANVIL_VERBOSE === "true",
+    autoMine: true,
+  }
 }
 
 // Global storage for test Anvil instances to prevent duplicates
@@ -77,52 +71,44 @@ export function createTestAnvilOptions(
  * @returns The stored Anvil process or undefined
  */
 export function getGlobalAnvilProcess() {
-	return globalThis.__anvil_process__;
+  return globalThis.__anvil_process__
 }
 
 /**
  * Store an Anvil process globally for the current test worker
  * @param process - The Anvil process to store, or undefined to clear
  */
-export function setGlobalAnvilProcess(
-	process: ChildProcessWithoutNullStreams | undefined,
-) {
-	globalThis.__anvil_process__ = process;
+export function setGlobalAnvilProcess(process: ChildProcessWithoutNullStreams | undefined) {
+  globalThis.__anvil_process__ = process
 }
 
 // Clean up Anvil process on exit to prevent orphaned processes
 const cleanupAnvilProcess = () => {
-	const anvilProcess = getGlobalAnvilProcess();
-	if (anvilProcess && !anvilProcess.killed) {
-		// Force kill the process
-		anvilProcess.kill("SIGKILL");
-		// Clear the global reference immediately
-		setGlobalAnvilProcess(undefined);
-	}
-};
+  const anvilProcess = getGlobalAnvilProcess()
+  if (anvilProcess && !anvilProcess.killed) {
+    // Force kill the process
+    anvilProcess.kill("SIGKILL")
+    // Clear the global reference immediately
+    setGlobalAnvilProcess(undefined)
+  }
+}
 
 // Handle various termination signals for proper cleanup
-process.on("exit", cleanupAnvilProcess);
-process.on("SIGINT", cleanupAnvilProcess);
-process.on("SIGTERM", cleanupAnvilProcess);
+process.on("exit", cleanupAnvilProcess)
+process.on("SIGINT", cleanupAnvilProcess)
+process.on("SIGTERM", cleanupAnvilProcess)
 
 // Also handle unexpected errors that might skip normal cleanup
 process.on("uncaughtException", (error) => {
-	console.error(
-		"Uncaught exception in test, cleaning up Anvil process:",
-		error,
-	);
-	cleanupAnvilProcess();
-	// Exit with error code to ensure controlled shutdown
-	process.exit(1);
-});
+  console.error("Uncaught exception in test, cleaning up Anvil process:", error)
+  cleanupAnvilProcess()
+  // Exit with error code to ensure controlled shutdown
+  process.exit(1)
+})
 
 process.on("unhandledRejection", (reason, _promise) => {
-	console.error(
-		"Unhandled rejection in test, cleaning up Anvil process:",
-		reason,
-	);
-	cleanupAnvilProcess();
-	// Exit with error code to ensure controlled shutdown
-	process.exit(1);
-});
+  console.error("Unhandled rejection in test, cleaning up Anvil process:", reason)
+  cleanupAnvilProcess()
+  // Exit with error code to ensure controlled shutdown
+  process.exit(1)
+})

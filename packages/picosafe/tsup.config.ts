@@ -26,6 +26,6 @@ export default defineConfig({
 	clean: true,
 	treeshake: true,
 	minify: false,
-	bundle: false,
+	bundle: true,
 	tsconfig: resolve(__dirname, "tsconfig.json"),
 });
