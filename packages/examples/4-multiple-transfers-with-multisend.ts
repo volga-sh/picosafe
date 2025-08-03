@@ -284,10 +284,52 @@ await withAnvil(
 
 		/**
 		 * -------------------------------------------------------------------
-		 * 6. SIGN AND EXECUTE TRANSACTION
+		 * 6. GAS SAVINGS ANALYSIS
 		 * -------------------------------------------------------------------
 		 */
-		console.log("🖊️  Signing Safe transaction…");
+		console.log("💰 Gas Savings Analysis:");
+		console.log("   ═══════════════════════════════════\n");
+
+		// Estimate individual transaction costs
+		console.log("   Estimating individual transaction costs...");
+		const individualGasEstimates = await Promise.all(
+			transactions.map(async (tx) => {
+				const estimate = await publicClient.estimateGas({
+					account: deploymentData.safeAddress as Address,
+					to: tx.to,
+					data: tx.data,
+					value: tx.value,
+				});
+				return estimate;
+			}),
+		);
+
+		const totalIndividualGas = individualGasEstimates.reduce(
+			(sum, gas) => sum + gas,
+			0n,
+		);
+
+		console.log(
+			`   Individual transactions: ${totalIndividualGas.toLocaleString()} gas total`,
+		);
+		individualGasEstimates.forEach((gas, i) => {
+			if (i < 3) {
+				console.log(
+					`     - ETH transfer ${i + 1}: ${gas.toLocaleString()} gas`,
+				);
+			} else {
+				console.log(
+					`     - Token transfer ${i - 2}: ${gas.toLocaleString()} gas`,
+				);
+			}
+		});
+
+		/**
+		 * -------------------------------------------------------------------
+		 * 7. SIGN AND EXECUTE TRANSACTION
+		 * -------------------------------------------------------------------
+		 */
+		console.log("\n🖊️  Signing Safe transaction…");
 		const signature = await signSafeTransaction(
 			walletClient,
 			safeTx,
@@ -295,19 +337,30 @@ await withAnvil(
 		);
 		console.log("   ✓ Transaction signed\n");
 
-		// Estimate gas for comparison
-		console.log("⛽ Gas estimation:");
+		// Estimate batched transaction gas
+		console.log("⛽ Batched transaction estimation:");
 		const execTx = await executeSafeTransaction(walletClient, safeTx, [
 			signature,
 		]);
-		const gasEstimate = await publicClient.estimateGas({
+		const batchGasEstimate = await publicClient.estimateGas({
 			account: walletClient.account,
 			to: execTx.rawTransaction.to as Address,
 			data: execTx.rawTransaction.data as Hex,
 		});
-		console.log(`   Estimated gas: ${gasEstimate.toLocaleString()}`);
+
+		const estimatedGasSaved = totalIndividualGas - batchGasEstimate;
+		const estimatedPercentSaved = Number(
+			(estimatedGasSaved * 100n) / totalIndividualGas,
+		);
+
 		console.log(
-			`   (All ${transactions.length} transfers in one transaction!)\n`,
+			`   Batch transaction: ${batchGasEstimate.toLocaleString()} gas`,
+		);
+		console.log(
+			`   Estimated savings: ${estimatedGasSaved.toLocaleString()} gas (${estimatedPercentSaved.toFixed(1)}% saved)`,
+		);
+		console.log(
+			`   All ${transactions.length} transfers in one transaction!\n`,
 		);
 
 		console.log("🚀 Executing batched Safe transaction…");
@@ -331,7 +384,7 @@ await withAnvil(
 
 		/**
 		 * -------------------------------------------------------------------
-		 * 7. VERIFY ALL TRANSFERS
+		 * 8. VERIFY ALL TRANSFERS
 		 * -------------------------------------------------------------------
 		 */
 		console.log("🔍 Verifying all transfers completed…\n");
@@ -400,7 +453,7 @@ await withAnvil(
 
 		/**
 		 * -------------------------------------------------------------------
-		 * 8. SUMMARY
+		 * 9. SUMMARY
 		 * -------------------------------------------------------------------
 		 */
 		console.log(`\n${"=".repeat(60)}`);
@@ -413,10 +466,21 @@ await withAnvil(
 			"• buildSafeTransaction automatically handled MultiSend encoding",
 		);
 		console.log("• All transfers were atomic - they all succeed or all fail");
-		console.log("• Significant gas savings vs individual transactions");
+		console.log(
+			`• Saved ~${estimatedPercentSaved.toFixed(0)}% on gas costs vs individual transactions`,
+		);
 		console.log(
 			"• No manual MultiSend encoding needed - just pass an array of transactions!",
 		);
+
+		// Show actual vs estimated gas usage
+		const actualVsEstimatedDiff = Number(
+			((execReceipt.gasUsed - batchGasEstimate) * 100n) / batchGasEstimate,
+		);
+		console.log(
+			`\n   💡 Actual gas used was ${actualVsEstimatedDiff > 0 ? "+" : ""}${actualVsEstimatedDiff.toFixed(1)}% ${actualVsEstimatedDiff > 0 ? "higher" : "lower"} than estimated`,
+		);
+
 		console.log("=".repeat(60));
 	},
 	{
