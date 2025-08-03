@@ -15,3 +15,5 @@ coverage
 packages/test-contracts/cache
 packages/test-contracts/artifacts
 packages/test-contracts/typechain-types
+
+typechain-types
