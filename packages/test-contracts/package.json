@@ -6,21 +6,21 @@
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"scripts": {
-		"build": "hardhat compile && tsup",
+		"build": "hardhat compile --no-typechain && tsup",
 		"dev": "npm run build -- --watch",
 		"prepare": "npm run build",
 		"test": "echo 'No tests for test-contracts package'",
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@nomicfoundation/hardhat-toolbox": "^5.0.0",
-		"hardhat": "^2.22.5",
+		"@nomicfoundation/hardhat-toolbox": "^6.1.0",
+		"hardhat": "^2.26.1",
 		"solady": "^0.1.24",
-		"tsup": "^8.0.2",
-		"typescript": "^5.4.5"
+		"tsup": "^8.5.0",
+		"typescript": "^5.9.2"
 	},
 	"dependencies": {
-		"ethers": "^6.12.1",
+		"ethers": "^6.15.0",
 		"viem": "^2.33.2"
 	}
 }

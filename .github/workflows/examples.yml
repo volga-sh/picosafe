@@ -8,6 +8,7 @@ on:
     paths:
       - 'packages/examples/**'
       - 'packages/picosafe/**'
+      - 'packages/test-contracts/**'
       - '.github/workflows/examples.yml'
 
 jobs:

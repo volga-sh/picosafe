@@ -3,7 +3,7 @@
 # Run all examples sequentially
 # This script is useful for testing all examples locally
 
-set -e  # Exit on any error
+set -euo pipefail  # Exit on any error
 
 # Change to the script's directory to ensure paths are resolved correctly
 cd "$(dirname "$0")"
