@@ -93,12 +93,10 @@ await withAnvil(
 		 * -------------------------------------------------------------------
 		 */
 		console.log("🪙  Deploying ERC20 token (TEST)…\n");
-		const initialSupply = parseEther("1000000"); // 1 million tokens
 
 		const tokenDeployHash = await walletClient.deployContract({
 			abi: TestERC20Abi,
 			bytecode: TestERC20Bytecode as Hex,
-			args: ["Test Token", "TST"],
 		});
 
 		const tokenReceipt = await publicClient.waitForTransactionReceipt({
@@ -124,19 +122,9 @@ await withAnvil(
 			functionName: "symbol",
 		});
 		console.log(`   Name: ${tokenName}`);
-		console.log(`   Symbol: ${tokenSymbol}\n`);
+		console.log(`   Symbol: ${tokenSymbol}`);
 
-		// Mint initial supply to the owner
-		console.log(`🪙  Minting ${formatEther(initialSupply)} ${tokenSymbol} to owner...`);
-		const mintHash = await walletClient.sendTransaction({
-			to: tokenAddress,
-			data: encodeFunctionData({
-				abi: TestERC20Abi,
-				functionName: "mint",
-				args: [walletClient.account.address, initialSupply],
-			}),
-		});
-		await publicClient.waitForTransactionReceipt({ hash: mintHash });
+		// Check initial balance (minted in constructor)
 		const ownerBalance = await publicClient.readContract({
 			address: tokenAddress,
 			abi: TestERC20Abi,
@@ -144,7 +132,7 @@ await withAnvil(
 			args: [walletClient.account.address],
 		});
 		console.log(
-			`   ✓ Owner balance: ${formatEther(ownerBalance)} ${tokenSymbol}\n`,
+			`   Initial owner balance: ${formatEther(ownerBalance)} ${tokenSymbol}\n`,
 		);
 
 		/**
@@ -314,7 +302,7 @@ await withAnvil(
 		]);
 		const gasEstimate = await publicClient.estimateGas({
 			account: walletClient.account,
-			o: execTx.rawTransaction.to as Address,
+			to: execTx.rawTransaction.to as Address,
 			data: execTx.rawTransaction.data as Hex,
 		});
 		console.log(`   Estimated gas: ${gasEstimate.toLocaleString()}`);
@@ -405,9 +393,7 @@ await withAnvil(
 			)} sent)`,
 		);
 		console.log(
-			`   ${tokenSymbol}: ${formatEther(
-				finalSafeTokenBalance,
-			)} (${formatEther(
+			`   ${tokenSymbol}: ${formatEther(finalSafeTokenBalance)} (${formatEther(
 				safeTokenBalance - finalSafeTokenBalance,
 			)} sent)`,
 		);

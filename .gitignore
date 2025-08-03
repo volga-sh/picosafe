@@ -9,3 +9,9 @@ coverage
 .vscode/*
 !.vscode/extensions.json
 .idea
+*.tsbuildinfo
+
+# Hardhat files
+packages/test-contracts/cache
+packages/test-contracts/artifacts
+packages/test-contracts/typechain-types

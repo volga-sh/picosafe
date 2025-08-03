@@ -5,6 +5,9 @@
 
 set -e  # Exit on any error
 
+# Change to the script's directory to ensure paths are resolved correctly
+cd "$(dirname "$0")"
+
 echo "🚀 Running all PicoSafe examples..."
 echo "=================================="
 echo ""

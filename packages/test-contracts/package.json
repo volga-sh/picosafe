@@ -1,25 +1,26 @@
 {
-  "name": "@volga/test-contracts",
-  "version": "0.0.1",
-  "private": true,
-  "description": "Test contracts for PicoSafe examples",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "hardhat compile && tsup",
-    "dev": "npm run build -- --watch",
-    "prepare": "npm run build",
-    "test": "echo 'No tests for test-contracts package'",
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.5",
-    "solady": "^0.0.203",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.5"
-  },
-  "dependencies": {
-    "ethers": "^6.12.1"
-  }
+	"name": "@volga/test-contracts",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Test contracts for PicoSafe examples",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"scripts": {
+		"build": "hardhat compile && tsup",
+		"dev": "npm run build -- --watch",
+		"prepare": "npm run build",
+		"test": "echo 'No tests for test-contracts package'",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@nomicfoundation/hardhat-toolbox": "^5.0.0",
+		"hardhat": "^2.22.5",
+		"solady": "^0.1.24",
+		"tsup": "^8.0.2",
+		"typescript": "^5.4.5"
+	},
+	"dependencies": {
+		"ethers": "^6.12.1",
+		"viem": "^2.33.2"
+	}
 }
