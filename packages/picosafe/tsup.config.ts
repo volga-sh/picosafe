@@ -1,11 +1,7 @@
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "tsup";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 export default defineConfig({
-	entry: [resolve(__dirname, "src/index.ts")],
+	entry: ["src/index.ts"],
 	format: ["cjs", "esm"],
 	dts: {
 		// tsup delegates declaration generation to rollup-plugin-dts which still
@@ -30,5 +26,4 @@ export default defineConfig({
 	treeshake: true,
 	minify: false,
 	bundle: true,
-	tsconfig: resolve(__dirname, "tsconfig.json"),
 });
