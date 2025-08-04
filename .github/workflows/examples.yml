@@ -6,65 +6,38 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'packages/examples/**'
-      - 'packages/picosafe/**'
-      - 'packages/test-contracts/**'
-      - '.github/workflows/examples.yml'
+      - "packages/examples/**"
+      - "packages/picosafe/**"
+      - "packages/test-contracts/**"
+      - ".github/workflows/examples.yml"
 
 jobs:
   run-examples:
-    name: Run Examples
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build packages
-        run: npm run build
-
-      - name: Run Example 1 - Basic Account Deployment
-        run: |
-          echo "Running Example 1: Basic Account Deployment"
-          npm run run-example -w @volga/examples -- 1-basic-account-deployment.ts
-        
-      - name: Run Example 2 - Safe Transaction Execution
-        run: |
-          echo "Running Example 2: Safe Transaction Execution"
-          npm run run-example -w @volga/examples -- 2-safe-transaction-execution.ts
-
-      - name: Run Example 3 - Batch Safe Deployment with MultiSend
-        run: |
-          echo "Running Example 3: Batch Safe Deployment with MultiSend"
-          npm run run-example -w @volga/examples -- 3-batch-safe-deployment-with-multisend.ts
-
-      - name: Run Example 4 - Multiple Transfers with MultiSend
-        run: |
-          echo "Running Example 4: Multiple Transfers with MultiSend"
-          npm run run-example -w @volga/examples -- 4-multiple-transfers-with-multisend.ts
-
-  # Matrix job to run examples in parallel (alternative approach)
-  run-examples-parallel:
     name: Run Example ${{ matrix.example.number }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         example:
-          - { number: 1, file: '1-basic-account-deployment.ts', name: 'Basic Account Deployment' }
-          - { number: 2, file: '2-safe-transaction-execution.ts', name: 'Safe Transaction Execution' }
-          - { number: 3, file: '3-batch-safe-deployment-with-multisend.ts', name: 'Batch Safe Deployment' }
-          - { number: 4, file: '4-multiple-transfers-with-multisend.ts', name: 'Multiple Transfers' }
+          - {
+              number: 1,
+              file: "1-basic-account-deployment.ts",
+              name: "Basic Account Deployment",
+            }
+          - {
+              number: 2,
+              file: "2-safe-transaction-execution.ts",
+              name: "Safe Transaction Execution",
+            }
+          - {
+              number: 3,
+              file: "3-batch-safe-deployment-with-multisend.ts",
+              name: "Batch Safe Deployment",
+            }
+          - {
+              number: 4,
+              file: "4-multiple-transfers-with-multisend.ts",
+              name: "Multiple Transfers",
+            }
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -72,12 +45,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-        
+
       - name: Install dependencies
         run: npm ci
 
