@@ -7,13 +7,16 @@ import TestERC20Json from "../artifacts/contracts/TestERC20.sol/TestERC20.json";
  * Standard ERC20 ABI with additional mint function for testing.
  * Defined as const array for proper viem type inference.
  *
- * Why not import from JSON artifacts?
+ * Why not import ABI from JSON artifacts?
  * TypeScript doesn't support `as const` on JSON imports, which is required
  * for viem to properly infer types from ABIs. By defining the ABI inline
  * with `as const`, viem can provide full type safety including:
  * - Function name autocomplete
  * - Parameter type checking
  * - Return type inference
+ *
+ * Note: The contract bytecode is still imported from the JSON artifact,
+ * as type inference is not required for bytecode.
  */
 const TEST_ERC20_ABI = [
 	// Constructor
