@@ -8,9 +8,10 @@ import TestERC20Json from "../artifacts/contracts/TestERC20.sol/TestERC20.json";
  * Defined as const array for proper viem type inference.
  *
  * Why not import ABI from JSON artifacts?
- * TypeScript doesn't support `as const` on JSON imports, which is required
- * for viem to properly infer types from ABIs. By defining the ABI inline
- * with `as const`, viem can provide full type safety including:
+ * The main reason is TypeScript's type inference limitations with JSON imports.
+ * When importing ABIs from JSON, TypeScript cannot infer literal types or provide
+ * full type safety, autocomplete, and parameter checking for viem. Inline ABI
+ * definitions with `as const` enable viem to leverage TypeScript's type system for:
  * - Function name autocomplete
  * - Parameter type checking
  * - Return type inference
