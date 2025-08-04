@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Run all examples sequentially
 # This script is useful for testing all examples locally
