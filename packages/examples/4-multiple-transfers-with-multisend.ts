@@ -378,8 +378,7 @@ await withAnvil(
 		console.log(
 			`   Total cost: ${formatEther(
 				execReceipt.gasUsed * execReceipt.effectiveGasPrice,
-			)}
-`,
+			)}`,
 		);
 
 		/**
