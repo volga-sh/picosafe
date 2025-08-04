@@ -1,5 +1,6 @@
 export * from "./account-state";
 export * from "./deployment";
+export * from "./eip712";
 export * from "./fallback-handler";
 export * from "./guard";
 export * from "./modules";

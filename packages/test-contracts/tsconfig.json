@@ -1,0 +1,10 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"baseUrl": "."
+	},
+	"include": ["src/**/*.ts", "artifacts/**/*.json", "typechain-types/**/*.ts"]
+}

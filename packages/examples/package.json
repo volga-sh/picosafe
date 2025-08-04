@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"run-example": "tsx --",
+		"run-all": "./run-all-examples.sh",
 		"typecheck": "tsc --noEmit",
 		"test": "echo 'No tests'"
 	},

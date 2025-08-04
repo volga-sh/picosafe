@@ -20,10 +20,8 @@ export default defineConfig({
 			composite: false,
 		},
 	},
-	splitting: false,
-	sourcemap: true,
 	clean: true,
-	treeshake: true,
-	minify: false,
-	bundle: true,
+	loader: {
+		".json": "json",
+	},
 });
