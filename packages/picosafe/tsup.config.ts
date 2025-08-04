@@ -7,14 +7,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
 	entry: [resolve(__dirname, "src/index.ts")],
 	format: ["cjs", "esm"],
-	/* generate declaration files */
 	dts: {
-		// In monorepo setups with TypeScript's composite projects, tsup's dts generation
-		// can fail with "file not listed" errors when bundle: false is used. This happens
-		// because tsup's underlying dts plugin (rollup-plugin-dts) doesn't properly handle
-		// TypeScript project references. Setting resolve: true helps with module resolution,
-		// and composite: false tells TypeScript to ignore project reference constraints
-		// during type generation. This is a common workaround for tsup in monorepos.
+		// tsup delegates declaration generation to rollup-plugin-dts which still
+		// struggles with TypeScript *project-references* that are typical in
+		// monorepos. Without the tweaks below it often crashes with
+		// "file not listed in project" / TS6059 errors.
+		//
+		//   • resolve: true – makes rollup-plugin-dts follow project references and
+		//     path-aliases so it can find the source files it needs.
+		//   • compilerOptions.composite: false – disables the stricter "composite"
+		//     checks that conflict with the way the plugin flattens type files.
+		//
 		// Alternative: disable dts here and use a separate tsc --emitDeclarationOnly step.
 		resolve: true,
 		compilerOptions: {
