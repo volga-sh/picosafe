@@ -10,6 +10,7 @@
  * Tests run against a local Anvil blockchain with real Safe contracts deployed.
  */
 
+import { Address } from "ox";
 import { encodeFunctionData, parseAbi } from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getOwners } from "../src/account-state";
@@ -19,7 +20,6 @@ import {
 	getChangeThresholdTransaction,
 	getRemoveOwnerTransaction,
 } from "../src/owners";
-import { checksumAddress } from "../src/utilities/address";
 import { SENTINEL_NODE, ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress } from "./utils";
@@ -50,7 +50,7 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 		it("should build identical transactions for checksum and lowercase owner addresses in getRemoveOwnerTransaction", async () => {
 			const safeAddress = randomAddress();
 			const ownerToRemoveLower = randomAddress();
-			const ownerToRemoveChecksum = checksumAddress(ownerToRemoveLower);
+			const ownerToRemoveChecksum = Address.checksum(ownerToRemoveLower);
 			const newThreshold = 1n;
 
 			// Build tx with lowercase input, explicit nonce to avoid reading from blockchain
@@ -92,8 +92,8 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 
 	describe("getAddOwnerTransaction", () => {
 		it("should build correct Safe transaction for adding an owner", async () => {
-			const safeAddress = checksumAddress(randomAddress());
-			const newOwner = checksumAddress(randomAddress());
+			const safeAddress = Address.checksum(randomAddress());
+			const newOwner = Address.checksum(randomAddress());
 			const newThreshold = 2n;
 
 			// Build the add owner transaction with explicit nonce to avoid reading from blockchain
@@ -125,10 +125,10 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 		});
 
 		it("should build transaction with custom transaction options", async () => {
-			const safeAddress = checksumAddress(randomAddress());
-			const newOwner = checksumAddress(randomAddress());
-			const gasToken = checksumAddress(randomAddress());
-			const refundReceiver = checksumAddress(randomAddress());
+			const safeAddress = Address.checksum(randomAddress());
+			const newOwner = Address.checksum(randomAddress());
+			const gasToken = Address.checksum(randomAddress());
+			const refundReceiver = Address.checksum(randomAddress());
 			const newThreshold = 3n;
 
 			// Build the add owner transaction with custom options
@@ -160,10 +160,10 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 
 		it("should handle multiple add owner operations with different owners", async () => {
 			// Use random addresses - no need to deploy Safe for transaction building
-			const safeAddress = checksumAddress(randomAddress());
+			const safeAddress = Address.checksum(randomAddress());
 			const newOwners = [
-				checksumAddress(randomAddress()),
-				checksumAddress(randomAddress()),
+				Address.checksum(randomAddress()),
+				Address.checksum(randomAddress()),
 			] as const;
 			const thresholds = [2n, 3n, 4n] as const;
 
@@ -346,8 +346,8 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 			await publicClient.waitForTransactionReceipt({ hash: deployTxHash });
 			const safeAddress = safeDeployment.data.safeAddress;
 
-			const gasToken = checksumAddress(randomAddress());
-			const refundReceiver = checksumAddress(randomAddress());
+			const gasToken = Address.checksum(randomAddress());
+			const refundReceiver = Address.checksum(randomAddress());
 			const removeOwnerTx = await getRemoveOwnerTransaction(
 				walletClient,
 				safeAddress,
@@ -374,7 +374,7 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 	describe("getChangeThresholdTransaction", () => {
 		it("should build correct Safe transaction for changing threshold", async () => {
 			// Use random addresses - no need to deploy Safe for transaction building
-			const safeAddress = checksumAddress(randomAddress());
+			const safeAddress = Address.checksum(randomAddress());
 			const newThreshold = 3n;
 
 			// Build the change threshold transaction with explicit nonce to avoid reading from blockchain
@@ -410,10 +410,10 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 
 		it("should build transaction with custom transaction options", async () => {
 			// Use random addresses - no need to deploy Safe for transaction building
-			const safeAddress = checksumAddress(randomAddress());
+			const safeAddress = Address.checksum(randomAddress());
 			const newThreshold = 2n;
-			const gasToken = checksumAddress(randomAddress());
-			const refundReceiver = checksumAddress(randomAddress());
+			const gasToken = Address.checksum(randomAddress());
+			const refundReceiver = Address.checksum(randomAddress());
 
 			// Build the change threshold transaction with custom options
 			const changeThresholdTx = await getChangeThresholdTransaction(

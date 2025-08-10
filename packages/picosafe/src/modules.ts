@@ -1,4 +1,4 @@
-import { Hash, Hex as HexUtils } from "ox";
+import { Hash, Hex as HexUtils, Address as OxAddress } from "ox";
 import { getModulesPaginated, SAFE_STORAGE_SLOTS } from "./account-state.js";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
 import { buildSafeTransaction } from "./transactions.js";
@@ -7,7 +7,6 @@ import type {
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,
 } from "./types.js";
-import { checksumAddress } from "./utilities/address.js";
 import { SENTINEL_NODE } from "./utilities/constants.js";
 import { encodeWithSelector } from "./utilities/encoding.js";
 
@@ -153,7 +152,7 @@ async function getDisableModuleTransaction(
 	// Get all modules to find the previous module
 	const modules = await getModulesPaginated(provider, { safeAddress });
 	// Normalise to checksum so look-ups are case-insensitive
-	const normalizedModuleAddress = checksumAddress(moduleAddress);
+	const normalizedModuleAddress = OxAddress.checksum(moduleAddress);
 	const moduleIndex = modules.modules.indexOf(normalizedModuleAddress);
 
 	if (moduleIndex === -1) {

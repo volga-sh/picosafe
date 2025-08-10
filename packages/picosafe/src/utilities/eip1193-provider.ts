@@ -1,5 +1,8 @@
-import type { Address, EIP1193ProviderWithRequestFn } from "../types";
-import { checksumAddress } from "./address.js";
+import { Address } from "ox";
+import type {
+	Address as AddressType,
+	EIP1193ProviderWithRequestFn,
+} from "../types";
 
 /**
  * Retrieves the current chain ID from the connected provider.
@@ -55,12 +58,12 @@ async function getChainId(
  */
 async function getAccounts(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
-): Promise<Address[]> {
+): Promise<AddressType[]> {
 	const accounts = (await provider.request({
 		method: "eth_accounts",
 	})) as string[];
 
-	return accounts.map((account) => checksumAddress(account as Address));
+	return accounts.map((account) => Address.checksum(account as AddressType));
 }
 
 export { getChainId, getAccounts };

@@ -5,6 +5,7 @@ import {
 	ContractAddress,
 	Hash,
 	Hex as HexUtils,
+	Address as OxAddress,
 } from "ox";
 import type { Address, Hex } from "./types";
 
@@ -22,7 +23,6 @@ type Log = {
 import { PARSED_SAFE_ABI, PARSED_SAFE_PROXY_FACTORY_ABI } from "./abis.js";
 import { V141_ADDRESSES } from "./safe-contracts.js";
 import type { EIP1193ProviderWithRequestFn } from "./types.js";
-import { checksumAddress } from "./utilities/address.js";
 import { EMPTY_BYTES, ZERO_ADDRESS } from "./utilities/constants.js";
 import { getAccounts } from "./utilities/eip1193-provider.js";
 import type { WrappedTransaction } from "./utilities/wrapEthereumTransaction.js";
@@ -225,7 +225,7 @@ function calculateSafeAddress(
 		bytecode: fullBytecode,
 		salt,
 	});
-	return checksumAddress(address);
+	return OxAddress.checksum(address);
 }
 
 /**
@@ -471,11 +471,15 @@ function decodeSafeSetupEventFromLogs(logs: readonly Log[]): SafeSetupEvent[] {
 			});
 			// Checksum all address fields in the decoded event
 			const checksummedEvent = {
-				initiator: checksumAddress(decodedEvent.initiator as Address),
-				owners: (decodedEvent.owners as readonly Address[]).map(checksumAddress),
+				initiator: OxAddress.checksum(decodedEvent.initiator as Address),
+				owners: (decodedEvent.owners as readonly Address[]).map((addr) =>
+					OxAddress.checksum(addr as Address),
+				),
 				threshold: decodedEvent.threshold,
-				initializer: checksumAddress(decodedEvent.initializer as Address),
-				fallbackHandler: checksumAddress(decodedEvent.fallbackHandler as Address),
+				initializer: OxAddress.checksum(decodedEvent.initializer as Address),
+				fallbackHandler: OxAddress.checksum(
+					decodedEvent.fallbackHandler as Address,
+				),
 			};
 			decoded.push({
 				eventName: "SafeSetup",

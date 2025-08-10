@@ -1,3 +1,4 @@
+import { Address as OxAddress } from "ox";
 import { getOwners } from "./account-state.js";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
 import { buildSafeTransaction } from "./transactions.js";
@@ -6,7 +7,6 @@ import type {
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,
 } from "./types.js";
-import { checksumAddress } from "./utilities/address.js";
 import { SENTINEL_NODE } from "./utilities/constants.js";
 import { encodeWithSelector } from "./utilities/encoding.js";
 
@@ -148,7 +148,7 @@ async function getRemoveOwnerTransaction(
 	}>,
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
-	const normalizedTargetOwner = checksumAddress(
+	const normalizedTargetOwner = OxAddress.checksum(
 		removeOwnerParams.ownerToRemove,
 	);
 	let { prevOwner } = removeOwnerParams;
@@ -172,6 +172,11 @@ async function getRemoveOwnerTransaction(
 			}
 			prevOwner = prevCandidate;
 		}
+	}
+
+	// At this point, prevOwner is guaranteed to be defined by the logic above
+	if (!prevOwner) {
+		throw new Error("Unable to determine previous owner for removal");
 	}
 
 	const removeOwnerSelector = "0xf8dc5dd9";

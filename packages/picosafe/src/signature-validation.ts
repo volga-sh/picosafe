@@ -2,6 +2,7 @@ import {
 	AbiFunction,
 	Bytes,
 	Hash,
+	Address as OxAddress,
 	PersonalMessage,
 	Secp256k1,
 	Signature,
@@ -22,7 +23,6 @@ import type {
 	PicosafeSignature,
 } from "./types";
 import { SignatureTypeVByte } from "./types";
-import { checksumAddress } from "./utilities/address";
 import { captureError } from "./utilities/captureError";
 
 type SignatureValidationResult<T> = Readonly<{
@@ -191,7 +191,7 @@ async function isValidECDSASignature(
 			payload: dataHash,
 			signature: sig,
 		});
-		return checksumAddress(address);
+		return OxAddress.checksum(address);
 	}, "Unknown error while calling Secp256k1.recoverAddress");
 
 	if (error) {

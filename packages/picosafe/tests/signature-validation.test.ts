@@ -1,36 +1,51 @@
-import { AbiFunction, Address as AddressUtils, Bytes, Hash, Hex as HexUtils, PersonalMessage, Secp256k1, Signature } from "ox";
-import type { Address, Hex } from "../src/types";
+import {
+	AbiFunction,
+	Address as AddressUtils,
+	Bytes,
+	Hash,
+	Hex as HexUtils,
+	PersonalMessage,
+	Secp256k1,
+	Signature,
+} from "ox";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import type { Address, Hex } from "../src/types";
 
 // Helper functions to replace viem functions
-import { checksumAddress } from "../src/utilities/address";
-
 const generatePrivateKey = () => Secp256k1.randomPrivateKey();
 const privateKeyToAccount = (privateKey: Hex) => {
 	const publicKey = Secp256k1.getPublicKey({ privateKey });
-	const address = checksumAddress(AddressUtils.fromPublicKey(publicKey));
+	const address = AddressUtils.checksum(AddressUtils.fromPublicKey(publicKey));
 	return {
 		address,
 		sign: async ({ hash }: { hash: Hex }) => {
 			const signature = Secp256k1.sign({ payload: hash, privateKey });
 			return Signature.toHex(signature);
 		},
-		signMessage: async ({ message }: { message: string | { raw: Uint8Array } }) => {
-			const messageToSign = typeof message === 'string' 
-				? message 
-				: Bytes.toString(message.raw);
-			const payload = PersonalMessage.getSignPayload({ message: messageToSign });
+		signMessage: async ({
+			message,
+		}: {
+			message: string | { raw: Uint8Array };
+		}) => {
+			const messageToSign =
+				typeof message === "string" ? message : Bytes.toString(message.raw);
+			const payload = PersonalMessage.getSignPayload({
+				message: messageToSign,
+			});
 			const signature = Secp256k1.sign({ payload, privateKey });
 			return Signature.toHex(signature);
-		}
+		},
 	};
 };
 const keccak256 = (data: Hex | Uint8Array) => Hash.keccak256(data);
-const toHex = (data: string | number | bigint | Uint8Array, options?: { size?: number }) => {
-	if (typeof data === 'string') {
+const toHex = (
+	data: string | number | bigint | Uint8Array,
+	options?: { size?: number },
+) => {
+	if (typeof data === "string") {
 		return HexUtils.fromString(data);
 	}
-	if (typeof data === 'number' || typeof data === 'bigint') {
+	if (typeof data === "number" || typeof data === "bigint") {
 		return HexUtils.fromNumber(data, options);
 	}
 	return HexUtils.fromBytes(data);
@@ -42,10 +57,19 @@ const hashMessage = ({ raw }: { raw: Uint8Array }) => {
 	const hexMessage = HexUtils.fromBytes(raw);
 	return PersonalMessage.getSignPayload(hexMessage);
 };
-const encodeFunctionData = ({ abi, functionName, args }: { abi: any; functionName: string; args?: readonly unknown[] }) => {
+const encodeFunctionData = ({
+	abi,
+	functionName,
+	args,
+}: {
+	abi: readonly unknown[];
+	functionName: string;
+	args?: readonly unknown[];
+}) => {
 	const fn = AbiFunction.fromAbi(abi, functionName);
 	return AbiFunction.encodeData(fn, args);
 };
+
 import { PARSED_SAFE_ABI } from "../src/abis";
 import { deploySafeAccount } from "../src/deployment";
 import { calculateSafeMessageHash } from "../src/eip712";
@@ -67,7 +91,6 @@ import type {
 } from "../src/types";
 import { ZERO_ADDRESS } from "../src/utilities/constants";
 import { getChainId } from "../src/utilities/eip1193-provider";
-import { padStartHex } from "../src/utilities/encoding";
 import {
 	getMockERC1271InvalidBytecode,
 	getMockERC1271ValidBytecode,
@@ -642,7 +665,7 @@ describe("isValidApprovedHashSignature", () => {
 		const dataHash = keccak256(toHex("test message"));
 
 		const signatureData = concatHex([
-			padStartHex(owner, 32),
+			HexUtils.padLeft(owner, 32),
 			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			"0x01",
 		]);
@@ -674,7 +697,7 @@ describe("isValidApprovedHashSignature", () => {
 		const dataHash = keccak256(toHex("test message"));
 
 		const signatureData = concatHex([
-			padStartHex(owner, 32),
+			HexUtils.padLeft(owner, 32),
 			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			"0x01",
 		]);
@@ -740,7 +763,7 @@ describe("isValidApprovedHashSignature", () => {
 
 		for (const v of vValues) {
 			const signatureData = concatHex([
-				padStartHex(owner, 32),
+				HexUtils.padLeft(owner, 32),
 				"0x0000000000000000000000000000000000000000000000000000000000000000",
 				toHex(v, { size: 1 }),
 			]);

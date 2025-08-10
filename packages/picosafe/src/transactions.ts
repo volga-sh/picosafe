@@ -1,4 +1,4 @@
-import { AbiFunction } from "ox";
+import { AbiFunction, Address as OxAddress } from "ox";
 import { PARSED_SAFE_ABI } from "./abis.js";
 import { getNonce } from "./account-state.js";
 import { getSafeEip712Domain, SAFE_TX_EIP712_TYPES } from "./eip712.js";
@@ -15,7 +15,6 @@ import type {
 	PicosafeSignature,
 } from "./types";
 import { Operation } from "./types.js";
-import { checksumAddress } from "./utilities/address.js";
 import { EMPTY_BYTES, ZERO_ADDRESS } from "./utilities/constants.js";
 import { getAccounts, getChainId } from "./utilities/eip1193-provider.js";
 import type { WrappedTransaction } from "./utilities/wrapEthereumTransaction.js";
@@ -129,11 +128,11 @@ async function buildSafeTransaction(
 
 	// Ensure all addresses use EIP-55 checksum casing so that callers
 	// consistently receive checksummed values, no matter the input.
-	const normalizedSafeAddress = checksumAddress(safeAddress);
+	const normalizedSafeAddress = OxAddress.checksum(safeAddress);
 
 	// Initialize the transactions with the defaults
 	const normalizedTransactions: MetaTransaction[] = transactions.map((tx) => ({
-		to: checksumAddress(tx.to),
+		to: OxAddress.checksum(tx.to),
 		data: tx.data ?? EMPTY_BYTES,
 		value: tx.value ?? 0n,
 	}));
@@ -150,18 +149,18 @@ async function buildSafeTransaction(
 	const gasToken =
 		gasTokenInput === ZERO_ADDRESS
 			? ZERO_ADDRESS
-			: checksumAddress(gasTokenInput);
+			: OxAddress.checksum(gasTokenInput);
 	const refundReceiver =
 		refundReceiverInput === ZERO_ADDRESS
 			? ZERO_ADDRESS
-			: checksumAddress(refundReceiverInput);
+			: OxAddress.checksum(refundReceiverInput);
 
 	let txTo: Address;
 	let txData: Hex;
 	let txValue: bigint;
 	let txOperation: Operation;
 	if (normalizedTransactions.length > 1) {
-		txTo = checksumAddress(V141_ADDRESSES.MultiSendCallOnly);
+		txTo = OxAddress.checksum(V141_ADDRESSES.MultiSendCallOnly);
 		txData = encodeMultiSendCall(normalizedTransactions);
 		txValue = 0n;
 		txOperation = Operation.UNSAFE_DELEGATECALL;

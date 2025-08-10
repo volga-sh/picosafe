@@ -8,11 +8,11 @@
  * Tests run against a local Anvil blockchain with real Safe contracts deployed.
  */
 
+import { Address } from "ox";
 import { encodeFunctionData, parseAbi } from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { UNSAFE_getSetGuardTransaction } from "../src/guard.js";
 import { Operation } from "../src/types.js";
-import { checksumAddress } from "../src/utilities/address.js";
 import { ZERO_ADDRESS } from "../src/utilities/constants.js";
 import { createClients, snapshot } from "./fixtures/setup.js";
 import { randomAddress } from "./utils.js";
@@ -105,7 +105,7 @@ describe("Safe Guard Management Functions", () => {
 		it("should build identical setGuard transactions for checksum and lowercase addresses", async () => {
 			const safeAddress = randomAddress();
 			const guardLower = randomAddress();
-			const guardChecksum = checksumAddress(guardLower);
+			const guardChecksum = Address.checksum(guardLower);
 
 			// explicitly set nonce to 0 to avoid reading from blockchain
 			const txLower = await UNSAFE_getSetGuardTransaction(

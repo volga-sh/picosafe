@@ -9,6 +9,7 @@
  * Tests run against a local Anvil blockchain with real Safe contracts deployed.
  */
 
+import { Address } from "ox";
 import { type Log, parseEther } from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PARSED_SAFE_PROXY_FACTORY_ABI } from "../src/abis";
@@ -28,7 +29,6 @@ import {
 	encodeSetupData,
 } from "../src/deployment";
 import { V141_ADDRESSES } from "../src/safe-contracts";
-import { checksumAddress } from "../src/utilities/address";
 import { ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
 import { pickRandom, randomAddress, randomBytesHex } from "./utils";
@@ -149,15 +149,15 @@ describe("Safe Deployment Functions", () => {
 			const event = decodedEvents[0];
 			expect(event?.eventName).toBe("SafeSetup");
 			expect(event?.args.initiator).toBe(
-				checksumAddress("0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"),
+				Address.checksum("0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"),
 			);
 			expect(event?.args.owners).toEqual([
-				checksumAddress("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
+				Address.checksum("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
 			]);
 			expect(event?.args.threshold).toBe(1n);
 			expect(event?.args.initializer).toBe(ZERO_ADDRESS);
 			expect(event?.args.fallbackHandler).toBe(
-				checksumAddress("0xfd0732dc9e303f09fcef3a7388ad10a83459ec99"),
+				Address.checksum("0xfd0732dc9e303f09fcef3a7388ad10a83459ec99"),
 			);
 		});
 

@@ -1,41 +1,5 @@
+import { Hex as HexUtils } from "ox";
 import type { Hex } from "../types";
-
-/**
- * Normalizes a hexadecimal value to a fixed byte length.
- *
- * The returned string **is** prefixed with `0x`, is always lower-case, and
- * is left-padded with zeros until it reaches the requested byte length.
- *
- * @param value - Hex string (with or without `0x` prefix) or {@link Hex} to pad.
- * @param bytes - Target byte length. Defaults to 32 bytes (64 nibbles).
- * @returns The 0x-stripped, lower-cased, left-padded hex string.
- * @throws {Error} If the supplied value exceeds the requested byte length.
- *
- * @example
- * ```ts
- * import { padHex } from "picosafe";
- *
- * // Pad an address (20 bytes) to 32 bytes
- * const padded = padHex(
- *   "0x1234deadbeef1234deadbeef1234deadbeef1234",
- * );
- * // ➜ "0000000000000000000000001234deadbeef1234deadbeef1234deadbeef1234"
- * ```
- *
- * Edge cases:
- * - Accepts both `0x`-prefixed and non-prefixed strings.
- * - Input is case-insensitive; output is always lower-case.
- * - Passing an empty string returns a string of zeros with the requested length.
- */
-function padStartHex(value: string | Hex, bytes = 32): Hex {
-	const hex = value.startsWith("0x") ? value.slice(2) : value;
-	if (hex.length > bytes * 2) {
-		throw new Error(
-			`Value 0x${hex} exceeds ${bytes}-byte length (${bytes * 2} nibbles)`,
-		);
-	}
-	return `0x${hex.toLowerCase().padStart(bytes * 2, "0")}` as Hex;
-}
 
 /**
  * Concatenates a 4-byte function selector with its ABI-encoded arguments.
@@ -85,41 +49,17 @@ function encodeWithSelector(
 	const encodedArgs = args
 		.map((arg) => {
 			if (typeof arg === "bigint" || typeof arg === "number") {
-				const hex = BigInt(arg).toString(16);
-				return padStartHex(hex).slice(2);
+				const hex = HexUtils.fromNumber(BigInt(arg));
+				return HexUtils.padLeft(hex, 32).slice(2).toLowerCase();
 			}
 
-			return padStartHex(arg).slice(2);
+			return HexUtils.padLeft(arg as Hex, 32)
+				.slice(2)
+				.toLowerCase();
 		})
 		.join("");
 
 	return `${selector}${encodedArgs}` as Hex;
 }
 
-/**
- * Concatenates multiple hex strings into a single hex string, preserving the `0x` prefix.
- *
- * @remarks
- * Each argument must be a valid hex string (with or without `0x` prefix). The result is a single
- * `0x`-prefixed hex string containing the concatenation of all input hex data (without duplicate prefixes).
- *
- * @param parts - One or more hex strings to concatenate. Each may be `0x`-prefixed or not.
- * @returns A single `0x`-prefixed hex string containing the concatenated input.
- * @example
- * ```typescript
- * import { concatHex } from "picosafe";
- *
- * const result = concatHex("0x1234", "abcd", "0x5678");
- * // result === "0x1234abcd5678"
- * ```
- */
-function concatHex(...parts: readonly (Hex | string)[]): Hex {
-	let out = "0x";
-	for (let p of parts) {
-		if (p.startsWith("0x")) p = p.slice(2);
-		out += p;
-	}
-	return out as Hex;
-}
-
-export { concatHex, padStartHex, encodeWithSelector };
+export { encodeWithSelector };

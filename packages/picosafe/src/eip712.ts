@@ -247,7 +247,7 @@ function calculateSafeTransactionHash(
 function encodeEIP712SafeTransactionData(
 	safeTx: Readonly<FullSafeTransaction>,
 ): Hex {
-	return encodeTypedData({
+	return TypedData.encode({
 		domain: getSafeEip712Domain(safeTx.safeAddress, safeTx.chainId),
 		types: SAFE_TX_EIP712_TYPES,
 		primaryType: "SafeTx",
@@ -359,33 +359,12 @@ function encodeEIP712SafeMessageData(
 	chainId: bigint,
 	message: Readonly<SafeMessage>,
 ): Hex {
-	return encodeTypedData({
+	return TypedData.encode({
 		domain: getSafeEip712Domain(safeAddress, chainId),
 		types: SAFE_MESSAGE_EIP712_TYPES,
 		primaryType: "SafeMessage",
 		message,
 	});
-}
-
-/**
- * Encodes EIP-712 typed data into its pre-image format without hashing.
- *
- * This is a modified version of viem's hashTypedData function that returns the
- * encoded data before hashing. The encoded data consists of:
- * - 0x1901 (EIP-712 prefix)
- * - Domain separator hash (if domain is provided)
- * - Struct hash of the primary type (if not signing the domain itself)
- *
- * This function is useful for advanced signature scenarios where you need the
- * structured data before hashing, such as when working with legacy ERC-1271
- * contract signatures that require the full typed data.
- *
- * @param parameters - The typed data parameters including domain, types, primaryType, and message
- * @returns The concatenated EIP-712 encoded data as a hex string
- */
-function encodeTypedData(parameters: any): Hex {
-	// Ox's TypedData.encode handles the encoding directly
-	return TypedData.encode(parameters);
 }
 
 export {
@@ -395,7 +374,6 @@ export {
 	calculateSafeTransactionHash,
 	calculateSafeMessageHash,
 	calculateSafeDomainSeparator,
-	encodeTypedData,
 	encodeEIP712SafeTransactionData,
 	encodeEIP712SafeMessageData,
 };
