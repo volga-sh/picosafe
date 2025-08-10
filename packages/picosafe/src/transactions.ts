@@ -1,5 +1,4 @@
-import type { Address, Hex } from "viem";
-import { encodeFunctionData } from "viem";
+import { AbiFunction } from "ox";
 import { PARSED_SAFE_ABI } from "./abis.js";
 import { getNonce } from "./account-state.js";
 import { getSafeEip712Domain, SAFE_TX_EIP712_TYPES } from "./eip712.js";
@@ -7,9 +6,11 @@ import { encodeMultiSendCall } from "./multisend.js";
 import { V141_ADDRESSES } from "./safe-contracts.js";
 import { encodeSafeSignaturesBytes } from "./safe-signatures.js";
 import type {
+	Address,
 	ECDSASignature,
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,
+	Hex,
 	MetaTransaction,
 	PicosafeSignature,
 } from "./types";
@@ -279,7 +280,7 @@ async function signSafeTransaction(
 
 	return {
 		signer: signerAddressToUse,
-		data: signature,
+		data: signature as Hex,
 	};
 }
 
@@ -348,22 +349,22 @@ async function executeSafeTransaction(
 ): Promise<WrappedTransaction<void>> {
 	const encodedSignatures = encodeSafeSignaturesBytes(signatures);
 
-	const data = encodeFunctionData({
-		abi: PARSED_SAFE_ABI,
-		functionName: "execTransaction",
-		args: [
-			transaction.to,
-			transaction.value,
-			transaction.data,
-			transaction.operation,
-			transaction.safeTxGas,
-			transaction.baseGas,
-			transaction.gasPrice,
-			transaction.gasToken,
-			transaction.refundReceiver,
-			encodedSignatures,
-		],
-	});
+	const execTransactionFn = AbiFunction.fromAbi(
+		PARSED_SAFE_ABI,
+		"execTransaction",
+	);
+	const data = AbiFunction.encodeData(execTransactionFn, [
+		transaction.to,
+		transaction.value,
+		transaction.data,
+		transaction.operation,
+		transaction.safeTxGas,
+		transaction.baseGas,
+		transaction.gasPrice,
+		transaction.gasToken,
+		transaction.refundReceiver,
+		encodedSignatures,
+	]);
 
 	return wrapEthereumTransaction(provider, {
 		to: transaction.safeAddress,

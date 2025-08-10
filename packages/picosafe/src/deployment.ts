@@ -1,14 +1,28 @@
-import type { Address, Hex, Log } from "viem";
 import {
-	decodeEventLog,
-	encodeFunctionData,
-	encodePacked,
-	getContractAddress,
-	keccak256,
-} from "viem";
+	AbiEvent,
+	AbiFunction,
+	Bytes,
+	ContractAddress,
+	Hash,
+	Hex as HexUtils,
+} from "ox";
+import type { Address, Hex } from "./types";
+
+type Log = {
+	address: Address;
+	topics: readonly Hex[];
+	data: Hex;
+	blockNumber?: bigint;
+	blockHash?: Hex;
+	transactionIndex?: number;
+	transactionHash?: Hex;
+	logIndex?: number;
+};
+
 import { PARSED_SAFE_ABI, PARSED_SAFE_PROXY_FACTORY_ABI } from "./abis.js";
 import { V141_ADDRESSES } from "./safe-contracts.js";
 import type { EIP1193ProviderWithRequestFn } from "./types.js";
+import { checksumAddress } from "./utilities/address.js";
 import { EMPTY_BYTES, ZERO_ADDRESS } from "./utilities/constants.js";
 import { getAccounts } from "./utilities/eip1193-provider.js";
 import type { WrappedTransaction } from "./utilities/wrapEthereumTransaction.js";
@@ -190,22 +204,28 @@ function calculateSafeAddress(
 		proxyFactory = config.proxyFactory ?? V141_ADDRESSES.SafeProxyFactory;
 	}
 
-	const salt = keccak256(
-		encodePacked(["bytes32", "uint256"], [keccak256(setupData), saltNonce]),
+	const salt = Hash.keccak256(
+		Bytes.fromArray([
+			...Bytes.from(Hash.keccak256(setupData)),
+			...Bytes.from(Bytes.fromNumber(saltNonce, { size: 32 })),
+		]),
 	);
 
 	const proxyBytecode =
 		"0x608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea264697066735822122003d1488ee65e08fa41e58e888a9865554c535f2c77126a82cb4c0f917f31441364736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564" as Hex;
-	const bytecodeHash = keccak256(
-		encodePacked(["bytes", "uint256"], [proxyBytecode, BigInt(singleton)]),
+
+	// Construct the full bytecode with constructor argument
+	const fullBytecode = HexUtils.concat(
+		proxyBytecode,
+		HexUtils.padLeft(singleton, 32),
 	);
 
-	return getContractAddress({
-		bytecodeHash,
+	const address = ContractAddress.from({
 		from: proxyFactory,
-		opcode: "CREATE2",
+		bytecode: fullBytecode,
 		salt,
 	});
+	return checksumAddress(address);
 }
 
 /**
@@ -327,11 +347,10 @@ async function deploySafeAccount(
 		proxyFactory,
 	});
 
-	const deploymentData = encodeFunctionData({
-		abi: PARSED_SAFE_PROXY_FACTORY_ABI,
-		functionName: "createProxyWithNonce",
-		args: [singleton, setupData, saltNonce],
-	});
+	const deploymentData = AbiFunction.encodeData(
+		AbiFunction.fromAbi(PARSED_SAFE_PROXY_FACTORY_ABI, "createProxyWithNonce"),
+		[singleton, setupData, saltNonce],
+	);
 
 	const accounts = await getAccounts(provider);
 
@@ -386,20 +405,16 @@ function encodeSetupData(
 		"saltNonce" | "singleton" | "proxyFactory"
 	>,
 ): Hex {
-	return encodeFunctionData({
-		abi: PARSED_SAFE_ABI,
-		functionName: "setup",
-		args: [
-			config.owners,
-			config.threshold,
-			config.UNSAFE_DELEGATECALL_to,
-			config.UNSAFE_DELEGATECALL_data,
-			config.fallbackHandler,
-			config.paymentToken,
-			config.payment,
-			config.paymentReceiver,
-		],
-	});
+	return AbiFunction.encodeData(AbiFunction.fromAbi(PARSED_SAFE_ABI, "setup"), [
+		config.owners,
+		config.threshold,
+		config.UNSAFE_DELEGATECALL_to,
+		config.UNSAFE_DELEGATECALL_data,
+		config.fallbackHandler,
+		config.paymentToken,
+		config.payment,
+		config.paymentReceiver,
+	]);
 }
 
 type SafeSetupEvent = {
@@ -449,14 +464,23 @@ function decodeSafeSetupEventFromLogs(logs: readonly Log[]): SafeSetupEvent[] {
 
 	logs.forEach((log) => {
 		try {
-			const event = decodeEventLog({
-				abi: PARSED_SAFE_ABI,
+			const safeSetupEvent = AbiEvent.fromAbi(PARSED_SAFE_ABI, "SafeSetup");
+			const decodedEvent = AbiEvent.decode(safeSetupEvent, {
 				data: log.data,
-				topics: log.topics,
-				eventName: "SafeSetup",
-				strict: true,
+				topics: log.topics as [Hex, ...Hex[]],
 			});
-			decoded.push(event);
+			// Checksum all address fields in the decoded event
+			const checksummedEvent = {
+				initiator: checksumAddress(decodedEvent.initiator as Address),
+				owners: (decodedEvent.owners as readonly Address[]).map(checksumAddress),
+				threshold: decodedEvent.threshold,
+				initializer: checksumAddress(decodedEvent.initializer as Address),
+				fallbackHandler: checksumAddress(decodedEvent.fallbackHandler as Address),
+			};
+			decoded.push({
+				eventName: "SafeSetup",
+				args: checksummedEvent,
+			});
 		} catch {}
 	});
 

@@ -1,8 +1,8 @@
-import type { Address, Hex } from "viem";
-import { concatHex, keccak256, pad } from "viem";
+import { Hash, Hex as HexUtils } from "ox";
 import { getModulesPaginated, SAFE_STORAGE_SLOTS } from "./account-state.js";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
 import { buildSafeTransaction } from "./transactions.js";
+import type { Address, Hex } from "./types";
 import type {
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,
@@ -220,11 +220,11 @@ async function getDisableModuleTransaction(
 function computeModulesMappingSlot(moduleAddress: Address): Hex {
 	// Pad address and slot to 32 bytes each then hash the concatenation
 	// This follows Solidity's storage slot calculation for mappings: keccak256(key + slot)
-	return keccak256(
-		concatHex([
-			pad(moduleAddress, { size: 32 }),
-			pad(SAFE_STORAGE_SLOTS.modulesMapping as Hex, { size: 32 }),
-		]),
+	return Hash.keccak256(
+		HexUtils.concat(
+			HexUtils.padLeft(moduleAddress as Hex, 32),
+			HexUtils.padLeft(SAFE_STORAGE_SLOTS.modulesMapping as Hex, 32),
+		),
 	);
 }
 

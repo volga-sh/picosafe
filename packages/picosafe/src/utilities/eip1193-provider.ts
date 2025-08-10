@@ -1,5 +1,4 @@
-import type { Address } from "viem";
-import type { EIP1193ProviderWithRequestFn } from "../types";
+import type { Address, EIP1193ProviderWithRequestFn } from "../types";
 import { checksumAddress } from "./address.js";
 
 /**
@@ -26,9 +25,9 @@ import { checksumAddress } from "./address.js";
 async function getChainId(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 ): Promise<bigint> {
-	const chainIdHex = await provider.request({
+	const chainIdHex = (await provider.request({
 		method: "eth_chainId",
-	});
+	})) as string;
 
 	return BigInt(chainIdHex);
 }
@@ -57,11 +56,11 @@ async function getChainId(
 async function getAccounts(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 ): Promise<Address[]> {
-	const accounts = await provider.request({
+	const accounts = (await provider.request({
 		method: "eth_accounts",
-	});
+	})) as string[];
 
-	return accounts.map((account) => checksumAddress(account));
+	return accounts.map((account) => checksumAddress(account as Address));
 }
 
 export { getChainId, getAccounts };

@@ -1,8 +1,8 @@
-import type { Address, Hex } from "viem";
-import { hashMessage, recoverAddress } from "viem";
+import { Hash, PersonalMessage, Secp256k1, Signature } from "ox";
 import { getOwners, getThreshold } from "./account-state.js";
 import type { SignatureValidationResult } from "./signature-validation.js";
 import { validateSignature } from "./signature-validation.js";
+import type { Address, Hex } from "./types";
 import type {
 	EIP1193ProviderWithRequestFn,
 	PicosafeSignature,
@@ -329,10 +329,12 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 		) {
 			// Static signature - extract from position
 			const signature: Hex = `0x${signatureData}`;
-			const signer = await recoverAddress({
-				hash: signedHash,
-				signature,
+			const sig = Signature.fromHex(signature);
+			const recoveredAddress = Secp256k1.recoverAddress({
+				payload: signedHash,
+				signature: sig,
 			});
+			const signer = checksumAddress(recoveredAddress);
 			signatures.push({
 				data: signature,
 				signer,
@@ -343,10 +345,14 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 		) {
 			// ECDSA signature - extract from position
 			const signature: Hex = `0x${signatureData}`;
-			const signer = await recoverAddress({
-				hash: hashMessage(signedHash),
-				signature,
+			const personalMessage = PersonalMessage.encode(signedHash);
+			const messageHash = Hash.keccak256(personalMessage);
+			const sig = Signature.fromHex(signature);
+			const recoveredAddress = Secp256k1.recoverAddress({
+				payload: messageHash,
+				signature: sig,
 			});
+			const signer = checksumAddress(recoveredAddress);
 			signatures.push({
 				data: signature,
 				signer,

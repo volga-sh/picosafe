@@ -1,6 +1,6 @@
-import type { Hex } from "viem";
 import type {
 	EIP1193ProviderWithRequestFn,
+	Hex,
 	MaybeLazy,
 	StateReadCall,
 	WrappedStateRead,
@@ -78,13 +78,13 @@ export function wrapStateRead<
 
 	/** Performs the underlying `eth_call` and decodes the result. */
 	const exec = async (): Promise<T> => {
-		const result = await provider.request({
+		const result = (await provider.request({
 			method: "eth_call",
 			params: [
 				{ to: call.to, data: call.data },
 				block ?? call.block ?? "latest",
 			],
-		});
+		})) as Hex;
 
 		return decoder(result);
 	};

@@ -1,11 +1,17 @@
-import type {
-	Address,
-	BlockTag,
-	EIP1193Provider,
-	Hex,
-	RpcBlockIdentifier,
-	RpcBlockNumber,
-} from "viem";
+// Define types that were imported from viem but are not directly available in ox
+type BlockTag = "latest" | "earliest" | "pending" | "safe" | "finalized";
+type RpcBlockNumber = `0x${string}`;
+type RpcBlockIdentifier =
+	| { blockHash: `0x${string}`; blockNumber?: never }
+	| { blockHash?: never; blockNumber: RpcBlockNumber };
+type Address = `0x${string}`;
+type Hex = `0x${string}`;
+type EIP1193Provider = {
+	request: (args: {
+		method: string;
+		params?: readonly unknown[];
+	}) => Promise<unknown>;
+};
 
 /**
  * Utility type that flattens complex type intersections for better IDE display
@@ -352,6 +358,8 @@ type WrapResult<T, A, O> = O extends { lazy: true }
 export { Operation, SignatureTypeVByte };
 export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
 export type {
+	Address,
+	Hex,
 	MetaTransaction,
 	SafeTransactionData,
 	ApprovedHashSignature,

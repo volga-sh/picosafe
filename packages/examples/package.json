@@ -13,7 +13,7 @@
 		"@volga/picosafe": "*",
 		"@volga/anvil-manager": "*",
 		"@volga/safe-genesis": "*",
-		"viem": "^2.33.2"
+		"ox": "^0.8.8"
 	},
 	"devDependencies": {
 		"tsx": "^4.20.3"

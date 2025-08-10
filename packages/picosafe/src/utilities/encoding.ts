@@ -1,4 +1,4 @@
-import type { Hex } from "viem";
+import type { Hex } from "../types";
 
 /**
  * Normalizes a hexadecimal value to a fixed byte length.
@@ -34,7 +34,7 @@ function padStartHex(value: string | Hex, bytes = 32): Hex {
 			`Value 0x${hex} exceeds ${bytes}-byte length (${bytes * 2} nibbles)`,
 		);
 	}
-	return `0x${hex.toLowerCase().padStart(bytes * 2, "0")}`;
+	return `0x${hex.toLowerCase().padStart(bytes * 2, "0")}` as Hex;
 }
 
 /**
@@ -93,7 +93,7 @@ function encodeWithSelector(
 		})
 		.join("");
 
-	return `${selector}${encodedArgs}`;
+	return `${selector}${encodedArgs}` as Hex;
 }
 
 /**

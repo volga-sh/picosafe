@@ -1,5 +1,5 @@
-import type { Address } from "viem";
-import { keccak256, stringToBytes } from "viem";
+import { Address as AddressUtils } from "ox";
+import type { Address } from "../types";
 
 /**
  * Computes the [EIP-55](https://eips.ethereum.org/EIPS/eip-55) checksum for a
@@ -29,20 +29,7 @@ import { keccak256, stringToBytes } from "viem";
  *
  */
 function checksumAddress(address: Address): Address {
-	// Remove the 0x prefix and normalise to lower-case for hashing
-	const hexAddress = address.toLowerCase().replace(/^0x/, "");
-
-	// Compute keccak256(address) and drop the 0x prefix so we can read nibbles
-	const hashHex = keccak256(stringToBytes(hexAddress)).slice(2);
-
-	let checksummed = "0x";
-	for (let i = 0; i < hexAddress.length; i++) {
-		const addrChar = hexAddress.charAt(i);
-		const hashNibble = Number.parseInt(hashHex.charAt(i), 16);
-		checksummed += hashNibble >= 8 ? addrChar.toUpperCase() : addrChar;
-	}
-
-	return checksummed as Address;
+	return AddressUtils.checksum(address);
 }
 
 export { checksumAddress };

@@ -1,4 +1,7 @@
-import type { Address, Hex, Quantity } from "viem";
+import type { Address, Hex } from "./types";
+
+type Quantity = `0x${string}`;
+
 import type {
 	EIP1193ProviderWithRequestFn,
 	MaybeLazy,

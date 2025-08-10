@@ -1,7 +1,7 @@
-import type { Address } from "viem";
 import { getOwners } from "./account-state.js";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
 import { buildSafeTransaction } from "./transactions.js";
+import type { Address } from "./types";
 import type {
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,

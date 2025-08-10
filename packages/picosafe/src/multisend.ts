@@ -1,5 +1,5 @@
-import { encodeFunctionData, encodePacked, type Hex, parseAbi } from "viem";
-import type { MetaTransaction } from "./types";
+import { Abi, AbiFunction, Bytes, Hex as HexUtils } from "ox";
+import type { Hex, MetaTransaction } from "./types";
 import { Operation } from "./types";
 
 /**
@@ -91,26 +91,30 @@ function encodeMultiSendCall(
 	let packed = "0x";
 
 	for (const tx of transactions) {
-		const encoded = encodePacked(
-			["uint8", "address", "uint256", "uint256", "bytes"],
-			[
-				tx.UNSAFE_DELEGATE_CALL
-					? Operation.UNSAFE_DELEGATECALL
-					: Operation.Call,
-				tx.to,
-				tx.value,
-				BigInt(tx.data.length / 2 - 1), // Convert hex string length to byte length (each byte = 2 hex chars, minus '0x' prefix)
-				tx.data,
-			],
-		);
-		packed += encoded.slice(2);
+		const encoded = Bytes.fromArray([
+			...Bytes.from(
+				Bytes.fromNumber(
+					tx.UNSAFE_DELEGATE_CALL
+						? Operation.UNSAFE_DELEGATECALL
+						: Operation.Call,
+					{ size: 1 },
+				),
+			),
+			...Bytes.from(tx.to),
+			...Bytes.from(Bytes.fromNumber(tx.value, { size: 32 })),
+			...Bytes.from(
+				Bytes.fromNumber(BigInt(tx.data.length / 2 - 1), { size: 32 }),
+			),
+			...Bytes.from(tx.data),
+		]);
+		packed += HexUtils.fromBytes(encoded).slice(2);
 	}
 
-	return encodeFunctionData({
-		abi: parseAbi(["function multiSend(bytes transactions) payable"]),
-		functionName: "multiSend",
-		args: [packed as Hex],
-	});
+	const multiSendAbi = Abi.from([
+		"function multiSend(bytes transactions) payable",
+	]);
+	const multiSendFn = AbiFunction.fromAbi(multiSendAbi, "multiSend");
+	return AbiFunction.encodeData(multiSendFn, [packed as Hex]);
 }
 
 export { encodeMultiSendCall };
