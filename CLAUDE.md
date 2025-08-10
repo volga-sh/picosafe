@@ -6,6 +6,8 @@ This file provides comprehensive guidance to Claude Code (claude.ai/code) for ef
 
 PicoSafe is a minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.4.1+). The SDK follows a one-action-one-function principle, providing a simple API for Safe operations without managing keys or connections.
 
+**Library Dependencies**: The SDK uses [Ox](https://oxlib.sh) as its core Ethereum library for ABI encoding, address manipulation, and cryptographic operations. Ox provides a minimal, type-safe API that aligns with PicoSafe's philosophy of simplicity and correctness.
+
 ## Key Commands
 
 ### Global Commands (Run from root directory)
@@ -118,6 +120,7 @@ The SDK acts as a translation layer between developer intent and blockchain exec
 
 ```typescript
 // Example: Deploy 1000 Safes in a single transaction
+// Note: This example uses viem for the provider, but any EIP-1193 provider works
 const deployments = []
 for (let i = 0; i < 1000; i++) {
   const deployment = await deploySafeAccount(walletClient, {
@@ -229,6 +232,7 @@ The PicoSafe package includes an automated Anvil setup for testing. When running
 - **Include all relevant tags**: `@param`, `@returns`, `@throws`, `@example`, etc.
 - **Write runnable examples**: Full, working code with imports—no ellipses or partial snippets
 - **Base examples on tests**: Use actual test cases as examples when possible
+- **Provider flexibility in examples**: Examples can use Viem, Ethers, or any EIP-1193 provider library for demonstration purposes
 - **Maintain accuracy**: Update JSDoc when function behavior changes
 - **Document edge cases**: Note any limitations, special behaviors, or requirements
 - **Type descriptions**: Even with TypeScript types, describe what values mean
@@ -381,6 +385,13 @@ Before any code changes:
 
 - **Type Management**:
   - Keep the types in `types.ts`, unless it's only crucial for that particular file
+- **Ox Library Usage**:
+  - Use Ox directly for all Ethereum utilities (addresses, ABI encoding, hashing, etc.)
+  - Avoid creating wrapper functions that simply call Ox functions 1:1
+  - Import Ox utilities as needed: `import { Address, AbiFunction, Hash } from "ox"`
+- **Provider Examples**:
+  - Examples and tests can use any provider library (Viem, Ethers, etc.)
+  - Always note that any EIP-1193 provider is compatible
 
 ## Contextual Notes
 
