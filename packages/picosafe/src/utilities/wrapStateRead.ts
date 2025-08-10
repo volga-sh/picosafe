@@ -78,11 +78,26 @@ export function wrapStateRead<
 
 	/** Performs the underlying `eth_call` and decodes the result. */
 	const exec = async (): Promise<T> => {
+		// Format the block parameter for eth_call
+		let blockParam: string | { blockNumber: string } | { blockHash: string } = "latest";
+		const blockValue = block ?? call.block;
+		
+		if (blockValue) {
+			if (typeof blockValue === "string") {
+				// It's a tag like "latest", "pending", etc. or a hex number
+				blockParam = blockValue;
+			} else if ("blockNumber" in blockValue && blockValue.blockNumber) {
+				blockParam = blockValue.blockNumber;
+			} else if ("blockHash" in blockValue && blockValue.blockHash) {
+				blockParam = { blockHash: blockValue.blockHash };
+			}
+		}
+		
 		const result = (await provider.request({
 			method: "eth_call",
 			params: [
 				{ to: call.to, data: call.data },
-				block ?? call.block ?? "latest",
+				blockParam,
 			],
 		})) as Hex;
 

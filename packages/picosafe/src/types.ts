@@ -1,3 +1,5 @@
+import type { Provider } from "ox";
+
 // Define types that were imported from viem but are not directly available in ox
 type BlockTag = "latest" | "earliest" | "pending" | "safe" | "finalized";
 type RpcBlockNumber = `0x${string}`;
@@ -6,12 +8,6 @@ type RpcBlockIdentifier =
 	| { blockHash?: never; blockNumber: RpcBlockNumber };
 type Address = `0x${string}`;
 type Hex = `0x${string}`;
-type EIP1193Provider = {
-	request: (args: {
-		method: string;
-		params?: readonly unknown[];
-	}) => Promise<unknown>;
-};
 
 /**
  * Utility type that flattens complex type intersections for better IDE display
@@ -24,8 +20,9 @@ type Prettify<T> = {
 /**
  * Minimal EIP-1193 provider interface that only requires the request method
  * Used throughout the SDK for blockchain interactions
+ * Compatible with Ox's Provider type but only requires the request method
  */
-type EIP1193ProviderWithRequestFn = Pick<EIP1193Provider, "request">;
+type EIP1193ProviderWithRequestFn = Pick<Provider.Provider, "request">;
 
 /**
  * Block identifier types accepted by the SDK for specifying block context
