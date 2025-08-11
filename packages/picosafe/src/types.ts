@@ -1,5 +1,3 @@
-import type { Provider } from "ox";
-
 // Define types that were imported from viem but are not directly available in ox
 type BlockTag = "latest" | "earliest" | "pending" | "safe" | "finalized";
 type RpcBlockNumber = `0x${string}`;
@@ -20,9 +18,17 @@ type Prettify<T> = {
 /**
  * Minimal EIP-1193 provider interface that only requires the request method
  * Used throughout the SDK for blockchain interactions
- * Compatible with Ox's Provider type but only requires the request method
+ * Compatible with both Ox and Viem providers
+ *
+ * Note: We use a loose type definition (any) here to ensure compatibility with
+ * various provider implementations (Viem, Ethers, Ox, etc.) that have different
+ * type signatures for the request method. This allows the SDK to work with any
+ * EIP-1193 compliant provider without requiring users to install specific provider libraries.
  */
-type EIP1193ProviderWithRequestFn = Pick<Provider.Provider, "request">;
+type EIP1193ProviderWithRequestFn = {
+	// biome-ignore lint/suspicious/noExplicitAny: Required for cross-library compatibility (see note above)
+	request: (args: any) => Promise<any>;
+};
 
 /**
  * Block identifier types accepted by the SDK for specifying block context
