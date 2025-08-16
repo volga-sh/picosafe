@@ -252,7 +252,7 @@ async function signSafeTransaction(
 		throw new Error("No signer address provided and no accounts found");
 	}
 
-	const signature = await provider.request({
+	const signature = (await provider.request({
 		method: "eth_signTypedData_v4",
 		params: [
 			signerAddressToUse,
@@ -274,7 +274,7 @@ async function signSafeTransaction(
 				},
 			}),
 		],
-	});
+	})) as Hex;
 
 	return {
 		signer: signerAddressToUse,

@@ -19,14 +19,14 @@ type Prettify<T> = {
  * Used throughout the SDK for blockchain interactions
  * Compatible with both Ox and Viem providers
  *
- * Note: We use a loose type definition (any) here to ensure compatibility with
- * various provider implementations (Viem, Ethers, Ox, etc.) that have different
- * type signatures for the request method. This allows the SDK to work with any
- * EIP-1193 compliant provider without requiring users to install specific provider libraries.
+ * Note: We use a bivariant hack with method callback to ensure compatibility
+ * with various provider implementations (Viem, Ethers, Ox, etc.) that have
+ * different type signatures for the request method. This allows the SDK
+ * to work with any EIP-1193 compliant provider without requiring users to
+ * install specific provider libraries.
  */
 type EIP1193ProviderWithRequestFn = {
-	// biome-ignore lint/suspicious/noExplicitAny: Required for cross-library compatibility (see note above)
-	request: (args: any) => Promise<any>;
+	request(args: { method: string; params?: unknown }): Promise<unknown>;
 };
 
 /**
