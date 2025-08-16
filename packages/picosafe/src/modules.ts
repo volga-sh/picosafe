@@ -221,8 +221,8 @@ function computeModulesMappingSlot(moduleAddress: Address): Hex {
 	// This follows Solidity's storage slot calculation for mappings: keccak256(key + slot)
 	return Hash.keccak256(
 		HexUtils.concat(
-			HexUtils.padLeft(moduleAddress as Hex, 32),
-			HexUtils.padLeft(SAFE_STORAGE_SLOTS.modulesMapping as Hex, 32),
+			HexUtils.padLeft(moduleAddress, 32),
+			HexUtils.padLeft(SAFE_STORAGE_SLOTS.modulesMapping, 32),
 		),
 	);
 }

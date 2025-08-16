@@ -59,7 +59,7 @@ function encodeWithSelector(
 		})
 		.join("");
 
-	return `${selector}${encodedArgs}` as Hex;
+	return `${selector}${encodedArgs}`;
 }
 
 export { encodeWithSelector };

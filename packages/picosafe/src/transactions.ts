@@ -279,7 +279,7 @@ async function signSafeTransaction(
 
 	return {
 		signer: signerAddressToUse,
-		data: signature as Hex,
+		data: signature,
 	};
 }
 

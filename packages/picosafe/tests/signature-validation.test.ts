@@ -8,51 +8,75 @@ import {
 	Secp256k1,
 	Signature,
 } from "ox";
+
+// Type aliases sourced from ox namespaces
+type Hex = HexUtils.Hex;
+type Address = AddressUtils.Address;
+
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import type { Address, Hex } from "../src/types";
 
 // Helper functions to replace viem functions
 const generatePrivateKey = () => Secp256k1.randomPrivateKey();
+
 const privateKeyToAccount = (privateKey: Hex) => {
 	const publicKey = Secp256k1.getPublicKey({ privateKey });
 	const address = AddressUtils.checksum(AddressUtils.fromPublicKey(publicKey));
 	return {
 		address,
-		sign: async ({ hash }: { hash: Hex }) => {
+		sign: async ({ hash }: { hash: Hex }): Promise<Hex> => {
 			const signature = Secp256k1.sign({ payload: hash, privateKey });
-			return Signature.toHex(signature);
+			return Signature.toHex(signature) as Hex;
 		},
-		signMessage: async ({
-			message,
-		}: {
-			message: string | { raw: Uint8Array };
-		}) => {
-			const messageToSign =
-				typeof message === "string" ? message : Bytes.toString(message.raw);
-			const payload = PersonalMessage.getSignPayload({
-				message: messageToSign,
-			});
+		signMessage: async ({ message }: { message: Hex }): Promise<Hex> => {
+			const payload = PersonalMessage.getSignPayload(message);
 			const signature = Secp256k1.sign({ payload, privateKey });
-			return Signature.toHex(signature);
+			return Signature.toHex(signature) as Hex;
 		},
 	};
 };
-const keccak256 = (data: Hex | Uint8Array) => Hash.keccak256(data);
-const toHex = (
-	data: string | number | bigint | Uint8Array,
-	options?: { size?: number },
-) => {
-	if (typeof data === "string") {
-		return HexUtils.fromString(data);
-	}
-	if (typeof data === "number" || typeof data === "bigint") {
-		return HexUtils.fromNumber(data, options);
-	}
-	return HexUtils.fromBytes(data);
+
+const keccak256 = (data: Hex | Uint8Array | string): Hex => {
+	const bytes =
+		typeof data === "string"
+			? data.startsWith("0x")
+				? Bytes.fromHex(data as Hex)
+				: new TextEncoder().encode(data)
+			: data;
+	const hashBytes = Hash.keccak256(bytes);
+	return HexUtils.fromBytes(hashBytes);
 };
-const toBytes = (data: Hex) => Bytes.fromHex(data);
-const concatHex = (values: readonly Hex[]) => HexUtils.concat(...values);
-const hashMessage = ({ raw }: { raw: Uint8Array }) => {
+
+const toHex = (
+	data: Hex | Uint8Array | string | number,
+	options?: { size?: number },
+): Hex => {
+	if (typeof data === "number") {
+		const size = options?.size ?? 1;
+		const bytes = new Uint8Array(size);
+		bytes[size - 1] = data;
+		return HexUtils.fromBytes(bytes);
+	}
+	if (typeof data === "string") {
+		if (data.startsWith("0x")) return data as Hex;
+		return HexUtils.fromBytes(new TextEncoder().encode(data));
+	}
+	if (data instanceof Uint8Array) {
+		return HexUtils.fromBytes(data);
+	}
+	return data as Hex;
+};
+
+const toBytes = (data: Hex | Uint8Array | string): Uint8Array => {
+	if (data instanceof Uint8Array) return data;
+	if (typeof data === "string" && !data.startsWith("0x")) {
+		return new TextEncoder().encode(data);
+	}
+	return Bytes.fromHex(data as Hex);
+};
+
+const concatHex = (values: readonly Hex[]): Hex => HexUtils.concat(...values);
+
+const hashMessage = ({ raw }: { raw: Uint8Array }): Hex => {
 	// Convert bytes to hex for PersonalMessage
 	const hexMessage = HexUtils.fromBytes(raw);
 	return PersonalMessage.getSignPayload(hexMessage);
@@ -325,7 +349,9 @@ describe("isValidERC1271Signature", () => {
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ dataHash: message.message },
+			{
+				dataHash: message.message,
+			},
 		);
 
 		expect(result.valid).toBe(true);
@@ -372,7 +398,9 @@ describe("isValidERC1271Signature", () => {
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ data: message.message },
+			{
+				data: message.message,
+			},
 		);
 
 		expect(result.valid).toBe(true);
@@ -446,7 +474,9 @@ describe("isValidERC1271Signature", () => {
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ data: message.message },
+			{
+				data: message.message,
+			},
 		);
 
 		expect(result.valid).toBe(false);
@@ -516,7 +546,9 @@ describe("isValidERC1271Signature", () => {
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ dataHash: message.message },
+			{
+				dataHash: message.message,
+			},
 		);
 
 		// Contract with a fallback function that does not contain ERC-1271 will return 0x, so we just check for invalid
@@ -632,7 +664,10 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			staticSignature,
-			{ dataHash, safeAddress },
+			{
+				dataHash,
+				safeAddress,
+			},
 		);
 
 		expect(result.valid).toBe(true);
@@ -652,7 +687,10 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			staticSignature,
-			{ dataHash, safeAddress },
+			{
+				dataHash,
+				safeAddress,
+			},
 		);
 
 		expect(result.valid).toBe(false);
@@ -684,7 +722,10 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			mockProvider,
 			staticSignature,
-			{ dataHash, safeAddress },
+			{
+				dataHash,
+				safeAddress,
+			},
 		);
 
 		expect(result.valid).toBe(false);
@@ -710,7 +751,10 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			staticSignature,
-			{ dataHash, safeAddress: V141_ADDRESSES.MultiSend },
+			{
+				dataHash,
+				safeAddress: V141_ADDRESSES.MultiSend,
+			},
 		);
 
 		expect(result.valid).toBe(false);
@@ -738,7 +782,6 @@ describe("isValidApprovedHashSignature", () => {
 
 		for (const returnValue of nonZeroValues) {
 			const mockProvider: EIP1193ProviderWithRequestFn = {
-				// @ts-expect-error - mock provider
 				request: async () => {
 					return returnValue;
 				},
@@ -747,7 +790,10 @@ describe("isValidApprovedHashSignature", () => {
 			const result = await isValidApprovedHashSignature(
 				mockProvider,
 				staticSignature,
-				{ dataHash, safeAddress },
+				{
+					dataHash,
+					safeAddress,
+				},
 			);
 
 			expect(result.valid).toBe(true);
@@ -779,7 +825,10 @@ describe("isValidApprovedHashSignature", () => {
 			const result = await isValidApprovedHashSignature(
 				publicClient,
 				staticSignature,
-				{ dataHash, safeAddress },
+				{
+					dataHash,
+					safeAddress,
+				},
 			);
 
 			// Should still work but return false since hash isn't approved

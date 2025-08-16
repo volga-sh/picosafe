@@ -1,6 +1,8 @@
-import { Abi, AbiFunction, Bytes, Hex as HexUtils } from "ox";
-import type { Hex, MetaTransaction } from "./types";
-import { Operation } from "./types";
+import { Abi, AbiFunction, Bytes, Hex as HexUtils } from "ox"
+import type { Hex, MetaTransaction } from "./types"
+import { Operation } from "./types"
+
+const MULTISEND_ABI = Abi.from(["function multiSend(bytes transactions) payable"])
 
 /**
  * Encodes multiple transactions for atomic execution by the MultiSend contract.
@@ -80,41 +82,37 @@ import { Operation } from "./types";
  * ```
  */
 function encodeMultiSendCall(
-	transactions: readonly (MetaTransaction & {
-		UNSAFE_DELEGATE_CALL?: boolean;
-	})[],
-): Hex {
-	if (transactions.length === 0) {
-		throw new Error("No transactions provided for MultiSend encoding");
-	}
+  transactions: readonly (MetaTransaction & {
+    UNSAFE_DELEGATE_CALL?: boolean
+  })[]
+): Hex.Hex {
+  if (transactions.length === 0) {
+    throw new Error("No transactions provided for MultiSend encoding")
+  }
 
-	let packed = "0x";
+  let packed = "0x"
 
-	for (const tx of transactions) {
-		const encoded = Bytes.fromArray([
-			...Bytes.from(
-				Bytes.fromNumber(
-					tx.UNSAFE_DELEGATE_CALL
-						? Operation.UNSAFE_DELEGATECALL
-						: Operation.Call,
-					{ size: 1 },
-				),
-			),
-			...Bytes.from(tx.to),
-			...Bytes.from(Bytes.fromNumber(tx.value, { size: 32 })),
-			...Bytes.from(
-				Bytes.fromNumber(BigInt(tx.data.length / 2 - 1), { size: 32 }),
-			),
-			...Bytes.from(tx.data),
-		]);
-		packed += HexUtils.fromBytes(encoded).slice(2);
-	}
+  // MultiSend expects a packed concatenation of its transaction fields without
+  // the array length prefix, dynamic offsets, or 32-byte padding that standard
+  // ABI encoding would add. Therefore we manually build the bytes sequence below
+  // instead of using high-level Abi helpers.
+  for (const tx of transactions) {
+    const encoded = Bytes.fromArray([
+      ...Bytes.from(
+        Bytes.fromNumber(tx.UNSAFE_DELEGATE_CALL ? Operation.UNSAFE_DELEGATECALL : Operation.Call, {
+          size: 1,
+        })
+      ),
+      ...Bytes.from(tx.to),
+      ...Bytes.from(Bytes.fromNumber(tx.value, { size: 32 })),
+      ...Bytes.from(Bytes.fromNumber(BigInt(tx.data.length / 2 - 1), { size: 32 })),
+      ...Bytes.from(tx.data),
+    ])
+    packed += HexUtils.fromBytes(encoded).slice(2)
+  }
 
-	const multiSendAbi = Abi.from([
-		"function multiSend(bytes transactions) payable",
-	]);
-	const multiSendFn = AbiFunction.fromAbi(multiSendAbi, "multiSend");
-	return AbiFunction.encodeData(multiSendFn, [packed as Hex]);
+  const multiSendFn = AbiFunction.fromAbi(MULTISEND_ABI, "multiSend")
+  return AbiFunction.encodeData(multiSendFn, [packed as Hex.Hex])
 }
 
-export { encodeMultiSendCall };
+export { MULTISEND_ABI, encodeMultiSendCall }

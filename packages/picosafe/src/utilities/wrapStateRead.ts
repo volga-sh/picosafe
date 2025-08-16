@@ -1,6 +1,6 @@
+import type { Hex } from "ox";
 import type {
 	EIP1193ProviderWithRequestFn,
-	Hex,
 	MaybeLazy,
 	StateReadCall,
 	WrappedStateRead,
@@ -71,7 +71,7 @@ export function wrapStateRead<
 >(
 	provider: EIP1193ProviderWithRequestFn,
 	call: StateReadCall,
-	decoder: (result: Hex) => T,
+	decoder: (result: Hex.Hex) => T,
 	options?: O,
 ): WrapResult<T, A, O> {
 	const { lazy = false, data, block } = (options ?? {}) as MaybeLazy<A>;
@@ -97,7 +97,7 @@ export function wrapStateRead<
 		const result = (await provider.request({
 			method: "eth_call",
 			params: [{ to: call.to, data: call.data }, blockParam],
-		})) as Hex;
+		})) as Hex.Hex;
 
 		return decoder(result);
 	};

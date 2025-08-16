@@ -467,19 +467,15 @@ function decodeSafeSetupEventFromLogs(logs: readonly Log[]): SafeSetupEvent[] {
 			const safeSetupEvent = AbiEvent.fromAbi(PARSED_SAFE_ABI, "SafeSetup");
 			const decodedEvent = AbiEvent.decode(safeSetupEvent, {
 				data: log.data,
-				topics: log.topics as [Hex, ...Hex[]],
+				topics: log.topics,
 			});
 			// Checksum all address fields in the decoded event
 			const checksummedEvent = {
-				initiator: OxAddress.checksum(decodedEvent.initiator as Address),
-				owners: (decodedEvent.owners as readonly Address[]).map((addr) =>
-					OxAddress.checksum(addr as Address),
-				),
+				initiator: OxAddress.checksum(decodedEvent.initiator),
+				owners: decodedEvent.owners.map((addr) => OxAddress.checksum(addr)),
 				threshold: decodedEvent.threshold,
-				initializer: OxAddress.checksum(decodedEvent.initializer as Address),
-				fallbackHandler: OxAddress.checksum(
-					decodedEvent.fallbackHandler as Address,
-				),
+				initializer: OxAddress.checksum(decodedEvent.initializer),
+				fallbackHandler: OxAddress.checksum(decodedEvent.fallbackHandler),
 			};
 			decoded.push({
 				eventName: "SafeSetup",
