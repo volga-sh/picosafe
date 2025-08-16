@@ -1,6 +1,7 @@
+import type { Address } from "./ox-types";
 import type { SecureSafeTransactionOptions } from "./transactions";
 import { buildSafeTransaction } from "./transactions";
-import type { Address, EIP1193ProviderWithRequestFn } from "./types";
+import type { EIP1193ProviderWithRequestFn } from "./types";
 import { encodeWithSelector } from "./utilities/encoding.js";
 
 /**

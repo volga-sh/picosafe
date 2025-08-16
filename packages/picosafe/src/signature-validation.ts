@@ -7,6 +7,7 @@ import {
 	Secp256k1,
 	Signature,
 } from "ox";
+import type { Address, Hex } from "./ox-types";
 import {
 	PARSED_ERC_1271_ABI_CURRENT,
 	PARSED_ERC_1271_ABI_LEGACY,
@@ -14,12 +15,10 @@ import {
 } from "./abis";
 import { getSignatureTypeVByte } from "./safe-signatures";
 import type {
-	Address,
 	ApprovedHashSignature,
 	DynamicSignature,
 	ECDSASignature,
 	EIP1193ProviderWithRequestFn,
-	Hex,
 	PicosafeSignature,
 } from "./types";
 import { SignatureTypeVByte } from "./types";

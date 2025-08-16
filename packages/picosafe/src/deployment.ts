@@ -7,17 +7,17 @@ import {
 	Hex as HexUtils,
 	Address as OxAddress,
 } from "ox";
-import type { Address, Hex } from "./types";
+import type { Address, Hex } from "./ox-types";
 
 type Log = {
 	address: Address;
 	topics: readonly Hex[];
 	data: Hex;
-	blockNumber?: bigint;
-	blockHash?: Hex;
-	transactionIndex?: number;
-	transactionHash?: Hex;
-	logIndex?: number;
+	blockNumber?: bigint | null;
+	blockHash?: Hex | null;
+	transactionIndex?: number | null;
+	transactionHash?: Hex | null;
+	logIndex?: number | null;
 };
 
 import { PARSED_SAFE_ABI, PARSED_SAFE_PROXY_FACTORY_ABI } from "./abis.js";

@@ -1,4 +1,5 @@
-import { Address } from "ox";
+import { Address as AddressUtils } from "ox";
+import type { Address } from "../ox-types";
 import type { EIP1193ProviderWithRequestFn } from "../types";
 
 /**
@@ -55,12 +56,12 @@ async function getChainId(
  */
 async function getAccounts(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
-): Promise<Address.Address[]> {
+): Promise<Address[]> {
 	const accounts = (await provider.request({
 		method: "eth_accounts",
-	})) as Address.Address[];
+	})) as Address[];
 
-	return accounts.map((account) => Address.checksum(account));
+	return accounts.map((account) => AddressUtils.checksum(account));
 }
 
 export { getChainId, getAccounts };

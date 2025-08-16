@@ -1,8 +1,8 @@
 import { Hash, Hex as HexUtils, Address as OxAddress } from "ox";
+import type { Address, Hex } from "./ox-types";
 import { getModulesPaginated, SAFE_STORAGE_SLOTS } from "./account-state.js";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
 import { buildSafeTransaction } from "./transactions.js";
-import type { Address, Hex } from "./types";
 import type {
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,

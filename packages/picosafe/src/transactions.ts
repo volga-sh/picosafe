@@ -1,4 +1,5 @@
 import { AbiFunction, Address as OxAddress } from "ox";
+import type { Address, Hex } from "./ox-types";
 import { PARSED_SAFE_ABI } from "./abis.js";
 import { getNonce } from "./account-state.js";
 import { getSafeEip712Domain, SAFE_TX_EIP712_TYPES } from "./eip712.js";
@@ -6,11 +7,9 @@ import { encodeMultiSendCall } from "./multisend.js";
 import { V141_ADDRESSES } from "./safe-contracts.js";
 import { encodeSafeSignaturesBytes } from "./safe-signatures.js";
 import type {
-	Address,
 	ECDSASignature,
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,
-	Hex,
 	MetaTransaction,
 	PicosafeSignature,
 } from "./types";

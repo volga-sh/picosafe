@@ -1,5 +1,5 @@
 import { Hex as HexUtils } from "ox";
-import type { Hex } from "../types";
+import type { Hex } from "../ox-types";
 
 /**
  * Concatenates a 4-byte function selector with its ABI-encoded arguments.

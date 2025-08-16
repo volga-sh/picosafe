@@ -1,5 +1,6 @@
 import { Abi, AbiFunction, Bytes, Hex as HexUtils } from "ox"
-import type { Hex, MetaTransaction } from "./types"
+import type { Hex } from "./ox-types"
+import type { MetaTransaction } from "./types"
 import { Operation } from "./types"
 
 const MULTISEND_ABI = Abi.from(["function multiSend(bytes transactions) payable"])
@@ -85,7 +86,7 @@ function encodeMultiSendCall(
   transactions: readonly (MetaTransaction & {
     UNSAFE_DELEGATE_CALL?: boolean
   })[]
-): Hex.Hex {
+): Hex {
   if (transactions.length === 0) {
     throw new Error("No transactions provided for MultiSend encoding")
   }
@@ -112,7 +113,7 @@ function encodeMultiSendCall(
   }
 
   const multiSendFn = AbiFunction.fromAbi(MULTISEND_ABI, "multiSend")
-  return AbiFunction.encodeData(multiSendFn, [packed as Hex.Hex])
+  return AbiFunction.encodeData(multiSendFn, [packed as Hex])
 }
 
 export { MULTISEND_ABI, encodeMultiSendCall }

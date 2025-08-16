@@ -1,5 +1,5 @@
 import { Hex as HexUtils } from "ox";
-import type { Address, Hex } from "../types";
+import type { Address, Hex } from "../ox-types";
 
 // Define types that were from viem
 type TransactionRequest = {

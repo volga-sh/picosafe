@@ -1,4 +1,4 @@
-import type { Address, Hex } from "ox";
+import type { Address, Hex } from "./ox-types";
 
 type BlockTag = "latest" | "earliest" | "pending" | "safe" | "finalized";
 type RpcBlockNumber = `0x${string}`;
@@ -61,9 +61,9 @@ enum Operation {
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/Executor.sol#L21
  */
 type MetaTransaction = {
-	to: Address.Address;
+	to: Address;
 	value: bigint;
-	data: Hex.Hex;
+	data: Hex;
 };
 
 /**
@@ -82,8 +82,8 @@ type SafeTransactionData = MetaTransaction & {
 	safeTxGas: bigint;
 	baseGas: bigint;
 	gasPrice: bigint;
-	gasToken: Address.Address;
-	refundReceiver: Address.Address;
+	gasToken: Address;
+	refundReceiver: Address;
 	nonce: bigint;
 };
 
@@ -116,7 +116,7 @@ type SafeTransactionData = MetaTransaction & {
  */
 type FullSafeTransaction = Prettify<
 	SafeTransactionData & {
-		safeAddress: Address.Address;
+		safeAddress: Address;
 		chainId: bigint;
 	}
 >;
@@ -132,7 +132,7 @@ type FullSafeTransaction = Prettify<
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L348
  */
 type ApprovedHashSignature = {
-	signer: Address.Address;
+	signer: Address;
 };
 
 /**
@@ -145,8 +145,8 @@ type ApprovedHashSignature = {
  * @property {Hex} data - The 65-byte signature data in r + s + v format
  */
 type ECDSASignature = {
-	signer: Address.Address;
-	data: Hex.Hex;
+	signer: Address;
+	data: Hex;
 };
 
 /**
@@ -175,8 +175,8 @@ type StaticSignature = ApprovedHashSignature | ECDSASignature;
  * @property {true} dynamic - Flag indicating this is a dynamic/contract signature
  */
 type DynamicSignature = {
-	signer: Address.Address;
-	data: Hex.Hex;
+	signer: Address;
+	data: Hex;
 	dynamic: true;
 };
 
@@ -197,7 +197,7 @@ type PicosafeSignature = StaticSignature | DynamicSignature;
  * @property {Hex} message - The message to be signed (as hex-encoded bytes)
  */
 type SafeMessage = {
-	message: Hex.Hex;
+	message: Hex;
 };
 
 /**
@@ -252,7 +252,7 @@ enum SignatureTypeVByte {
  * await executeSafeTransaction(provider, safeAddress, safeTx, encoded);
  * ```
  */
-type SafeSignaturesParam = readonly PicosafeSignature[] | Hex.Hex;
+type SafeSignaturesParam = readonly PicosafeSignature[] | Hex;
 
 /**
  * Type predicate to check if a signature is an ApprovedHashSignature
@@ -303,9 +303,9 @@ function isECDSASignature(
  * @property {Address} safeAddress - The Safe contract address (optional)
  */
 type SignatureValidationContext = {
-	dataHash: Hex.Hex;
-	data?: Hex.Hex;
-	safeAddress?: Address.Address;
+	dataHash: Hex;
+	data?: Hex;
+	safeAddress?: Address;
 };
 
 /**
@@ -315,9 +315,9 @@ type SignatureValidationContext = {
  */
 type StateReadCall = {
 	/** Destination contract address */
-	to: Address.Address;
+	to: Address;
 	/** Calldata (selector + encoded args) */
-	data: Hex.Hex;
+	data: Hex;
 	/**
 	 * Block context – either a tag ("latest", "pending", …) or an explicit block
 	 * number/hash.
@@ -360,8 +360,6 @@ type WrapResult<T, A, O> = O extends { lazy: true }
 export { Operation, SignatureTypeVByte };
 export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
 export type {
-	Address,
-	Hex,
 	MetaTransaction,
 	SafeTransactionData,
 	ApprovedHashSignature,

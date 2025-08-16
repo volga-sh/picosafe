@@ -1,5 +1,5 @@
 import { AbiParameters, Hash, TypedData } from "ox";
-import type { Address, Hex } from "./types";
+import type { Address, Hex } from "./ox-types";
 import type { FullSafeTransaction, SafeMessage } from "./types.js";
 
 /**

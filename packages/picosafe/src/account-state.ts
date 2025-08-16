@@ -1,5 +1,5 @@
 import { Hex as HexUtils, Address as OxAddress } from "ox";
-import type { Address as AddressType, Hex } from "./types";
+import type { Address, Hex } from "./ox-types";
 
 type Quantity = `0x${string}`;
 
@@ -137,7 +137,7 @@ const SAFE_STORAGE_SLOTS = {
 function getStorageAt<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
 	params: {
-		safeAddress: AddressType;
+		safeAddress: Address;
 		slot: Quantity;
 		length?: bigint;
 	},
@@ -224,7 +224,7 @@ function getStorageAt<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  */
 function getNonce<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
-	params: { safeAddress: AddressType },
+	params: { safeAddress: Address },
 	options?: O,
 ): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
@@ -306,9 +306,9 @@ function getFallbackHandler<
 	O extends MaybeLazy<A> | undefined = undefined,
 >(
 	provider: EIP1193ProviderWithRequestFn,
-	params: { safeAddress: AddressType },
+	params: { safeAddress: Address },
 	options?: O,
-): WrapResult<AddressType, A, O> {
+): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
 
 	// Use getStorageAt to read the fallback handler
@@ -321,7 +321,7 @@ function getFallbackHandler<
 		{ ...options, lazy: true },
 	);
 
-	const decoder = async (): Promise<AddressType> => {
+	const decoder = async (): Promise<Address> => {
 		const values = await storageCall.call();
 		const [value] = values;
 		if (!value) {
@@ -331,17 +331,17 @@ function getFallbackHandler<
 		}
 		// Extract address from the storage slot value (last 40 hex chars)
 		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
-		return OxAddress.checksum(`0x${addressHex}` as AddressType);
+		return OxAddress.checksum(`0x${addressHex}` as Address);
 	};
 
 	if (options?.lazy) {
 		return {
 			rawCall: storageCall.rawCall,
 			call: decoder,
-		} as WrapResult<AddressType, A, O>;
+		} as WrapResult<Address, A, O>;
 	}
 
-	return decoder() as WrapResult<AddressType, A, O>;
+	return decoder() as WrapResult<Address, A, O>;
 }
 
 /**
@@ -389,7 +389,7 @@ function getOwnerCount<
 	O extends MaybeLazy<A> | undefined = undefined,
 >(
 	provider: EIP1193ProviderWithRequestFn,
-	params: { safeAddress: AddressType },
+	params: { safeAddress: Address },
 	options?: O,
 ): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
@@ -467,7 +467,7 @@ function getOwnerCount<
  */
 function getThreshold<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
-	params: { safeAddress: AddressType },
+	params: { safeAddress: Address },
 	options?: O,
 ): WrapResult<bigint, A, O> {
 	const { safeAddress } = params;
@@ -546,9 +546,9 @@ function getThreshold<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  */
 function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
-	params: { safeAddress: AddressType },
+	params: { safeAddress: Address },
 	options?: O,
-): WrapResult<AddressType, A, O> {
+): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
 
 	// Use getStorageAt to read the guard
@@ -561,7 +561,7 @@ function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		{ ...options, lazy: true },
 	);
 
-	const decoder = async (): Promise<AddressType> => {
+	const decoder = async (): Promise<Address> => {
 		const values = await storageCall.call();
 		const [value] = values;
 		if (!value) {
@@ -569,17 +569,17 @@ function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		}
 		// Extract address from the storage slot value (last 40 hex chars)
 		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
-		return OxAddress.checksum(`0x${addressHex}` as AddressType);
+		return OxAddress.checksum(`0x${addressHex}` as Address);
 	};
 
 	if (options?.lazy) {
 		return {
 			rawCall: storageCall.rawCall,
 			call: decoder,
-		} as WrapResult<AddressType, A, O>;
+		} as WrapResult<Address, A, O>;
 	}
 
-	return decoder() as WrapResult<AddressType, A, O>;
+	return decoder() as WrapResult<Address, A, O>;
 }
 
 /**
@@ -625,9 +625,9 @@ function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  */
 function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
-	params: { safeAddress: AddressType },
+	params: { safeAddress: Address },
 	options?: O,
-): WrapResult<AddressType, A, O> {
+): WrapResult<Address, A, O> {
 	const { safeAddress } = params;
 
 	// Use getStorageAt to read the singleton
@@ -640,7 +640,7 @@ function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		{ ...options, lazy: true },
 	);
 
-	const decoder = async (): Promise<AddressType> => {
+	const decoder = async (): Promise<Address> => {
 		const values = await storageCall.call();
 		const [value] = values;
 		if (!value) {
@@ -650,17 +650,17 @@ function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		}
 		// Extract address from the storage slot value (last 40 hex chars)
 		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
-		return OxAddress.checksum(`0x${addressHex}` as AddressType);
+		return OxAddress.checksum(`0x${addressHex}` as Address);
 	};
 
 	if (options?.lazy) {
 		return {
 			rawCall: storageCall.rawCall,
 			call: decoder,
-		} as WrapResult<AddressType, A, O>;
+		} as WrapResult<Address, A, O>;
 	}
 
-	return decoder() as WrapResult<AddressType, A, O>;
+	return decoder() as WrapResult<Address, A, O>;
 }
 
 /**
@@ -714,9 +714,9 @@ function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  */
 function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
-	params: { safeAddress: AddressType },
+	params: { safeAddress: Address },
 	options?: O,
-): WrapResult<AddressType[], A, O> {
+): WrapResult<Address[], A, O> {
 	const { safeAddress } = params;
 	const { block = "latest" } = options || {};
 
@@ -729,7 +729,7 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		block,
 	};
 
-	const decoder = (raw: Hex): AddressType[] => {
+	const decoder = (raw: Hex): Address[] => {
 		if (raw === "0x") {
 			throw new Error(`Failed to retrieve owners for Safe at ${safeAddress}`);
 		}
@@ -753,7 +753,7 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		);
 		const length = Number.parseInt(lengthHex, 16);
 
-		const owners: AddressType[] = [];
+		const owners: Address[] = [];
 		// Start reading addresses after offset pointer + length field
 		const dataOffset = ARRAY_DATA_OFFSET_START;
 
@@ -761,7 +761,7 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 			// Each address is stored in a 32-byte slot, right-padded with zeros
 			const start = dataOffset + i * 64;
 			const addressHex = raw.slice(start + 24, start + 64); // Last 20 bytes of the 32-byte slot
-			owners.push(OxAddress.checksum(`0x${addressHex}` as AddressType));
+			owners.push(OxAddress.checksum(`0x${addressHex}` as Address));
 		}
 
 		return owners;
@@ -798,7 +798,7 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  * import type { Address } from "viem";
  *
  * const provider = createPublicClient({ chain: mainnet, transport: http() });
- * const safeAddress: AddressType = "0xA063Cda916194a4b344255447895429f531407e4";
+ * const safeAddress: Address = "0xA063Cda916194a4b344255447895429f531407e4";
  *
  * // Get first page of modules - immediate execution (default)
  * const firstPage = await getModulesPaginated(
@@ -809,8 +809,8 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  * console.log('Next page starts at:', firstPage.next);
  *
  * // Get all modules using pagination
- * const allModules: AddressType[] = [];
- * let nextModule: AddressType | undefined = SENTINEL_NODE;
+ * const allModules: Address[] = [];
+ * let nextModule: Address | undefined = SENTINEL_NODE;
  *
  * while (nextModule && nextModule !== SENTINEL_NODE) {
  *   const page = await getModulesPaginated(
@@ -839,12 +839,12 @@ function getModulesPaginated<
 >(
 	provider: EIP1193ProviderWithRequestFn,
 	params: {
-		safeAddress: AddressType;
-		start?: AddressType;
+		safeAddress: Address;
+		start?: Address;
 		pageSize?: number;
 	},
 	options?: O,
-): WrapResult<{ modules: AddressType[]; next: AddressType }, A, O> {
+): WrapResult<{ modules: Address[]; next: Address }, A, O> {
 	const { safeAddress, start = SENTINEL_NODE, pageSize = 100 } = params;
 	const { block = "latest" } = options || {};
 
@@ -863,7 +863,7 @@ function getModulesPaginated<
 
 	const decoder = (
 		result: Hex,
-	): { modules: AddressType[]; next: AddressType } => {
+	): { modules: Address[]; next: Address } => {
 		if (result === "0x") {
 			throw new Error(`Failed to retrieve modules for Safe at ${safeAddress}`);
 		}
@@ -884,7 +884,7 @@ function getModulesPaginated<
 
 		// Decode 'next' address (bytes32 padded)
 		const next =
-			`0x${hex.slice(MODULE_NEXT_OFFSET_START, MODULE_NEXT_OFFSET_END).slice(-ADDRESS_HEX_LENGTH)}` as AddressType;
+			`0x${hex.slice(MODULE_NEXT_OFFSET_START, MODULE_NEXT_OFFSET_END).slice(-ADDRESS_HEX_LENGTH)}` as Address;
 
 		// Decode array length
 		const arrayLength = Number.parseInt(
@@ -893,12 +893,12 @@ function getModulesPaginated<
 		);
 
 		// Decode module addresses
-		const modules: AddressType[] = [];
+		const modules: Address[] = [];
 		for (let i = 0; i < arrayLength; i++) {
 			const offset = MODULE_DATA_OFFSET_START + i * 64;
 			// Extract address from padded bytes32 value
 			const addressHex = hex.slice(offset + 24, offset + 64);
-			modules.push(OxAddress.checksum(`0x${addressHex}` as AddressType));
+			modules.push(OxAddress.checksum(`0x${addressHex}` as Address));
 		}
 
 		return { modules, next };

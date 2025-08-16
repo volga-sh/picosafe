@@ -293,7 +293,7 @@ describe("encodeMultiSendCall", () => {
 			const transactions = Array.from({ length: 100 }, (_, i) => ({
 				to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 				value: BigInt(i) * 1000000000000000n,
-				data: HexUtils.padLeft(i.toString(16), 32),
+				data: HexUtils.padLeft(`0x${i.toString(16)}`, 32),
 			}));
 
 			const encoded = encodeMultiSendCall(transactions);
