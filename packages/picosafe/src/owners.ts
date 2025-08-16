@@ -1,6 +1,6 @@
 import { Address as OxAddress } from "ox";
-import type { Address } from "./ox-types";
 import { getOwners } from "./account-state.js";
+import type { Address } from "./ox-types";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
 import { buildSafeTransaction } from "./transactions.js";
 import type {

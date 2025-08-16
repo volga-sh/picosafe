@@ -6,8 +6,8 @@ import {
 	Secp256k1,
 	Signature,
 } from "ox";
-import type { Address, Hex } from "./ox-types";
 import { getOwners, getThreshold } from "./account-state.js";
+import type { Address, Hex } from "./ox-types";
 import type { SignatureValidationResult } from "./signature-validation.js";
 import { validateSignature } from "./signature-validation.js";
 import type {

@@ -7,12 +7,12 @@ import {
 	Secp256k1,
 	Signature,
 } from "ox";
-import type { Address, Hex } from "./ox-types";
 import {
 	PARSED_ERC_1271_ABI_CURRENT,
 	PARSED_ERC_1271_ABI_LEGACY,
 	PARSED_SAFE_ABI,
 } from "./abis";
+import type { Address, Hex } from "./ox-types";
 import { getSignatureTypeVByte } from "./safe-signatures";
 import type {
 	ApprovedHashSignature,

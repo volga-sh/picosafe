@@ -861,9 +861,7 @@ function getModulesPaginated<
 		block,
 	};
 
-	const decoder = (
-		result: Hex,
-	): { modules: Address[]; next: Address } => {
+	const decoder = (result: Hex): { modules: Address[]; next: Address } => {
 		if (result === "0x") {
 			throw new Error(`Failed to retrieve modules for Safe at ${safeAddress}`);
 		}
