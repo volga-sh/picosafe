@@ -10,14 +10,14 @@
  * Tests run against a local Anvil blockchain with real Safe contracts deployed.
  */
 
+import { Address, Hex as HexUtils } from "ox";
 import {
-	type Address,
-	concatHex,
 	encodeFunctionData,
 	type Hex,
 	keccak256,
 	pad,
 	parseAbi,
+	type Address as ViemAddress,
 } from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SAFE_STORAGE_SLOTS } from "../src/account-state.js";
@@ -28,9 +28,7 @@ import {
 	UNSAFE_getEnableModuleTransaction,
 } from "../src/modules";
 import { Operation } from "../src/types";
-import { checksumAddress } from "../src/utilities/address";
 import { SENTINEL_NODE, ZERO_ADDRESS } from "../src/utilities/constants";
-import { padStartHex } from "../src/utilities/encoding.js";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress } from "./utils";
 
@@ -46,11 +44,11 @@ import { randomAddress } from "./utils";
  */
 async function writeModulesToStorage(
 	testClient: ReturnType<typeof createClients>["testClient"],
-	safeAddress: Address,
-	modules: Address[],
+	safeAddress: ViemAddress,
+	modules: ViemAddress[],
 ): Promise<void> {
 	// Build forward pointers for SENTINEL and every module
-	const forwardPointers: Record<Address, Address> = {};
+	const forwardPointers: Record<ViemAddress, ViemAddress> = {};
 
 	// SENTINEL points to first module or back to itself if none
 	forwardPointers[SENTINEL_NODE] = modules[0] ?? SENTINEL_NODE;
@@ -72,8 +70,8 @@ async function writeModulesToStorage(
 
 	// Write mapping entries
 	for (const [key, value] of Object.entries(forwardPointers)) {
-		const slot = computeModulesMappingSlot(key as Address);
-		const paddedValue = padStartHex(value, 32);
+		const slot = computeModulesMappingSlot(key as ViemAddress);
+		const paddedValue = HexUtils.padLeft(value, 32);
 		await testClient.setStorageAt({
 			address: safeAddress,
 			index: slot,
@@ -108,8 +106,8 @@ describe("Safe Module Management Functions", () => {
 	describe("getEnableModuleTransaction", () => {
 		it("should build correct Safe transaction for enabling a module", async () => {
 			// Use random addresses - no need to deploy Safe for transaction building
-			const safeAddress = checksumAddress(randomAddress());
-			const moduleAddress = checksumAddress(randomAddress());
+			const safeAddress = Address.checksum(randomAddress());
+			const moduleAddress = Address.checksum(randomAddress());
 
 			// Build the enable module transaction with explicit nonce to avoid reading from blockchain
 			const enableTx = await UNSAFE_getEnableModuleTransaction(
@@ -140,10 +138,10 @@ describe("Safe Module Management Functions", () => {
 
 		it("should build transaction with custom transaction options", async () => {
 			// Use random addresses - no need to deploy Safe for transaction building
-			const safeAddress = checksumAddress(randomAddress());
-			const moduleAddress = checksumAddress(randomAddress());
-			const gasToken = checksumAddress(randomAddress());
-			const refundReceiver = checksumAddress(randomAddress());
+			const safeAddress = Address.checksum(randomAddress());
+			const moduleAddress = Address.checksum(randomAddress());
+			const gasToken = Address.checksum(randomAddress());
+			const refundReceiver = Address.checksum(randomAddress());
 
 			// Build the enable module transaction with custom options
 			const enableTx = await UNSAFE_getEnableModuleTransaction(
@@ -175,11 +173,11 @@ describe("Safe Module Management Functions", () => {
 
 		it("should handle multiple enable operations with different modules", async () => {
 			// Use random addresses - no need to deploy Safe for transaction building
-			const safeAddress = checksumAddress(randomAddress());
+			const safeAddress = Address.checksum(randomAddress());
 			const moduleAddresses = [
-				checksumAddress(randomAddress()),
-				checksumAddress(randomAddress()),
-				checksumAddress(randomAddress()),
+				Address.checksum(randomAddress()),
+				Address.checksum(randomAddress()),
+				Address.checksum(randomAddress()),
 			];
 
 			// Build enable transactions for each module with explicit nonce to avoid reading from blockchain
@@ -223,9 +221,9 @@ describe("Safe Module Management Functions", () => {
 		});
 
 		it("should build identical enableModule transactions for checksum and lowercase addresses", async () => {
-			const safeAddress = checksumAddress(randomAddress());
-			const moduleLower = checksumAddress(randomAddress());
-			const moduleChecksum = checksumAddress(moduleLower);
+			const safeAddress = Address.checksum(randomAddress());
+			const moduleLower = Address.checksum(randomAddress());
+			const moduleChecksum = Address.checksum(moduleLower);
 
 			// explicitly set nonce to 0 to avoid reading from blockchain
 			const txLower = await UNSAFE_getEnableModuleTransaction(
@@ -329,8 +327,8 @@ describe("Safe Module Management Functions", () => {
 			// Enable module via storage manipulation
 			await writeModulesToStorage(testClient, safeAddress, [moduleAddress]);
 
-			const gasToken = checksumAddress(randomAddress());
-			const refundReceiver = checksumAddress(randomAddress());
+			const gasToken = Address.checksum(randomAddress());
+			const refundReceiver = Address.checksum(randomAddress());
 
 			const disableTx = await getDisableModuleTransaction(
 				walletClient,
@@ -421,7 +419,7 @@ describe("Safe Module Management Functions", () => {
 			const safeAddress = safeDeployment.data.safeAddress;
 			const moduleAddress = randomAddress();
 			await writeModulesToStorage(testClient, safeAddress, [moduleAddress]);
-			const moduleChecksum = checksumAddress(moduleAddress);
+			const moduleChecksum = Address.checksum(moduleAddress);
 
 			const txLower = await getDisableModuleTransaction(
 				walletClient,
@@ -483,10 +481,10 @@ describe("Safe Module Management Functions", () => {
 			// The expected slot is keccak256(abi.encodePacked(moduleAddress, uint256(1)))
 			// where moduleAddress is 0x...0001 and the slot is 1 (for modules mapping)
 			const expectedSlot = keccak256(
-				concatHex([
+				HexUtils.concat(
 					pad(moduleAddress, { size: 32 }),
 					pad(SAFE_STORAGE_SLOTS.modulesMapping as Hex, { size: 32 }),
-				]),
+				),
 			);
 			const slot = computeModulesMappingSlot(moduleAddress);
 			expect(slot).toBe(expectedSlot);
@@ -496,10 +494,10 @@ describe("Safe Module Management Functions", () => {
 			// The expected slot is keccak256(abi.encodePacked(SENTINEL_NODE, uint256(1)))
 			// where SENTINEL_NODE is 0x...0001 and the slot is 1 (for modules mapping)
 			const expectedSlot = keccak256(
-				concatHex([
+				HexUtils.concat(
 					pad(SENTINEL_NODE, { size: 32 }),
 					pad(SAFE_STORAGE_SLOTS.modulesMapping as Hex, { size: 32 }),
-				]),
+				),
 			);
 			const slot = computeModulesMappingSlot(SENTINEL_NODE);
 			expect(slot).toBe(expectedSlot);
@@ -515,7 +513,7 @@ describe("Safe Module Management Functions", () => {
 
 		it("should return the same slot for checksummed and lowercase addresses", () => {
 			const moduleLower = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-			const moduleChecksum = checksumAddress(moduleLower);
+			const moduleChecksum = Address.checksum(moduleLower);
 			const slot1 = computeModulesMappingSlot(moduleLower);
 			const slot2 = computeModulesMappingSlot(moduleChecksum);
 			expect(slot1).toBe(slot2);

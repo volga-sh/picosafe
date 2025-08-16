@@ -1,4 +1,4 @@
-import type { Address } from "viem";
+import type { Address } from "./ox-types";
 import type { SecureSafeTransactionOptions } from "./transactions";
 import { buildSafeTransaction } from "./transactions";
 import type { EIP1193ProviderWithRequestFn } from "./types";

@@ -9,19 +9,9 @@
  * Tests run against a local Anvil blockchain.
  */
 
-import {
-	type Address,
-	encodeFunctionData,
-	type Hex,
-	padHex,
-	parseEther,
-} from "viem";
+import { type Address, encodeFunctionData, type Hex, parseEther } from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-	concatHex,
-	encodeWithSelector,
-	padStartHex,
-} from "../src/utilities/encoding";
+import { encodeWithSelector } from "../src/utilities/encoding";
 import { wrapEthereumTransaction } from "../src/utilities/wrapEthereumTransaction";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress } from "./utils";
@@ -284,40 +274,6 @@ describe("Utility Functions", () => {
 	});
 
 	describe("Encoding Utilities", () => {
-		describe("padStartHex", () => {
-			it("should pad a hex string to 32 bytes by default", () => {
-				const value = "1234deadbeef1234deadbeef1234deadbeef1234";
-				const expected = padHex(`0x${value}`);
-				expect(padStartHex(value)).toBe(expected);
-			});
-
-			it("should pad a 0x-prefixed hex string", () => {
-				const value = "0x1234deadbeef1234deadbeef1234deadbeef1234";
-				const expected = padHex(value);
-				expect(padStartHex(value)).toBe(expected);
-			});
-
-			it("should pad to a specified byte length", () => {
-				const value = "abc";
-				const bytes = 10;
-				const expected = padHex(`0x${value}`, { size: bytes });
-				expect(padStartHex(value, bytes)).toBe(expected);
-			});
-
-			it("should return a string of zeros for an empty string", () => {
-				const expected = padHex("0x", { size: 32 });
-				expect(padStartHex("")).toBe(expected);
-			});
-
-			it("should throw an error if value exceeds requested byte length", () => {
-				const value = "1234567890abcdef"; // 8 bytes
-				const bytes = 4; // 4 bytes
-				expect(() => padStartHex(value, bytes)).toThrow(
-					`Value 0x${value} exceeds ${bytes}-byte length (${bytes * 2} nibbles)`,
-				);
-			});
-		});
-
 		describe("encodeWithSelector", () => {
 			it("should encode with a selector and a single address argument", () => {
 				const selector = "0x610b5925"; // enableModule(address)
@@ -386,69 +342,8 @@ describe("Utility Functions", () => {
 				const selector = "0x12345678";
 				const longHex = `0x${"a".repeat(65)}`; // 33 bytes
 				expect(() => encodeWithSelector(selector, longHex)).toThrow(
-					`Value 0x${longHex.slice(2)} exceeds 32-byte length (64 nibbles)`,
+					"Hex size (`33`) exceeds padding size (`32`)",
 				);
-			});
-		});
-
-		describe("concatHex", () => {
-			it("should concatenate 0x-prefixed hex strings", () => {
-				const result = concatHex("0x1234", "0xabcd", "0x5678");
-				expect(result).toBe("0x1234abcd5678");
-			});
-
-			it("should concatenate non-prefixed hex strings", () => {
-				const result = concatHex("1234", "abcd", "5678");
-				expect(result).toBe("0x1234abcd5678");
-			});
-
-			it("should concatenate mixed prefixed and non-prefixed hex strings", () => {
-				const result = concatHex("0x1234", "abcd", "0x5678");
-				expect(result).toBe("0x1234abcd5678");
-			});
-
-			it("should handle a single 0x-prefixed argument", () => {
-				const result = concatHex("0x1234abcd");
-				expect(result).toBe("0x1234abcd");
-			});
-
-			it("should handle a single non-prefixed argument", () => {
-				const result = concatHex("1234abcd");
-				expect(result).toBe("0x1234abcd");
-			});
-
-			it("should handle empty strings", () => {
-				const result = concatHex("", "0x1234", "");
-				expect(result).toBe("0x1234");
-			});
-
-			it("should handle multiple arguments of varying lengths", () => {
-				const result = concatHex(
-					"0xa",
-					"bc",
-					"0xdef",
-					"1234567890abcdef",
-					"0x00",
-				);
-				expect(result).toBe("0xabcdef1234567890abcdef00");
-			});
-
-			it("should preserve case of hex characters", () => {
-				const result = concatHex("0xABCD", "ef12", "0x3456");
-				expect(result).toBe("0xABCDef123456");
-			});
-
-			it("should handle long hex strings", () => {
-				const hex1 = `0x${"a".repeat(64)}`; // 32 bytes
-				const hex2 = "b".repeat(64); // 32 bytes (no prefix)
-				const expected = `0x${"a".repeat(64)}${"b".repeat(64)}`;
-				const result = concatHex(hex1, hex2);
-				expect(result).toBe(expected);
-			});
-
-			it("should work with the example from JSDoc", () => {
-				const result = concatHex("0x1234", "abcd", "0x5678");
-				expect(result).toBe("0x1234abcd5678");
 			});
 		});
 	});

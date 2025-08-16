@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import type { Address, Hex } from "viem";
-import { checksumAddress } from "../src/utilities/address";
+import { Address } from "ox";
+import type { Hex, Address as ViemAddress } from "viem";
 
 /**
  * Generates a cryptographically secure random byte array of the specified size.
@@ -53,8 +53,8 @@ function randomBytesHex(size: number): Hex {
  * @example
  * const address = randomAddress();
  */
-function randomAddress(): Address {
-	return checksumAddress(randomBytesHex(20));
+function randomAddress(): ViemAddress {
+	return Address.checksum(randomBytesHex(20));
 }
 
 /**

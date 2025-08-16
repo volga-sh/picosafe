@@ -1,6 +1,11 @@
-import { encodeFunctionData, encodePacked, type Hex, parseAbi } from "viem";
+import { Abi, AbiFunction, Bytes, Hex as HexUtils } from "ox";
+import type { Hex } from "./ox-types";
 import type { MetaTransaction } from "./types";
 import { Operation } from "./types";
+
+const MULTISEND_ABI = Abi.from([
+	"function multiSend(bytes transactions) payable",
+]);
 
 /**
  * Encodes multiple transactions for atomic execution by the MultiSend contract.
@@ -90,27 +95,34 @@ function encodeMultiSendCall(
 
 	let packed = "0x";
 
+	// MultiSend expects a packed concatenation of its transaction fields without
+	// the array length prefix, dynamic offsets, or 32-byte padding that standard
+	// ABI encoding would add. Therefore we manually build the bytes sequence below
+	// instead of using high-level Abi helpers.
 	for (const tx of transactions) {
-		const encoded = encodePacked(
-			["uint8", "address", "uint256", "uint256", "bytes"],
-			[
-				tx.UNSAFE_DELEGATE_CALL
-					? Operation.UNSAFE_DELEGATECALL
-					: Operation.Call,
-				tx.to,
-				tx.value,
-				BigInt(tx.data.length / 2 - 1), // Convert hex string length to byte length (each byte = 2 hex chars, minus '0x' prefix)
-				tx.data,
-			],
-		);
-		packed += encoded.slice(2);
+		const encoded = Bytes.fromArray([
+			...Bytes.from(
+				Bytes.fromNumber(
+					tx.UNSAFE_DELEGATE_CALL
+						? Operation.UNSAFE_DELEGATECALL
+						: Operation.Call,
+					{
+						size: 1,
+					},
+				),
+			),
+			...Bytes.from(tx.to),
+			...Bytes.from(Bytes.fromNumber(tx.value, { size: 32 })),
+			...Bytes.from(
+				Bytes.fromNumber(BigInt(tx.data.length / 2 - 1), { size: 32 }),
+			),
+			...Bytes.from(tx.data),
+		]);
+		packed += HexUtils.fromBytes(encoded).slice(2);
 	}
 
-	return encodeFunctionData({
-		abi: parseAbi(["function multiSend(bytes transactions) payable"]),
-		functionName: "multiSend",
-		args: [packed as Hex],
-	});
+	const multiSendFn = AbiFunction.fromAbi(MULTISEND_ABI, "multiSend");
+	return AbiFunction.encodeData(multiSendFn, [packed as Hex]);
 }
 
-export { encodeMultiSendCall };
+export { MULTISEND_ABI, encodeMultiSendCall };

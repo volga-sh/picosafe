@@ -10,6 +10,7 @@
  * Tests run against a local Anvil blockchain with real Safe contracts deployed.
  */
 
+import { Address, Hex as HexUtils } from "ox";
 import {
 	encodeFunctionData,
 	encodePacked,
@@ -20,8 +21,6 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { encodeMultiSendCall } from "../src/multisend";
 import { type MetaTransaction, Operation } from "../src/types";
-import { checksumAddress } from "../src/utilities/address";
-import { padStartHex } from "../src/utilities/encoding";
 import { createClients, snapshot } from "./fixtures/setup";
 
 describe("encodeMultiSendCall", () => {
@@ -40,7 +39,7 @@ describe("encodeMultiSendCall", () => {
 	describe("Basic functionality", () => {
 		it("should encode a single transaction correctly", () => {
 			const transaction = {
-				to: checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+				to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 				value: 1000000000000000000n, // 1 ETH
 				data: "0x" as Hex,
 			};
@@ -76,12 +75,12 @@ describe("encodeMultiSendCall", () => {
 		it("should encode multiple transactions correctly", () => {
 			const transactions = [
 				{
-					to: checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+					to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 					value: 1000000000000000000n, // 1 ETH
 					data: "0x" as Hex,
 				},
 				{
-					to: checksumAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+					to: Address.checksum("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 					value: 2000000000000000000n, // 2 ETH
 					data: "0x" as Hex,
 				},
@@ -116,13 +115,13 @@ describe("encodeMultiSendCall", () => {
 				abi: tokenAbi,
 				functionName: "transfer",
 				args: [
-					checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+					Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 					1000000000000000000n,
 				],
 			});
 
 			const transaction = {
-				to: checksumAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+				to: Address.checksum("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 				value: 0n,
 				data,
 			};
@@ -150,7 +149,7 @@ describe("encodeMultiSendCall", () => {
 	describe("Delegate call functionality", () => {
 		it("should encode a delegate call correctly", () => {
 			const transaction = {
-				to: checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+				to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 				value: 0n,
 				data: "0x12345678" as Hex,
 				UNSAFE_DELEGATE_CALL: true,
@@ -185,13 +184,13 @@ describe("encodeMultiSendCall", () => {
 				Parameters<typeof encodeMultiSendCall>[0][number],
 			] = [
 				{
-					to: checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+					to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 					value: 1000000000000000000n,
 					data: "0x" as Hex,
 					UNSAFE_DELEGATE_CALL: false,
 				},
 				{
-					to: checksumAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+					to: Address.checksum("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
 					value: 0n,
 					data: "0xabcdef" as Hex,
 					UNSAFE_DELEGATE_CALL: true,
@@ -238,7 +237,7 @@ describe("encodeMultiSendCall", () => {
 			// Create a long data string (1000 bytes)
 			const longData = `0x${"ff".repeat(1000)}` as Hex;
 			const transaction: MetaTransaction = {
-				to: checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+				to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 				value: 0n,
 				data: longData,
 			};
@@ -268,7 +267,7 @@ describe("encodeMultiSendCall", () => {
 
 		it("should handle very small data", () => {
 			const transaction = {
-				to: checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+				to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 				value: 0n,
 				data: "0x01" as Hex,
 			};
@@ -292,9 +291,9 @@ describe("encodeMultiSendCall", () => {
 		it("should handle many transactions", () => {
 			// Create 100 transactions
 			const transactions = Array.from({ length: 100 }, (_, i) => ({
-				to: checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+				to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 				value: BigInt(i) * 1000000000000000n,
-				data: padStartHex(i.toString(16), 32),
+				data: HexUtils.padLeft(`0x${i.toString(16)}`, 32),
 			}));
 
 			const encoded = encodeMultiSendCall(transactions);
@@ -311,7 +310,7 @@ describe("encodeMultiSendCall", () => {
 		});
 
 		it("should preserve exact addresses with checksums", () => {
-			const checksummedAddress = checksumAddress(
+			const checksummedAddress = Address.checksum(
 				"0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5",
 			);
 			const transaction = {
@@ -334,7 +333,7 @@ describe("encodeMultiSendCall", () => {
 		it("should handle transactions with maximum uint256 values", () => {
 			const maxUint256 = 2n ** 256n - 1n;
 			const transaction = {
-				to: checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+				to: Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
 				value: maxUint256,
 				data: "0x" as Hex,
 			};
@@ -365,10 +364,10 @@ describe("encodeMultiSendCall", () => {
 				"function swap(address tokenIn, address tokenOut, uint256 amount)",
 			]);
 
-			const tokenAddress = checksumAddress(
+			const tokenAddress = Address.checksum(
 				"0x6B175474E89094C44Da98b954EedeAC495271d0F",
 			); // DAI
-			const dexAddress = checksumAddress(
+			const dexAddress = Address.checksum(
 				"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
 			); // Uniswap
 			const amount = parseEther("100");
@@ -384,7 +383,7 @@ describe("encodeMultiSendCall", () => {
 				functionName: "swap",
 				args: [
 					tokenAddress,
-					checksumAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"), // WETH
+					Address.checksum("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"), // WETH
 					amount,
 				],
 			}) as Hex;
@@ -424,11 +423,11 @@ describe("encodeMultiSendCall", () => {
 
 		it("should encode batch ETH transfers", () => {
 			const recipients = [
-				checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
-				checksumAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
-				checksumAddress("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
-				checksumAddress("0x90F79bf6EB2c4f870365E785982E1f101E93b906"),
-				checksumAddress("0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"),
+				Address.checksum("0x742d35Cc6634C0532925a3b844Bc9e7595Ed6cC5"),
+				Address.checksum("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+				Address.checksum("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+				Address.checksum("0x90F79bf6EB2c4f870365E785982E1f101E93b906"),
+				Address.checksum("0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"),
 			];
 
 			const transactions = recipients.map((to, index) => ({

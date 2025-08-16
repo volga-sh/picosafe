@@ -1,10 +1,31 @@
-import type {
-	Address,
-	Hex,
-	RpcTransactionRequest,
-	TransactionRequest,
-} from "viem";
-import { toHex } from "viem";
+import { Hex as HexUtils } from "ox";
+import type { Address, Hex } from "../ox-types";
+
+// Define types that were from viem
+type TransactionRequest = {
+	from?: Address;
+	to?: Address;
+	value?: bigint;
+	data?: Hex;
+	gas?: bigint;
+	gasPrice?: bigint;
+	maxFeePerGas?: bigint;
+	maxPriorityFeePerGas?: bigint;
+	nonce?: number;
+};
+
+type RpcTransactionRequest = {
+	from?: Address;
+	to?: Address;
+	value?: Hex;
+	data?: Hex;
+	gas?: Hex;
+	gasPrice?: Hex;
+	maxFeePerGas?: Hex;
+	maxPriorityFeePerGas?: Hex;
+	nonce?: Hex;
+};
+
 import type { EIP1193ProviderWithRequestFn } from "../types";
 import { getAccounts } from "./eip1193-provider";
 
@@ -141,37 +162,37 @@ function wrapEthereumTransaction<A = void>(
 			rpcTransaction.data = txRequest.data;
 		}
 		if (txRequest.value !== undefined) {
-			rpcTransaction.value = toHex(txRequest.value);
+			rpcTransaction.value = HexUtils.fromNumber(txRequest.value);
 		}
 		if (txRequest.gas !== undefined) {
-			rpcTransaction.gas = toHex(txRequest.gas);
+			rpcTransaction.gas = HexUtils.fromNumber(txRequest.gas);
 		}
 		if (txRequest.gasPrice !== undefined) {
-			rpcTransaction.gasPrice = toHex(txRequest.gasPrice);
+			rpcTransaction.gasPrice = HexUtils.fromNumber(txRequest.gasPrice);
 		}
 		if (txRequest.maxFeePerGas !== undefined) {
-			rpcTransaction.maxFeePerGas = toHex(txRequest.maxFeePerGas);
+			rpcTransaction.maxFeePerGas = HexUtils.fromNumber(txRequest.maxFeePerGas);
 		}
 		if (txRequest.maxPriorityFeePerGas !== undefined) {
-			rpcTransaction.maxPriorityFeePerGas = toHex(
+			rpcTransaction.maxPriorityFeePerGas = HexUtils.fromNumber(
 				txRequest.maxPriorityFeePerGas,
 			);
 		}
 		if (txRequest.nonce !== undefined) {
-			rpcTransaction.nonce = toHex(txRequest.nonce);
+			rpcTransaction.nonce = HexUtils.fromNumber(txRequest.nonce);
 		}
 		if (rpcTransaction.gas === undefined) {
-			const gasEstimate = await provider.request({
+			const gasEstimate = (await provider.request({
 				method: "eth_estimateGas",
 				params: [rpcTransaction],
-			});
+			})) as string;
 
 			// Add 20% buffer to gas estimate for safety
 			// Sometimes the transaction may use more gas than estimated
 			// e.g., in case of a gas refund, where the refund is applied after the transaction is executed
 			const gasEstimateBigInt = BigInt(gasEstimate);
 			const gasWithBuffer = (gasEstimateBigInt * 120n) / 100n;
-			rpcTransaction.gas = toHex(gasWithBuffer);
+			rpcTransaction.gas = HexUtils.fromNumber(gasWithBuffer);
 		}
 
 		if (
@@ -179,15 +200,15 @@ function wrapEthereumTransaction<A = void>(
 			rpcTransaction.maxFeePerGas === undefined &&
 			rpcTransaction.maxPriorityFeePerGas === undefined
 		) {
-			rpcTransaction.gasPrice = await provider.request({
+			rpcTransaction.gasPrice = (await provider.request({
 				method: "eth_gasPrice",
-			});
+			})) as Hex;
 		}
 
-		const txHash = await provider.request({
+		const txHash = (await provider.request({
 			method: "eth_sendTransaction",
 			params: [rpcTransaction],
-		});
+		})) as Hex;
 
 		return txHash;
 	}

@@ -1,14 +1,99 @@
-import type { Address, Hex } from "viem";
 import {
-	concatHex,
-	encodeFunctionData,
-	hashMessage,
-	keccak256,
-	toBytes,
-	toHex,
-} from "viem";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+	AbiFunction,
+	Address as AddressUtils,
+	Bytes,
+	Hash,
+	Hex as HexUtils,
+	PersonalMessage,
+	Secp256k1,
+	Signature,
+} from "ox";
+
+// Type aliases sourced from ox namespaces
+type Hex = HexUtils.Hex;
+type Address = AddressUtils.Address;
+
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+
+// Helper functions to replace viem functions
+const generatePrivateKey = () => Secp256k1.randomPrivateKey();
+
+const privateKeyToAccount = (privateKey: Hex) => {
+	const publicKey = Secp256k1.getPublicKey({ privateKey });
+	const address = AddressUtils.checksum(AddressUtils.fromPublicKey(publicKey));
+	return {
+		address,
+		sign: async ({ hash }: { hash: Hex }): Promise<Hex> => {
+			const signature = Secp256k1.sign({ payload: hash, privateKey });
+			return Signature.toHex(signature) as Hex;
+		},
+		signMessage: async ({ message }: { message: Hex }): Promise<Hex> => {
+			const payload = PersonalMessage.getSignPayload(message);
+			const signature = Secp256k1.sign({ payload, privateKey });
+			return Signature.toHex(signature) as Hex;
+		},
+	};
+};
+
+const keccak256 = (data: Hex | Uint8Array | string): Hex => {
+	const bytes =
+		typeof data === "string"
+			? data.startsWith("0x")
+				? Bytes.fromHex(data as Hex)
+				: new TextEncoder().encode(data)
+			: data;
+	const hashBytes = Hash.keccak256(bytes);
+	return HexUtils.fromBytes(hashBytes);
+};
+
+const toHex = (
+	data: Hex | Uint8Array | string | number,
+	options?: { size?: number },
+): Hex => {
+	if (typeof data === "number") {
+		const size = options?.size ?? 1;
+		const bytes = new Uint8Array(size);
+		bytes[size - 1] = data;
+		return HexUtils.fromBytes(bytes);
+	}
+	if (typeof data === "string") {
+		if (data.startsWith("0x")) return data as Hex;
+		return HexUtils.fromBytes(new TextEncoder().encode(data));
+	}
+	if (data instanceof Uint8Array) {
+		return HexUtils.fromBytes(data);
+	}
+	return data as Hex;
+};
+
+const toBytes = (data: Hex | Uint8Array | string): Uint8Array => {
+	if (data instanceof Uint8Array) return data;
+	if (typeof data === "string" && !data.startsWith("0x")) {
+		return new TextEncoder().encode(data);
+	}
+	return Bytes.fromHex(data as Hex);
+};
+
+const concatHex = (values: readonly Hex[]): Hex => HexUtils.concat(...values);
+
+const hashMessage = ({ raw }: { raw: Uint8Array }): Hex => {
+	// Convert bytes to hex for PersonalMessage
+	const hexMessage = HexUtils.fromBytes(raw);
+	return PersonalMessage.getSignPayload(hexMessage);
+};
+const encodeFunctionData = ({
+	abi,
+	functionName,
+	args,
+}: {
+	abi: readonly unknown[];
+	functionName: string;
+	args?: readonly unknown[];
+}) => {
+	const fn = AbiFunction.fromAbi(abi, functionName);
+	return AbiFunction.encodeData(fn, args);
+};
+
 import { PARSED_SAFE_ABI } from "../src/abis";
 import { deploySafeAccount } from "../src/deployment";
 import { calculateSafeMessageHash } from "../src/eip712";
@@ -30,7 +115,6 @@ import type {
 } from "../src/types";
 import { ZERO_ADDRESS } from "../src/utilities/constants";
 import { getChainId } from "../src/utilities/eip1193-provider";
-import { padStartHex } from "../src/utilities/encoding";
 import {
 	getMockERC1271InvalidBytecode,
 	getMockERC1271ValidBytecode,
@@ -265,7 +349,9 @@ describe("isValidERC1271Signature", () => {
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ dataHash: message.message },
+			{
+				dataHash: message.message,
+			},
 		);
 
 		expect(result.valid).toBe(true);
@@ -312,7 +398,9 @@ describe("isValidERC1271Signature", () => {
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ data: message.message },
+			{
+				data: message.message,
+			},
 		);
 
 		expect(result.valid).toBe(true);
@@ -386,7 +474,9 @@ describe("isValidERC1271Signature", () => {
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ data: message.message },
+			{
+				data: message.message,
+			},
 		);
 
 		expect(result.valid).toBe(false);
@@ -456,7 +546,9 @@ describe("isValidERC1271Signature", () => {
 		const result = await isValidERC1271Signature(
 			publicClient,
 			dynamicSignature,
-			{ dataHash: message.message },
+			{
+				dataHash: message.message,
+			},
 		);
 
 		// Contract with a fallback function that does not contain ERC-1271 will return 0x, so we just check for invalid
@@ -572,7 +664,10 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			staticSignature,
-			{ dataHash, safeAddress },
+			{
+				dataHash,
+				safeAddress,
+			},
 		);
 
 		expect(result.valid).toBe(true);
@@ -592,7 +687,10 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			staticSignature,
-			{ dataHash, safeAddress },
+			{
+				dataHash,
+				safeAddress,
+			},
 		);
 
 		expect(result.valid).toBe(false);
@@ -605,7 +703,7 @@ describe("isValidApprovedHashSignature", () => {
 		const dataHash = keccak256(toHex("test message"));
 
 		const signatureData = concatHex([
-			padStartHex(owner, 32),
+			HexUtils.padLeft(owner, 32),
 			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			"0x01",
 		]);
@@ -624,7 +722,10 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			mockProvider,
 			staticSignature,
-			{ dataHash, safeAddress },
+			{
+				dataHash,
+				safeAddress,
+			},
 		);
 
 		expect(result.valid).toBe(false);
@@ -637,7 +738,7 @@ describe("isValidApprovedHashSignature", () => {
 		const dataHash = keccak256(toHex("test message"));
 
 		const signatureData = concatHex([
-			padStartHex(owner, 32),
+			HexUtils.padLeft(owner, 32),
 			"0x0000000000000000000000000000000000000000000000000000000000000000",
 			"0x01",
 		]);
@@ -650,7 +751,10 @@ describe("isValidApprovedHashSignature", () => {
 		const result = await isValidApprovedHashSignature(
 			publicClient,
 			staticSignature,
-			{ dataHash, safeAddress: V141_ADDRESSES.MultiSend },
+			{
+				dataHash,
+				safeAddress: V141_ADDRESSES.MultiSend,
+			},
 		);
 
 		expect(result.valid).toBe(false);
@@ -678,7 +782,6 @@ describe("isValidApprovedHashSignature", () => {
 
 		for (const returnValue of nonZeroValues) {
 			const mockProvider: EIP1193ProviderWithRequestFn = {
-				// @ts-expect-error - mock provider
 				request: async () => {
 					return returnValue;
 				},
@@ -687,7 +790,10 @@ describe("isValidApprovedHashSignature", () => {
 			const result = await isValidApprovedHashSignature(
 				mockProvider,
 				staticSignature,
-				{ dataHash, safeAddress },
+				{
+					dataHash,
+					safeAddress,
+				},
 			);
 
 			expect(result.valid).toBe(true);
@@ -703,7 +809,7 @@ describe("isValidApprovedHashSignature", () => {
 
 		for (const v of vValues) {
 			const signatureData = concatHex([
-				padStartHex(owner, 32),
+				HexUtils.padLeft(owner, 32),
 				"0x0000000000000000000000000000000000000000000000000000000000000000",
 				toHex(v, { size: 1 }),
 			]);
@@ -719,7 +825,10 @@ describe("isValidApprovedHashSignature", () => {
 			const result = await isValidApprovedHashSignature(
 				publicClient,
 				staticSignature,
-				{ dataHash, safeAddress },
+				{
+					dataHash,
+					safeAddress,
+				},
 			);
 
 			// Should still work but return false since hash isn't approved

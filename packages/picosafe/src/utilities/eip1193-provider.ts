@@ -1,6 +1,6 @@
-import type { Address } from "viem";
+import { Address as AddressUtils } from "ox";
+import type { Address } from "../ox-types";
 import type { EIP1193ProviderWithRequestFn } from "../types";
-import { checksumAddress } from "./address.js";
 
 /**
  * Retrieves the current chain ID from the connected provider.
@@ -26,9 +26,9 @@ import { checksumAddress } from "./address.js";
 async function getChainId(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 ): Promise<bigint> {
-	const chainIdHex = await provider.request({
+	const chainIdHex = (await provider.request({
 		method: "eth_chainId",
-	});
+	})) as string;
 
 	return BigInt(chainIdHex);
 }
@@ -57,11 +57,11 @@ async function getChainId(
 async function getAccounts(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
 ): Promise<Address[]> {
-	const accounts = await provider.request({
+	const accounts = (await provider.request({
 		method: "eth_accounts",
-	});
+	})) as Address[];
 
-	return accounts.map((account) => checksumAddress(account));
+	return accounts.map((account) => AddressUtils.checksum(account));
 }
 
 export { getChainId, getAccounts };

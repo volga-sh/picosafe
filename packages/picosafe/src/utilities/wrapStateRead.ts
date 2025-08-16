@@ -1,4 +1,4 @@
-import type { Hex } from "viem";
+import type { Hex } from "ox";
 import type {
 	EIP1193ProviderWithRequestFn,
 	MaybeLazy,
@@ -71,20 +71,33 @@ export function wrapStateRead<
 >(
 	provider: EIP1193ProviderWithRequestFn,
 	call: StateReadCall,
-	decoder: (result: Hex) => T,
+	decoder: (result: Hex.Hex) => T,
 	options?: O,
 ): WrapResult<T, A, O> {
 	const { lazy = false, data, block } = (options ?? {}) as MaybeLazy<A>;
 
 	/** Performs the underlying `eth_call` and decodes the result. */
 	const exec = async (): Promise<T> => {
-		const result = await provider.request({
+		// Format the block parameter for eth_call
+		let blockParam: string | { blockNumber: string } | { blockHash: string } =
+			"latest";
+		const blockValue = block ?? call.block;
+
+		if (blockValue) {
+			if (typeof blockValue === "string") {
+				// It's a tag like "latest", "pending", etc. or a hex number
+				blockParam = blockValue;
+			} else if ("blockNumber" in blockValue && blockValue.blockNumber) {
+				blockParam = blockValue.blockNumber;
+			} else if ("blockHash" in blockValue && blockValue.blockHash) {
+				blockParam = { blockHash: blockValue.blockHash };
+			}
+		}
+
+		const result = (await provider.request({
 			method: "eth_call",
-			params: [
-				{ to: call.to, data: call.data },
-				block ?? call.block ?? "latest",
-			],
-		});
+			params: [{ to: call.to, data: call.data }, blockParam],
+		})) as Hex.Hex;
 
 		return decoder(result);
 	};

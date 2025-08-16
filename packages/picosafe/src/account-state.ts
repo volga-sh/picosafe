@@ -1,4 +1,8 @@
-import type { Address, Hex, Quantity } from "viem";
+import { Hex as HexUtils, Address as OxAddress } from "ox";
+import type { Address, Hex } from "./ox-types";
+
+type Quantity = `0x${string}`;
+
 import type {
 	EIP1193ProviderWithRequestFn,
 	MaybeLazy,
@@ -6,9 +10,8 @@ import type {
 	WrappedStateRead,
 	WrapResult,
 } from "./types";
-import { checksumAddress } from "./utilities/address";
 import { SENTINEL_NODE } from "./utilities/constants";
-import { encodeWithSelector, padStartHex } from "./utilities/encoding.js";
+import { encodeWithSelector } from "./utilities/encoding.js";
 import { wrapStateRead } from "./utilities/wrapStateRead";
 
 /**
@@ -55,15 +58,15 @@ const ADDRESS_HEX_LENGTH = 40; // 20 bytes = 40 hex chars for an Ethereum addres
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/libraries/SafeStorage.sol
  */
 const SAFE_STORAGE_SLOTS = {
-	singleton: padStartHex("0"),
-	modulesMapping: padStartHex("1"),
-	ownersMapping: padStartHex("2"),
-	ownerCount: padStartHex("3"),
-	threshold: padStartHex("4"),
-	nonce: padStartHex("5"),
-	deprecatedDomainSeparator: padStartHex("6"),
-	signedMessagesMapping: padStartHex("7"),
-	approvedHashesMapping: padStartHex("8"),
+	singleton: HexUtils.padLeft("0x0", 32),
+	modulesMapping: HexUtils.padLeft("0x1", 32),
+	ownersMapping: HexUtils.padLeft("0x2", 32),
+	ownerCount: HexUtils.padLeft("0x3", 32),
+	threshold: HexUtils.padLeft("0x4", 32),
+	nonce: HexUtils.padLeft("0x5", 32),
+	deprecatedDomainSeparator: HexUtils.padLeft("0x6", 32),
+	signedMessagesMapping: HexUtils.padLeft("0x7", 32),
+	approvedHashesMapping: HexUtils.padLeft("0x8", 32),
 	// keccak256("fallback_manager.handler.address")
 	fallbackHandler:
 		"0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5",
@@ -328,7 +331,7 @@ function getFallbackHandler<
 		}
 		// Extract address from the storage slot value (last 40 hex chars)
 		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
-		return checksumAddress(`0x${addressHex}`);
+		return OxAddress.checksum(`0x${addressHex}` as Address);
 	};
 
 	if (options?.lazy) {
@@ -566,7 +569,7 @@ function getGuard<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		}
 		// Extract address from the storage slot value (last 40 hex chars)
 		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
-		return checksumAddress(`0x${addressHex}`);
+		return OxAddress.checksum(`0x${addressHex}` as Address);
 	};
 
 	if (options?.lazy) {
@@ -647,7 +650,7 @@ function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		}
 		// Extract address from the storage slot value (last 40 hex chars)
 		const addressHex = value.slice(-ADDRESS_HEX_LENGTH);
-		return checksumAddress(`0x${addressHex}`);
+		return OxAddress.checksum(`0x${addressHex}` as Address);
 	};
 
 	if (options?.lazy) {
@@ -758,7 +761,7 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 			// Each address is stored in a 32-byte slot, right-padded with zeros
 			const start = dataOffset + i * 64;
 			const addressHex = raw.slice(start + 24, start + 64); // Last 20 bytes of the 32-byte slot
-			owners.push(checksumAddress(`0x${addressHex}`));
+			owners.push(OxAddress.checksum(`0x${addressHex}` as Address));
 		}
 
 		return owners;
@@ -893,7 +896,7 @@ function getModulesPaginated<
 			const offset = MODULE_DATA_OFFSET_START + i * 64;
 			// Extract address from padded bytes32 value
 			const addressHex = hex.slice(offset + 24, offset + 64);
-			modules.push(checksumAddress(`0x${addressHex}`));
+			modules.push(OxAddress.checksum(`0x${addressHex}` as Address));
 		}
 
 		return { modules, next };

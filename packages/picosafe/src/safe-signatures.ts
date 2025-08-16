@@ -1,6 +1,13 @@
-import type { Address, Hex } from "viem";
-import { hashMessage, recoverAddress } from "viem";
+import {
+	Hash,
+	Hex as HexUtils,
+	Address as OxAddress,
+	PersonalMessage,
+	Secp256k1,
+	Signature,
+} from "ox";
 import { getOwners, getThreshold } from "./account-state.js";
+import type { Address, Hex } from "./ox-types";
 import type { SignatureValidationResult } from "./signature-validation.js";
 import { validateSignature } from "./signature-validation.js";
 import type {
@@ -15,12 +22,10 @@ import {
 	isECDSASignature,
 	SignatureTypeVByte,
 } from "./types.js";
-import { checksumAddress } from "./utilities/address.js";
 import {
 	ECDSA_SIGNATURE_LENGTH_BYTES,
 	ECDSA_SIGNATURE_LENGTH_HEX,
 } from "./utilities/constants.js";
-import { concatHex, padStartHex } from "./utilities/encoding.js";
 
 /**
  * Encodes multiple signatures into the Safe signature format
@@ -142,16 +147,19 @@ function encodeSafeSignaturesBytes(
 				dynamicPart.length / 2;
 
 			// Static part: signer address (32) + offset (32) + signature type (1)
-			const paddedSigner = padStartHex(signature.signer);
-			const offsetHex = padStartHex(dynamicOffset.toString(16));
-			staticPart += concatHex(paddedSigner, offsetHex, "00").slice(2);
-
-			// Dynamic part: length (32) + data
-			const dataLength = padStartHex(
-				(signatureData.length / 2).toString(16),
+			const paddedSigner = HexUtils.padLeft(signature.signer, 32);
+			const offsetHex = HexUtils.padLeft(
+				HexUtils.fromNumber(dynamicOffset),
 				32,
 			);
-			dynamicPart += concatHex(dataLength, signatureData).slice(2);
+			staticPart += HexUtils.concat(paddedSigner, offsetHex, "0x00").slice(2);
+
+			// Dynamic part: length (32) + data
+			const dataLength = HexUtils.padLeft(
+				HexUtils.fromNumber(signatureData.length / 2),
+				32,
+			);
+			dynamicPart += HexUtils.concat(dataLength, `0x${signatureData}`).slice(2);
 		} else {
 			// Standard ECDSA signature - validate length
 			if (signatureData.length !== ECDSA_SIGNATURE_LENGTH_HEX) {
@@ -163,7 +171,7 @@ function encodeSafeSignaturesBytes(
 		}
 	}
 
-	return concatHex(staticPart, dynamicPart);
+	return HexUtils.concat(`0x${staticPart}`, `0x${dynamicPart}`);
 }
 
 /**
@@ -298,7 +306,9 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 
 		if (v === SignatureTypeVByte.CONTRACT) {
 			// Dynamic signature - extract signer and offset
-			const signer = checksumAddress(`0x${signatureData.slice(24, 64)}`);
+			const signer = OxAddress.checksum(
+				`0x${signatureData.slice(24, 64)}` as Address,
+			);
 			const dynamicOffset =
 				Number.parseInt(signatureData.slice(64, 128), 16) * 2;
 
@@ -320,7 +330,9 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 		} else if (v === SignatureTypeVByte.APPROVED_HASH) {
 			// Pre-approved hash signature - extract from position
 			signatures.push({
-				signer: checksumAddress(`0x${signatureData.slice(24, 64)}`),
+				signer: OxAddress.checksum(
+					`0x${signatureData.slice(24, 64)}` as Address,
+				),
 				data: `0x${signatureData}`,
 			});
 		} else if (
@@ -329,10 +341,12 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 		) {
 			// Static signature - extract from position
 			const signature: Hex = `0x${signatureData}`;
-			const signer = await recoverAddress({
-				hash: signedHash,
-				signature,
+			const sig = Signature.fromHex(signature);
+			const recoveredAddress = Secp256k1.recoverAddress({
+				payload: signedHash,
+				signature: sig,
 			});
+			const signer = OxAddress.checksum(recoveredAddress);
 			signatures.push({
 				data: signature,
 				signer,
@@ -343,10 +357,14 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 		) {
 			// ECDSA signature - extract from position
 			const signature: Hex = `0x${signatureData}`;
-			const signer = await recoverAddress({
-				hash: hashMessage(signedHash),
-				signature,
+			const personalMessage = PersonalMessage.encode(signedHash);
+			const messageHash = Hash.keccak256(personalMessage);
+			const sig = Signature.fromHex(signature);
+			const recoveredAddress = Secp256k1.recoverAddress({
+				payload: messageHash,
+				signature: sig,
 			});
+			const signer = OxAddress.checksum(recoveredAddress);
 			signatures.push({
 				data: signature,
 				signer,
@@ -649,10 +667,10 @@ async function validateSignaturesForSafe(
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
  */
 function getApprovedHashSignatureBytes(signer: Address): Hex {
-	return concatHex(
-		padStartHex(signer, 32), // First 32 bytes are the signer address
-		padStartHex("00", 32), // Next 32 bytes are zeros for approved hash
-		SignatureTypeVByte.APPROVED_HASH.toString(16).padStart(2, "0"), // v-byte
+	return HexUtils.concat(
+		HexUtils.padLeft(signer, 32), // First 32 bytes are the signer address
+		HexUtils.padLeft("0x00", 32), // Next 32 bytes are zeros for approved hash
+		`0x${SignatureTypeVByte.APPROVED_HASH.toString(16).padStart(2, "0")}`, // v-byte
 	);
 }
 

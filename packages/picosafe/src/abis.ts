@@ -1,4 +1,4 @@
-import { parseAbi } from "viem";
+import { Abi } from "ox";
 
 const SAFE_PROXY_FACTORY_ABI = [
 	"function createProxyWithNonce(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)",
@@ -28,10 +28,10 @@ const ERC_1271_ABI_LEGACY = [
 	"function isValidSignature(bytes data, bytes signature) view returns (bytes4 magicValue)",
 ] as const;
 
-const PARSED_SAFE_PROXY_FACTORY_ABI = parseAbi(SAFE_PROXY_FACTORY_ABI);
-const PARSED_SAFE_ABI = parseAbi(SAFE_ABI);
-const PARSED_ERC_1271_ABI_CURRENT = parseAbi(ERC_1271_ABI_CURRENT);
-const PARSED_ERC_1271_ABI_LEGACY = parseAbi(ERC_1271_ABI_LEGACY);
+const PARSED_SAFE_PROXY_FACTORY_ABI = Abi.from(SAFE_PROXY_FACTORY_ABI);
+const PARSED_SAFE_ABI = Abi.from(SAFE_ABI);
+const PARSED_ERC_1271_ABI_CURRENT = Abi.from(ERC_1271_ABI_CURRENT);
+const PARSED_ERC_1271_ABI_LEGACY = Abi.from(ERC_1271_ABI_LEGACY);
 
 export {
 	SAFE_PROXY_FACTORY_ABI,

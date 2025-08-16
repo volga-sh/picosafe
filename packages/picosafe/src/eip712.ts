@@ -1,24 +1,6 @@
-import {
-	type Address,
-	concat,
-	encodeAbiParameters,
-	getTypesForEIP712Domain,
-	type HashTypedDataParameters,
-	type HashTypedDataReturnType,
-	type Hex,
-	hashDomain,
-	hashStruct,
-	keccak256,
-	parseAbiParameters,
-	type TypedData,
-	validateTypedData,
-} from "viem";
+import { AbiParameters, Hash, TypedData } from "ox";
+import type { Address, Hex } from "./ox-types";
 import type { FullSafeTransaction, SafeMessage } from "./types.js";
-
-type MessageTypeProperty = {
-	name: string;
-	type: string;
-};
 
 /**
  * Calculates the EIP-712 domain separator for a Safe.
@@ -74,12 +56,11 @@ function calculateSafeDomainSeparator(
 	const domainSeparatorTypehash =
 		"0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218";
 
-	return keccak256(
-		encodeAbiParameters(parseAbiParameters("bytes32, uint256, address"), [
-			domainSeparatorTypehash,
-			chainId,
-			safeAddress,
-		]),
+	return Hash.keccak256(
+		AbiParameters.encode(
+			AbiParameters.from(["bytes32", "uint256", "address"]),
+			[domainSeparatorTypehash, chainId, safeAddress],
+		),
 	);
 }
 
@@ -205,25 +186,23 @@ const SAFE_MESSAGE_EIP712_TYPES = {
 function calculateSafeTransactionHash(
 	safeTx: Readonly<FullSafeTransaction>,
 ): Hex {
-	return keccak256(
-		encodeTypedData({
-			domain: getSafeEip712Domain(safeTx.safeAddress, safeTx.chainId),
-			types: SAFE_TX_EIP712_TYPES,
-			primaryType: "SafeTx",
-			message: {
-				to: safeTx.to,
-				value: safeTx.value,
-				data: safeTx.data,
-				operation: safeTx.operation,
-				safeTxGas: safeTx.safeTxGas,
-				baseGas: safeTx.baseGas,
-				gasPrice: safeTx.gasPrice,
-				gasToken: safeTx.gasToken,
-				refundReceiver: safeTx.refundReceiver,
-				nonce: safeTx.nonce,
-			},
-		}),
-	);
+	return TypedData.getSignPayload({
+		domain: getSafeEip712Domain(safeTx.safeAddress, safeTx.chainId),
+		types: SAFE_TX_EIP712_TYPES,
+		primaryType: "SafeTx",
+		message: {
+			to: safeTx.to,
+			value: safeTx.value,
+			data: safeTx.data,
+			operation: safeTx.operation,
+			safeTxGas: safeTx.safeTxGas,
+			baseGas: safeTx.baseGas,
+			gasPrice: safeTx.gasPrice,
+			gasToken: safeTx.gasToken,
+			refundReceiver: safeTx.refundReceiver,
+			nonce: safeTx.nonce,
+		},
+	});
 }
 
 /**
@@ -268,7 +247,7 @@ function calculateSafeTransactionHash(
 function encodeEIP712SafeTransactionData(
 	safeTx: Readonly<FullSafeTransaction>,
 ): Hex {
-	return encodeTypedData({
+	return TypedData.encode({
 		domain: getSafeEip712Domain(safeTx.safeAddress, safeTx.chainId),
 		types: SAFE_TX_EIP712_TYPES,
 		primaryType: "SafeTx",
@@ -329,14 +308,12 @@ function calculateSafeMessageHash(
 	chainId: bigint,
 	message: Readonly<SafeMessage>,
 ): Hex {
-	return keccak256(
-		encodeTypedData({
-			domain: getSafeEip712Domain(safeAddress, chainId),
-			types: SAFE_MESSAGE_EIP712_TYPES,
-			primaryType: "SafeMessage",
-			message,
-		}),
-	);
+	return TypedData.getSignPayload({
+		domain: getSafeEip712Domain(safeAddress, chainId),
+		types: SAFE_MESSAGE_EIP712_TYPES,
+		primaryType: "SafeMessage",
+		message,
+	});
 }
 
 /**
@@ -382,74 +359,12 @@ function encodeEIP712SafeMessageData(
 	chainId: bigint,
 	message: Readonly<SafeMessage>,
 ): Hex {
-	return encodeTypedData({
+	return TypedData.encode({
 		domain: getSafeEip712Domain(safeAddress, chainId),
 		types: SAFE_MESSAGE_EIP712_TYPES,
 		primaryType: "SafeMessage",
 		message,
 	});
-}
-
-/**
- * Encodes EIP-712 typed data into its pre-image format without hashing.
- *
- * This is a modified version of viem's hashTypedData function that returns the
- * encoded data before hashing. The encoded data consists of:
- * - 0x1901 (EIP-712 prefix)
- * - Domain separator hash (if domain is provided)
- * - Struct hash of the primary type (if not signing the domain itself)
- *
- * This function is useful for advanced signature scenarios where you need the
- * structured data before hashing, such as when working with legacy ERC-1271
- * contract signatures that require the full typed data.
- *
- * @param parameters - The typed data parameters including domain, types, primaryType, and message
- * @returns The concatenated EIP-712 encoded data as a hex string
- */
-function encodeTypedData<
-	const typedData extends TypedData | Record<string, unknown>,
-	primaryType extends keyof typedData | "EIP712Domain",
->(
-	parameters: HashTypedDataParameters<typedData, primaryType>,
-): HashTypedDataReturnType {
-	const {
-		domain = {},
-		message,
-		primaryType,
-	} = parameters as HashTypedDataParameters;
-	const types = {
-		EIP712Domain: getTypesForEIP712Domain({ domain }),
-		...parameters.types,
-	};
-
-	// Need to do a runtime validation check on addresses, byte ranges, integer ranges, etc
-	// as we can't statically check this with TypeScript.
-	validateTypedData({
-		domain,
-		message,
-		primaryType,
-		types,
-	});
-
-	const parts: Hex[] = ["0x1901"];
-	if (domain)
-		parts.push(
-			hashDomain({
-				domain,
-				types: types as Record<string, MessageTypeProperty[]>,
-			}),
-		);
-
-	if (primaryType !== "EIP712Domain")
-		parts.push(
-			hashStruct({
-				data: message,
-				primaryType,
-				types: types as Record<string, MessageTypeProperty[]>,
-			}),
-		);
-
-	return concat(parts);
 }
 
 export {
@@ -459,7 +374,6 @@ export {
 	calculateSafeTransactionHash,
 	calculateSafeMessageHash,
 	calculateSafeDomainSeparator,
-	encodeTypedData,
 	encodeEIP712SafeTransactionData,
 	encodeEIP712SafeMessageData,
 };

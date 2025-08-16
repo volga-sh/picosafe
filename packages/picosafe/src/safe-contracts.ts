@@ -1,4 +1,4 @@
-import type { Address } from "viem/accounts";
+import type { Address } from "./ox-types";
 
 type SafeContracts =
 	| "SafeProxyFactory"

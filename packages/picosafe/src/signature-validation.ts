@@ -1,10 +1,18 @@
-import type { Address, Hex } from "viem";
-import { encodeFunctionData, hashMessage, recoverAddress, toBytes } from "viem";
+import {
+	AbiFunction,
+	Bytes,
+	Hash,
+	Address as OxAddress,
+	PersonalMessage,
+	Secp256k1,
+	Signature,
+} from "ox";
 import {
 	PARSED_ERC_1271_ABI_CURRENT,
 	PARSED_ERC_1271_ABI_LEGACY,
 	PARSED_SAFE_ABI,
 } from "./abis";
+import type { Address, Hex } from "./ox-types";
 import { getSignatureTypeVByte } from "./safe-signatures";
 import type {
 	ApprovedHashSignature,
@@ -94,21 +102,19 @@ function buildERC1271Calldata(
 ): { calldata: Hex; expectedMagic: Hex } {
 	if ("dataHash" in validationData) {
 		return {
-			calldata: encodeFunctionData({
-				abi: PARSED_ERC_1271_ABI_CURRENT,
-				functionName: "isValidSignature",
-				args: [validationData.dataHash, signatureData],
-			}),
+			calldata: AbiFunction.encodeData(
+				AbiFunction.fromAbi(PARSED_ERC_1271_ABI_CURRENT, "isValidSignature"),
+				[validationData.dataHash, signatureData],
+			),
 			expectedMagic: ERC1271.MAGIC_VALUE_BYTES32,
 		};
 	}
 
 	return {
-		calldata: encodeFunctionData({
-			abi: PARSED_ERC_1271_ABI_LEGACY,
-			functionName: "isValidSignature",
-			args: [validationData.data, signatureData],
-		}),
+		calldata: AbiFunction.encodeData(
+			AbiFunction.fromAbi(PARSED_ERC_1271_ABI_LEGACY, "isValidSignature"),
+			[validationData.data, signatureData],
+		),
 		expectedMagic: ERC1271.MAGIC_VALUE_BYTES,
 	};
 }
@@ -178,19 +184,18 @@ async function isValidECDSASignature(
 	signature: Readonly<ECDSASignature>,
 	dataHash: Hex,
 ): Promise<SignatureValidationResult<ECDSASignature>> {
-	const [recoveredSigner, error] = await captureError(
-		() =>
-			recoverAddress({
-				hash: dataHash,
-				signature: signature.data,
-			}),
-		"Unknown error while calling recoverAddress",
-	);
+	const [recoveredSigner, error] = await captureError(async () => {
+		const sig = Signature.fromHex(signature.data);
+		const address = Secp256k1.recoverAddress({
+			payload: dataHash,
+			signature: sig,
+		});
+		return OxAddress.checksum(address);
+	}, "Unknown error while calling Secp256k1.recoverAddress");
 
 	if (error) {
 		return {
 			valid: false,
-			validatedSigner: recoveredSigner,
 			signature,
 			error,
 		};
@@ -287,7 +292,7 @@ async function isValidERC1271Signature(
 					method: "eth_call",
 					params: [{ to: signature.signer, data: calldata }, "latest"],
 				})
-				.then((res) => res.slice(0, ERC1271.RESULT_LENGTH)),
+				.then((res) => (res as string).slice(0, ERC1271.RESULT_LENGTH)),
 		"Unknown error while calling isValidSignature",
 	);
 
@@ -371,11 +376,10 @@ async function isValidApprovedHashSignature(
 ): Promise<SignatureValidationResult<ApprovedHashSignature>> {
 	const { dataHash, safeAddress } = validationData;
 
-	const approvedHashesCalldata = encodeFunctionData({
-		abi: PARSED_SAFE_ABI,
-		functionName: "approvedHashes",
-		args: [signature.signer, dataHash],
-	});
+	const approvedHashesCalldata = AbiFunction.encodeData(
+		AbiFunction.fromAbi(PARSED_SAFE_ABI, "approvedHashes"),
+		[signature.signer, dataHash],
+	);
 
 	const [approvedHash, error] = await captureError(
 		() =>
@@ -566,7 +570,9 @@ async function validateSignature<T extends PicosafeSignature>(
 			const adjustedSig = adjustEthSignSignature(sigWithData.data, vByte);
 			const validationResult = await isValidECDSASignature(
 				{ ...sigWithData, data: adjustedSig },
-				hashMessage({ raw: toBytes(validationData.dataHash as Hex) }),
+				Hash.keccak256(
+					PersonalMessage.encode(Bytes.from(validationData.dataHash as Hex)),
+				),
 			);
 
 			// We should restore the validation result to the original message and signature
