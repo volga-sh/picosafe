@@ -174,11 +174,6 @@ async function getRemoveOwnerTransaction(
 		}
 	}
 
-	// At this point, prevOwner is guaranteed to be defined by the logic above
-	if (!prevOwner) {
-		throw new Error("Unable to determine previous owner for removal");
-	}
-
 	const removeOwnerSelector = "0xf8dc5dd9";
 	const data = encodeWithSelector(
 		removeOwnerSelector,
