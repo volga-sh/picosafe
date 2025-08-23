@@ -162,7 +162,12 @@ function adjustEthSignSignature(
  * @returns result.validatedSigner - The address recovered from the signature
  * @returns result.signature - The original signature object
  * @returns result.error - Error if the signature is invalid
- * @throws {Error} If the signature is invalid (invalid r or s values)
+ * @throws {Error} If the signature is invalid (invalid r, s values) or the v-byte is not 27/28
+ *
+ * Note: This function strictly expects ECDSA signatures with v = 27 or 28.
+ * eth_sign signatures with v = 31/32 are handled by {@link validateSignature},
+ * which adjusts the v-byte and hashes the payload with the Ethereum Signed Message prefix
+ * before delegating to this function.
  * @example
  * ```typescript
  * import { isValidECDSASignature, calculateSafeTransactionHash } from "picosafe";
@@ -184,17 +189,17 @@ async function isValidECDSASignature(
 	signature: Readonly<ECDSASignature>,
 	dataHash: Hex,
 ): Promise<SignatureValidationResult<ECDSASignature>> {
-    // Pre-validate v-byte: for plain ECDSA it must be 27 or 28.
-    // (eth_sign variants are adjusted by the caller in validateSignature).
-    const vHex = signature.data.slice(-2);
-    const vByte = Number.parseInt(vHex, 16);
-    if (Number.isNaN(vByte) || (vByte !== 27 && vByte !== 28)) {
-        return {
-            valid: false,
-            signature,
-            error: new Error(`Invalid ECDSA v-byte: ${vHex}`),
-        };
-    }
+	// Pre-validate v-byte: for plain ECDSA it must be 27 or 28.
+	// (eth_sign variants are adjusted by the caller in validateSignature).
+	const vHex = signature.data.slice(-2);
+	const vByte = Number.parseInt(vHex, 16);
+	if (Number.isNaN(vByte) || (vByte !== 27 && vByte !== 28)) {
+		return {
+			valid: false,
+			signature,
+			error: new Error(`Invalid ECDSA v-byte: ${vHex}`),
+		};
+	}
 
 	const [recoveredSigner, error] = await captureError(async () => {
 		const sig = Signature.fromHex(signature.data);
