@@ -1001,8 +1001,8 @@ function getVersion<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		// Extract the string data starting after the length field
 		const stringHex = raw.slice(130, 130 + length * 2);
 
-		// Convert hex to string
-		const version = Buffer.from(stringHex, "hex").toString("utf8");
+		// Convert hex to string using Ox Hex.toString (browser and Node compatible)
+		const version = HexUtils.toString(`0x${stringHex}` as Hex);
 
 		// Verify the version if requested
 		if (
