@@ -3,8 +3,12 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
 	computeMappingStorageSlot,
 	computeOwnersMappingSlot,
+	deploySafeAccount,
+	getOwners,
+	getStorageAt,
 	isSafeAccount,
 	SAFE_STORAGE_SLOTS,
+	V141_ADDRESSES,
 } from "../src";
 import type { Address } from "../src/ox-types";
 import { SENTINEL_NODE } from "../src/utilities/constants";
@@ -73,9 +77,8 @@ describe("Safe account detection", () => {
 
 	test("should detect a valid Safe contract", async () => {
 		// Deploy a test Safe first
-		const { deploySafeAccount } = await import("../src");
 		const deployment = await deploySafeAccount(walletClient, {
-			owners: [walletClient.account!.address],
+			owners: [walletClient.account.address],
 			threshold: 1n,
 		});
 
@@ -89,7 +92,7 @@ describe("Safe account detection", () => {
 	});
 
 	test("should return false for EOA addresses", async () => {
-		const eoaAddress = walletClients[1].account!.address;
+		const eoaAddress = walletClients[1].account.address;
 
 		const isSafe = await isSafeAccount(publicClient, eoaAddress);
 		expect(isSafe).toBe(false);
@@ -98,7 +101,6 @@ describe("Safe account detection", () => {
 	test("should return false for non-Safe contracts", async () => {
 		// Use a known contract that's not a Safe (e.g., a simple token contract)
 		// For this test, we'll use the Safe factory contract itself
-		const { V141_ADDRESSES } = await import("../src");
 		const factoryAddress = V141_ADDRESSES.SafeProxyFactory;
 
 		const isSafe = await isSafeAccount(publicClient, factoryAddress);
@@ -116,9 +118,8 @@ describe("Safe account detection", () => {
 
 	test("should work with block parameter", async () => {
 		// Deploy a Safe first
-		const { deploySafeAccount } = await import("../src");
 		const deployment = await deploySafeAccount(walletClient, {
-			owners: [walletClient.account!.address],
+			owners: [walletClient.account.address],
 			threshold: 1n,
 		});
 
@@ -150,12 +151,11 @@ describe("Safe account detection", () => {
 
 	test("should detect Safe contracts with multiple owners", async () => {
 		// Deploy a multi-owner Safe
-		const { deploySafeAccount } = await import("../src");
 		const deployment = await deploySafeAccount(walletClient, {
 			owners: [
-				walletClients[0].account!.address,
-				walletClients[1].account!.address,
-				walletClients[2].account!.address,
+				walletClients[0].account.address,
+				walletClients[1].account.address,
+				walletClients[2].account.address,
 			],
 			threshold: 2n,
 		});
@@ -172,13 +172,10 @@ describe("Safe account detection", () => {
 
 	test("should verify storage consistency with getOwners result", async () => {
 		// Deploy a Safe and verify that our detection logic matches reality
-		const { deploySafeAccount, getOwners, getStorageAt } = await import(
-			"../src"
-		);
 		const deployment = await deploySafeAccount(walletClient, {
 			owners: [
-				walletClients[0].account!.address,
-				walletClients[1].account!.address,
+				walletClients[0].account.address,
+				walletClients[1].account.address,
 			],
 			threshold: 2n,
 		});

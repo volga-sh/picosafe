@@ -86,14 +86,10 @@ async function isSafeAccount(
 	try {
 		const { block = "latest" } = options || {};
 
-		// Get the storage slot for owners[SENTINEL_NODE]
 		const sentinelSlot = computeOwnersMappingSlot(SENTINEL_NODE);
 
-		// Batch both calls for efficiency using existing functions
-		const [ownersList, storageValues] = await Promise.all([
-			// Use existing getOwners function
+		const [[firstOwner], [storageValue]] = await Promise.all([
 			getOwners(provider, { safeAddress: address }, { block }),
-			// Use existing getStorageAt function
 			getStorageAt(
 				provider,
 				{ safeAddress: address, slot: sentinelSlot },
@@ -101,20 +97,7 @@ async function isSafeAccount(
 			),
 		]);
 
-		// Check if we have any owners
-		if (!ownersList || ownersList.length === 0) {
-			return false;
-		}
-
-		// Get the first owner from the list
-		const firstOwner = ownersList[0];
-		if (!firstOwner) {
-			return false;
-		}
-
-		// Get the storage value (should be first storage slot returned)
-		const storageValue = storageValues[0];
-		if (!storageValue) {
+		if (!firstOwner || !storageValue) {
 			return false;
 		}
 
@@ -122,10 +105,8 @@ async function isSafeAccount(
 		const storageAddress = `0x${storageValue.slice(26)}`; // Remove "0x" and padding
 
 		// Verify that owners[SENTINEL_NODE] points to the first owner
-		// Both addresses should be checksummed for comparison
 		return firstOwner.toLowerCase() === storageAddress.toLowerCase();
-	} catch (_error) {
-		// Return false for any errors (non-throwing behavior)
+	} catch {
 		return false;
 	}
 }
