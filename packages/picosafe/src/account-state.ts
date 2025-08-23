@@ -4,6 +4,7 @@ import type { Address, Hex } from "./ox-types";
 type Quantity = `0x${string}`;
 
 import { SUPPORTED_SAFE_VERSIONS } from "./safe-contracts";
+import { SAFE_STORAGE_SLOTS } from "./storage";
 import type {
 	EIP1193ProviderWithRequestFn,
 	MaybeLazy,
@@ -38,42 +39,6 @@ const ADDRESS_HEX_LENGTH = 40; // 20 bytes = 40 hex chars for an Ethereum addres
  * The lazy evaluation mode is particularly valuable for reading multiple Safe parameters
  * in a single RPC request, reducing latency and improving performance.
  */
-
-/**
- * Defines the well-known storage slot addresses used by Safe contracts.
- * These slots are used to store critical Safe configuration parameters like owners, threshold, nonce, and module/guard addresses.
- * The values are represented as 32-byte hexadecimal strings, padded with leading zeros to match the EVM storage slot size.
- * For mapping storage slots (e.g., `modulesMapping`, `ownersMapping`, `signedMessagesMapping`, `approvedHashesMapping`), the final storage slot is computed as `keccak256(abi.encodePacked(mapping_key, mapping_position))`, where `mapping_key` is the key used in the mapping and `mapping_position` is the base slot for that mapping.
- *
- * @property singleton - Storage slot for the Safe singleton (implementation) address (slot 0).
- * @property modulesMapping - Storage slot for the modules mapping (slot 1).
- * @property ownersMapping - Storage slot for the owners mapping (slot 2).
- * @property ownerCount - Storage slot for the owner count (slot 3).
- * @property threshold - Storage slot for the signature threshold (slot 4).
- * @property nonce - Storage slot for the transaction nonce (slot 5).
- * @property deprecatedDomainSeparator - Deprecated storage slot for the EIP-712 domain separator (slot 6).
- * @property signedMessagesMapping - Storage slot for the signed messages mapping (slot 7).
- * @property approvedHashesMapping - Storage slot for the approved hashes mapping (slot 8).
- * @property fallbackHandler - Storage slot for the custom fallback handler address (keccak256("fallback_manager.handler.address")).
- * @property guard - Storage slot for the custom guard address (keccak256("guard_manager.guard.address")).
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/libraries/SafeStorage.sol
- */
-const SAFE_STORAGE_SLOTS = {
-	singleton: HexUtils.padLeft("0x0", 32),
-	modulesMapping: HexUtils.padLeft("0x1", 32),
-	ownersMapping: HexUtils.padLeft("0x2", 32),
-	ownerCount: HexUtils.padLeft("0x3", 32),
-	threshold: HexUtils.padLeft("0x4", 32),
-	nonce: HexUtils.padLeft("0x5", 32),
-	deprecatedDomainSeparator: HexUtils.padLeft("0x6", 32),
-	signedMessagesMapping: HexUtils.padLeft("0x7", 32),
-	approvedHashesMapping: HexUtils.padLeft("0x8", 32),
-	// keccak256("fallback_manager.handler.address")
-	fallbackHandler:
-		"0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5",
-	// keccak256("guard_manager.guard.address")
-	guard: "0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8",
-} as const;
 
 /**
  * Reads raw storage slots from a Safe contract by performing an eth_call with the getStorageAt function selector.
@@ -1033,5 +998,4 @@ export {
 	getSingleton,
 	getOwners,
 	getVersion,
-	SAFE_STORAGE_SLOTS,
 };

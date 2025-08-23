@@ -24,10 +24,10 @@ import {
 	getStorageAt,
 	getThreshold,
 	getVersion,
-	SAFE_STORAGE_SLOTS,
 } from "../src/account-state";
 import { deploySafeAccount } from "../src/deployment";
 import { V141_ADDRESSES } from "../src/safe-contracts";
+import { SAFE_STORAGE_SLOTS } from "../src/storage";
 import { SENTINEL_NODE, ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress } from "./utils";
