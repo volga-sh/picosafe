@@ -1,6 +1,6 @@
-import { Hash, Hex as HexUtils, Address as OxAddress } from "ox";
-import { getModulesPaginated, SAFE_STORAGE_SLOTS } from "./account-state.js";
-import type { Address, Hex } from "./ox-types";
+import { Address as OxAddress } from "ox";
+import { getModulesPaginated } from "./account-state.js";
+import type { Address } from "./ox-types";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
 import { buildSafeTransaction } from "./transactions.js";
 import type {
@@ -193,42 +193,4 @@ async function getDisableModuleTransaction(
 	);
 }
 
-/**
- * Computes the storage slot for a mapping(address => address) entry used by the
- * Safe contracts for module linked-list management. The mapping itself is
- * located at storage slot `1` (see {@link SAFE_STORAGE_SLOTS.modulesMapping}).
- *
- * Solidity stores a mapping value at `keccak256(key . slot)` where both
- * components are tightly packed and 32-byte padded. This helper produces that
- * location so we can use Anvil's `setStorageAt` to simulate enabled modules
- * without executing on-chain Safe transactions (which would otherwise require
- * signatures & execution).
- *
- * @param moduleAddress - Address that acts as the mapping key (either `SENTINEL_NODE` or a module address)
- * @returns 32-byte hex string representing the calculated storage slot
- * @example
- * ```typescript
- * import { computeModulesMappingSlot } from "picosafe";
- *
- * const moduleAddress = "0x0000000000000000000000000000000000000001";
- * const slot = computeModulesMappingSlot(moduleAddress);
- * console.log(slot); // 0xcc69885fda6bcc1a4ace058b4a62bf5e179ea78fd58a1ccd71c22cc9b688792f
- * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/libraries/SafeStorage.sol#L13
- */
-function computeModulesMappingSlot(moduleAddress: Address): Hex {
-	// Pad address and slot to 32 bytes each then hash the concatenation
-	// This follows Solidity's storage slot calculation for mappings: keccak256(key + slot)
-	return Hash.keccak256(
-		HexUtils.concat(
-			HexUtils.padLeft(moduleAddress, 32),
-			HexUtils.padLeft(SAFE_STORAGE_SLOTS.modulesMapping, 32),
-		),
-	);
-}
-
-export {
-	UNSAFE_getEnableModuleTransaction,
-	getDisableModuleTransaction,
-	computeModulesMappingSlot,
-};
+export { UNSAFE_getEnableModuleTransaction, getDisableModuleTransaction };

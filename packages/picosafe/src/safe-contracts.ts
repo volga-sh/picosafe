@@ -1,4 +1,11 @@
+import { getOwners, getStorageAt } from "./account-state";
 import type { Address } from "./ox-types";
+import { computeOwnersMappingSlot } from "./storage";
+import type {
+	EIP1193ProviderWithRequestFn,
+	PicosafeRpcBlockIdentifier,
+} from "./types";
+import { SENTINEL_NODE } from "./utilities/constants";
 
 type SafeContracts =
 	| "SafeProxyFactory"
@@ -25,5 +32,103 @@ const V141_ADDRESSES: Record<SafeContracts, Address> = {
 	CreateCall: "0x9b35Af71d77eaf8d7e40252370304687390A1A52",
 } as const;
 
+/**
+ * Best-effort detection function to determine if a contract address is a Safe account.
+ * This function works with any proxy type by verifying both method responses and storage patterns
+ * specific to Safe contracts.
+ *
+ * @remarks
+ * The detection strategy combines two verification methods:
+ * 1. Calls `getOwners()` method which should return an array of owner addresses
+ * 2. Reads the storage slot `owners[SENTINEL_NODE]` and verifies it matches the first owner
+ *
+ * This approach is "best-effort" because:
+ * - A malicious contract could implement the same methods and storage patterns
+ * - However, the combination makes it very unlikely for non-Safe contracts to pass both checks
+ * - The storage verification is particularly specific to Safe's linked-list owner structure
+ *
+ * The function is non-throwing and returns false for any errors or validation failures.
+ *
+ * @param provider - An EIP-1193 compliant provider for blockchain interactions
+ * @param address - The contract address to check
+ * @param options - Optional parameters
+ * @param options.block - Block identifier to query at (defaults to "latest")
+ * @returns Promise that resolves to true if the contract appears to be a Safe, false otherwise
+ * @example
+ * ```typescript
+ * import { isSafeAccount } from "picosafe";
+ * import { createPublicClient, http } from "viem";
+ * import { mainnet } from "viem/chains";
+ *
+ * const publicClient = createPublicClient({
+ *   chain: mainnet,
+ *   transport: http(),
+ * });
+ *
+ * // Check if an address is a Safe
+ * const contractAddress = "0x742d35Cc6634C0532925a3b844Bc9e7595f4d3e2";
+ * const isSafe = await isSafeAccount(publicClient, contractAddress);
+ *
+ * if (isSafe) {
+ *   console.log("This appears to be a Safe contract!");
+ * } else {
+ *   console.log("This does not appear to be a Safe contract.");
+ * }
+ * ```
+ */
+async function isSafeAccount(
+	provider: Readonly<EIP1193ProviderWithRequestFn>,
+	address: Address,
+	options?: Readonly<{
+		block?: PicosafeRpcBlockIdentifier;
+	}>,
+): Promise<boolean> {
+	try {
+		const { block = "latest" } = options || {};
+
+		// Get the storage slot for owners[SENTINEL_NODE]
+		const sentinelSlot = computeOwnersMappingSlot(SENTINEL_NODE);
+
+		// Batch both calls for efficiency using existing functions
+		const [ownersList, storageValues] = await Promise.all([
+			// Use existing getOwners function
+			getOwners(provider, { safeAddress: address }, { block }),
+			// Use existing getStorageAt function
+			getStorageAt(
+				provider,
+				{ safeAddress: address, slot: sentinelSlot },
+				{ block },
+			),
+		]);
+
+		// Check if we have any owners
+		if (!ownersList || ownersList.length === 0) {
+			return false;
+		}
+
+		// Get the first owner from the list
+		const firstOwner = ownersList[0];
+		if (!firstOwner) {
+			return false;
+		}
+
+		// Get the storage value (should be first storage slot returned)
+		const storageValue = storageValues[0];
+		if (!storageValue) {
+			return false;
+		}
+
+		// Convert storage value to address (remove padding)
+		const storageAddress = `0x${storageValue.slice(26)}`; // Remove "0x" and padding
+
+		// Verify that owners[SENTINEL_NODE] points to the first owner
+		// Both addresses should be checksummed for comparison
+		return firstOwner.toLowerCase() === storageAddress.toLowerCase();
+	} catch (_error) {
+		// Return false for any errors (non-throwing behavior)
+		return false;
+	}
+}
+
 export type { SafeContracts };
-export { V141_ADDRESSES, SUPPORTED_SAFE_VERSIONS };
+export { V141_ADDRESSES, SUPPORTED_SAFE_VERSIONS, isSafeAccount };

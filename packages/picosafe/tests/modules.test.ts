@@ -20,13 +20,12 @@ import {
 	type Address as ViemAddress,
 } from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SAFE_STORAGE_SLOTS } from "../src/account-state.js";
 import { deploySafeAccount } from "../src/deployment";
 import {
-	computeModulesMappingSlot,
 	getDisableModuleTransaction,
 	UNSAFE_getEnableModuleTransaction,
 } from "../src/modules";
+import { computeModulesMappingSlot, SAFE_STORAGE_SLOTS } from "../src/storage";
 import { Operation } from "../src/types";
 import { SENTINEL_NODE, ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
