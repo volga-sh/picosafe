@@ -2,19 +2,19 @@ import { getOwners, getStorageAt } from "./account-state";
 import type { Address } from "./ox-types";
 import { computeOwnersMappingSlot } from "./storage";
 import type {
-  EIP1193ProviderWithRequestFn,
-  PicosafeRpcBlockIdentifier,
+	EIP1193ProviderWithRequestFn,
+	PicosafeRpcBlockIdentifier,
 } from "./types";
 import { SENTINEL_NODE } from "./utilities/constants";
 
 type SafeContracts =
-  | "SafeProxyFactory"
-  | "Safe"
-  | "SafeL2"
-  | "CompatibilityFallbackHandler"
-  | "MultiSend"
-  | "MultiSendCallOnly"
-  | "CreateCall";
+	| "SafeProxyFactory"
+	| "Safe"
+	| "SafeL2"
+	| "CompatibilityFallbackHandler"
+	| "MultiSend"
+	| "MultiSendCallOnly"
+	| "CreateCall";
 
 /**
  * Supported Safe contract versions by PicoSafe SDK.
@@ -23,13 +23,13 @@ type SafeContracts =
 const SUPPORTED_SAFE_VERSIONS = ["1.4.1"] as const;
 
 const V141_ADDRESSES = {
-  SafeProxyFactory: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
-  Safe: "0x41675C099F32341bf84BFc5382aF534df5C7461a",
-  SafeL2: "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
-  CompatibilityFallbackHandler: "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
-  MultiSend: "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526",
-  MultiSendCallOnly: "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
-  CreateCall: "0x9b35Af71d77eaf8d7e40252370304687390A1A52",
+	SafeProxyFactory: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+	Safe: "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+	SafeL2: "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+	CompatibilityFallbackHandler: "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+	MultiSend: "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526",
+	MultiSendCallOnly: "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
+	CreateCall: "0x9b35Af71d77eaf8d7e40252370304687390A1A52",
 } satisfies Record<SafeContracts, Address>;
 
 /**
@@ -77,38 +77,39 @@ const V141_ADDRESSES = {
  * ```
  */
 async function isSafeAccount(
-  provider: Readonly<EIP1193ProviderWithRequestFn>,
-  address: Address,
-  options?: Readonly<{
-    block?: PicosafeRpcBlockIdentifier;
-  }>
+	provider: Readonly<EIP1193ProviderWithRequestFn>,
+	address: Address,
+	options?: Readonly<{
+		block?: PicosafeRpcBlockIdentifier;
+	}>,
 ): Promise<boolean> {
-  try {
-    const { block = "latest" } = options || {};
+	try {
+		const { block = "latest" } = options || {};
 
-    const sentinelSlot = computeOwnersMappingSlot(SENTINEL_NODE);
+		const sentinelSlot = computeOwnersMappingSlot(SENTINEL_NODE);
 
-    const [[firstOwner], [storageValue]] = await Promise.all([
-      getOwners(provider, { safeAddress: address }, { block }),
-      getStorageAt(
-        provider,
-        { safeAddress: address, slot: sentinelSlot },
-        { block }
-      ),
-    ]);
+		const [[firstOwner], [storageValue]] = await Promise.all([
+			getOwners(provider, { safeAddress: address }, { block }),
+			getStorageAt(
+				provider,
+				{ safeAddress: address, slot: sentinelSlot },
+				{ block },
+			),
+		]);
 
-    if (!firstOwner || !storageValue) {
-      return false;
-    }
+		if (!firstOwner || !storageValue) {
+			return false;
+		}
 
-    // Convert storage value to address (remove padding)
-    const storageAddress = `0x${storageValue.slice(26)}`; // Remove "0x" and padding
+		// Convert storage value to address (remove padding)
+		// Storage values are 32 bytes (64 hex chars + "0x"), addresses are 20 bytes (40 hex chars)
+		const storageAddress = `0x${storageValue.slice(-40)}`; // Extract last 20 bytes as address
 
-    // Verify that owners[SENTINEL_NODE] points to the first owner
-    return firstOwner.toLowerCase() === storageAddress.toLowerCase();
-  } catch {
-    return false;
-  }
+		// Verify that owners[SENTINEL_NODE] points to the first owner
+		return firstOwner.toLowerCase() === storageAddress.toLowerCase();
+	} catch {
+		return false;
+	}
 }
 
 export type { SafeContracts };
