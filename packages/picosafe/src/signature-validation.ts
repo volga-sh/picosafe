@@ -184,6 +184,18 @@ async function isValidECDSASignature(
 	signature: Readonly<ECDSASignature>,
 	dataHash: Hex,
 ): Promise<SignatureValidationResult<ECDSASignature>> {
+    // Pre-validate v-byte: for plain ECDSA it must be 27 or 28.
+    // (eth_sign variants are adjusted by the caller in validateSignature).
+    const vHex = signature.data.slice(-2);
+    const vByte = Number.parseInt(vHex, 16);
+    if (Number.isNaN(vByte) || (vByte !== 27 && vByte !== 28)) {
+        return {
+            valid: false,
+            signature,
+            error: new Error(`Invalid ECDSA v-byte: ${vHex}`),
+        };
+    }
+
 	const [recoveredSigner, error] = await captureError(async () => {
 		const sig = Signature.fromHex(signature.data);
 		const address = Secp256k1.recoverAddress({
