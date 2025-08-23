@@ -159,10 +159,14 @@ function adjustEthSignSignature(
  * @param dataHash - The hash of the data that was signed
  * @returns Promise resolving to validation result with recovered signer
  * @returns result.valid - True if recovered signer matches expected signer
- * @returns result.validatedSigner - The address recovered from the signature
+ * @returns result.validatedSigner - The address recovered from the signature (present when recovery succeeds, regardless of validity)
  * @returns result.signature - The original signature object
- * @returns result.error - Error if the signature is invalid
- * @throws {Error} If the signature is invalid (invalid r or s values)
+ * @returns result.error - Error object when signature validation fails (invalid r/s values, v-byte not 27/28, or recovery failure). Callers should check this field rather than expecting exceptions.
+ *
+ * Note: This function strictly expects ECDSA signatures with v = 27 or 28.
+ * eth_sign signatures with v = 31/32 are handled by {@link validateSignature},
+ * which adjusts the v-byte and hashes the payload with the Ethereum Signed Message prefix
+ * before delegating to this function.
  * @example
  * ```typescript
  * import { isValidECDSASignature, calculateSafeTransactionHash } from "picosafe";
@@ -177,13 +181,28 @@ function adjustEthSignSignature(
  *
  * const result = await isValidECDSASignature(signature, txHash);
  * console.log('Valid:', result.valid);
- * console.log('Recovered signer:', result.validatedSigner);
+ * if (result.validatedSigner) {
+ *   console.log('Recovered signer:', result.validatedSigner);
+ *   // Can inspect recovered address even if valid is false
+ * }
  * ```
  */
 async function isValidECDSASignature(
 	signature: Readonly<ECDSASignature>,
 	dataHash: Hex,
 ): Promise<SignatureValidationResult<ECDSASignature>> {
+	// Pre-validate v-byte: for plain ECDSA it must be 27 or 28.
+	// (eth_sign variants are adjusted by the caller in validateSignature).
+	const vHex = signature.data.slice(-2);
+	const vByte = Number.parseInt(vHex, 16);
+	if (Number.isNaN(vByte) || (vByte !== 27 && vByte !== 28)) {
+		return {
+			valid: false,
+			signature,
+			error: new Error(`Invalid ECDSA v-byte: ${vHex}`),
+		};
+	}
+
 	const [recoveredSigner, error] = await captureError(async () => {
 		const sig = Signature.fromHex(signature.data);
 		const address = Secp256k1.recoverAddress({

@@ -23,6 +23,7 @@ import {
 	getSingleton,
 	getStorageAt,
 	getThreshold,
+	getVersion,
 	SAFE_STORAGE_SLOTS,
 } from "../src/account-state";
 import { deploySafeAccount } from "../src/deployment";
@@ -701,6 +702,205 @@ describe("Account State Functions", () => {
 			await expect(
 				getModulesPaginated(publicClient, { safeAddress: invalidAddress }),
 			).rejects.toThrow();
+		});
+	});
+
+	describe("getVersion", () => {
+		it("should return the version string of a Safe with verification enabled by default", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			const version = await getVersion(publicClient, {
+				safeAddress: deployment.data.safeAddress,
+			});
+			expect(version).toBe("1.4.1");
+		});
+
+		it("should return version without verification when verify is false", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			const version = (await getVersion(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ verify: false },
+			)) as string;
+			expect(typeof version).toBe("string");
+			expect(version.length).toBeGreaterThan(0);
+		});
+
+		it("should explicitly verify version when verify is true", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			const version = await getVersion(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ verify: true },
+			);
+			expect(version).toBe("1.4.1");
+		});
+
+		it("should support querying at specific block", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			const blockNumber = await publicClient.getBlockNumber();
+
+			const version = await getVersion(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ block: toHex(blockNumber) },
+			);
+			expect(version).toBe("1.4.1");
+
+			// Should fail if safe doesn't exist at block
+			await expect(
+				getVersion(
+					publicClient,
+					{ safeAddress: deployment.data.safeAddress },
+					{ block: toHex(blockNumber - 1n) },
+				),
+			).rejects.toThrow();
+		});
+
+		it("should fail gracefully with invalid Safe address", async () => {
+			const invalidAddress = "0x0000000000000000000000000000000000000000";
+
+			await expect(
+				getVersion(publicClient, { safeAddress: invalidAddress }),
+			).rejects.toThrow();
+		});
+
+		it("should support lazy evaluation", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			// Get lazy call object
+			const versionCall = await getVersion(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true },
+			);
+
+			// Verify structure
+			expect(versionCall).toHaveProperty("rawCall");
+			expect(versionCall).toHaveProperty("call");
+			expect(versionCall.rawCall).toMatchObject({
+				to: deployment.data.safeAddress,
+				data: "0xffa1ad74", // VERSION selector
+			});
+
+			// Execute the call
+			const version = await versionCall.call();
+			expect(version).toBe("1.4.1");
+		});
+
+		it("should support lazy evaluation with verify option", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			// Get lazy call object with verify disabled
+			const versionCall = await getVersion(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true, verify: false },
+			);
+
+			// Execute the call
+			const version = await versionCall.call();
+			expect(typeof version).toBe("string");
+			expect((version as string).length).toBeGreaterThan(0);
+		});
+
+		it("should support lazy evaluation with specific block", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			const blockNumber = await publicClient.getBlockNumber();
+
+			// Get lazy call object with specific block
+			const versionCall = await getVersion(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true, block: toHex(blockNumber) },
+			);
+
+			// Verify block is included in raw call
+			expect(versionCall.rawCall.block).toBe(toHex(blockNumber));
+
+			// Execute the call
+			const version = await versionCall.call();
+			expect(version).toBe("1.4.1");
+		});
+
+		it("should return proper wrapped call structure in lazy mode", async () => {
+			const deployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const txHash = await deployment.send();
+			await publicClient.waitForTransactionReceipt({
+				hash: txHash,
+			});
+
+			const versionCall = await getVersion(
+				publicClient,
+				{ safeAddress: deployment.data.safeAddress },
+				{ lazy: true },
+			);
+
+			// Verify the structure matches expected format
+			expect(versionCall).toMatchObject({
+				rawCall: {
+					to: deployment.data.safeAddress,
+					data: "0xffa1ad74",
+					block: "latest",
+				},
+				call: expect.any(Function),
+			});
 		});
 	});
 

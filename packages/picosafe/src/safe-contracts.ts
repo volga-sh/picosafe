@@ -9,6 +9,12 @@ type SafeContracts =
 	| "MultiSendCallOnly"
 	| "CreateCall";
 
+/**
+ * Supported Safe contract versions by PicoSafe SDK.
+ * The SDK is tested and compatible with these specific versions.
+ */
+const SUPPORTED_SAFE_VERSIONS = ["1.4.1"] as const;
+
 const V141_ADDRESSES: Record<SafeContracts, Address> = {
 	SafeProxyFactory: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
 	Safe: "0x41675C099F32341bf84BFc5382aF534df5C7461a",
@@ -20,4 +26,4 @@ const V141_ADDRESSES: Record<SafeContracts, Address> = {
 } as const;
 
 export type { SafeContracts };
-export { V141_ADDRESSES };
+export { V141_ADDRESSES, SUPPORTED_SAFE_VERSIONS };
