@@ -3,6 +3,7 @@ import type { Address, Hex } from "./ox-types";
 
 type Quantity = `0x${string}`;
 
+import { SUPPORTED_SAFE_VERSIONS } from "./safe-contracts";
 import type {
 	EIP1193ProviderWithRequestFn,
 	MaybeLazy,
@@ -905,6 +906,122 @@ function getModulesPaginated<
 	return wrapStateRead(provider, call, decoder, options);
 }
 
+/**
+ * Retrieves the version string of a Safe contract by calling its VERSION() method.
+ * The Safe contract has a public VERSION constant that returns the contract version as a string.
+ *
+ * @remarks
+ * This function calls the `VERSION()` method on the Safe contract to get the version string.
+ * By default, it validates that the returned version is one of the supported versions by PicoSafe.
+ * You can disable this validation by setting `verify: false` in the options.
+ *
+ * The verification helps ensure you're working with a Safe contract version that's compatible
+ * with PicoSafe's functionality and has been tested against this SDK.
+ *
+ * @param provider - An EIP-1193 compliant provider used to perform the eth_call
+ * @param params - Parameters for the version read
+ *                 - `safeAddress`: The address of the Safe contract whose version is being fetched
+ * @param options - Optional execution options
+ *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
+ *                  - `block`: Block number or tag to query at (defaults to "latest")
+ *                  - `data`: Optional additional data to attach to the wrapped call
+ *                  - `verify`: If true (default), validates that the version is supported by PicoSafe
+ * @returns The version string of the Safe contract, or a wrapped call object
+ * @throws {Error} If the eth_call fails or if verify is true and the version is not supported by PicoSafe
+ * @example
+ * ```typescript
+ * import { createPublicClient, http } from "viem";
+ * import { mainnet } from "viem/chains";
+ * import { getVersion } from "picosafe/account-state";
+ *
+ * const provider = createPublicClient({ chain: mainnet, transport: http() });
+ *
+ * // Immediate execution with verification (default)
+ * const version = await getVersion(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' }
+ * );
+ * console.log('Safe version:', version); // "1.4.1"
+ *
+ * // Get version without verification
+ * const rawVersion = await getVersion(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
+ *   { verify: false }
+ * );
+ * console.log('Raw version:', rawVersion); // Could be any version string
+ *
+ * // Lazy evaluation for batching
+ * const versionCall = await getVersion(
+ *   provider,
+ *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' },
+ *   { lazy: true }
+ * );
+ * const version = await versionCall.call();
+ * ```
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L35
+ */
+function getVersion<A = void, O extends MaybeLazy<A> | undefined = undefined>(
+	provider: EIP1193ProviderWithRequestFn,
+	params: { safeAddress: Address },
+	options?: O & { verify?: boolean },
+): WrapResult<string, A, O> {
+	const { safeAddress } = params;
+	const { block = "latest", verify = true } = options || {};
+
+	// selector for `VERSION() returns (string memory)`
+	const versionSelector = "0xffa1ad74";
+
+	const call: StateReadCall = {
+		to: safeAddress,
+		data: versionSelector,
+		block,
+	};
+
+	const decoder = (raw: Hex): string => {
+		if (raw === "0x") {
+			throw new Error(`Failed to retrieve version for Safe at ${safeAddress}`);
+		}
+
+		// Decode the string response from the VERSION() method
+		// The ABI encoding for a string includes:
+		// 1. Offset pointer (32 bytes) - points to where the string data starts
+		// 2. String length (32 bytes) - number of bytes in the string
+		// 3. String data (padded to 32-byte boundaries) - the actual string
+
+		// Skip the offset pointer (first 32 bytes = 64 hex chars after "0x")
+		// Read the string length from the next 32 bytes
+		const lengthHex = raw.slice(66, 130); // Skip "0x" + 64 chars offset
+		const length = Number.parseInt(lengthHex, 16);
+
+		if (length === 0) {
+			throw new Error(`Safe at ${safeAddress} returned empty version string`);
+		}
+
+		// Extract the string data starting after the length field
+		const stringHex = raw.slice(130, 130 + length * 2);
+
+		// Convert hex to string
+		const version = Buffer.from(stringHex, "hex").toString("utf8");
+
+		// Verify the version if requested
+		if (
+			verify &&
+			!(SUPPORTED_SAFE_VERSIONS as readonly string[]).includes(version)
+		) {
+			throw new Error(
+				`Unsupported Safe version "${version}" at ${safeAddress}. ` +
+					`PicoSafe only supports Safe versions: ${SUPPORTED_SAFE_VERSIONS.join(", ")}. ` +
+					"To get the raw version without validation, use { verify: false }.",
+			);
+		}
+
+		return version;
+	};
+
+	return wrapStateRead(provider, call, decoder, options);
+}
+
 export {
 	getStorageAt,
 	getNonce,
@@ -915,5 +1032,6 @@ export {
 	getGuard,
 	getSingleton,
 	getOwners,
+	getVersion,
 	SAFE_STORAGE_SLOTS,
 };
