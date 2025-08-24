@@ -284,6 +284,82 @@ The PicoSafe package includes an automated Anvil setup for testing. When running
   - Operations involve dangerous functionality (delegatecalls, module management, etc.)
 - **Examples**: Runtime checks are appropriate for validating external contract addresses, preventing dangerous module installations, or blocking malicious delegatecall targets
 
+## Example Guidelines
+
+Examples serve as both documentation and learning tools. They should showcase library capabilities while being clean, readable, and copy-paste friendly.
+
+### Core Principles for Examples
+
+1. **Focus on Library APIs**: Examples should highlight PicoSafe functions, not boilerplate setup
+2. **Minimize Noise**: Remove excessive console.logs, decorative output, and verbose formatting
+3. **Runnable but Readable**: Primary purpose is to be read and understood, secondary is execution
+4. **Concise Output**: Only log essential information (addresses, transaction hashes, success confirmations)
+
+### Structure Guidelines
+
+#### Setup Abstraction
+
+- **Use shared setup modules**: Extract repetitive client configuration to `setup.ts`
+- **Comment non-library code**: Clearly indicate when code is standard Ethereum setup vs PicoSafe-specific
+- **Type explicitly**: Add explicit type annotations to avoid complex type inference issues
+
+Example setup module:
+
+```typescript
+export function setupClients(rpcUrl: string): {
+  walletClient: WalletClient<Transport, Chain, Account>
+  publicClient: PublicClient
+} {
+  // Standard Viem setup - not PicoSafe specific
+  // Implementation details...
+}
+```
+
+#### Helper Functions
+
+- **Extract complex operations**: Move token deployments, verification logic, etc. to helper files
+- **Keep focus on patterns**: Main example should show the library pattern, not auxiliary complexity
+- **Proper TypeScript types**: Use correct Viem types like `WalletClient<Transport, Chain, Account>`
+
+#### Console Output
+
+- **Essential only**: Log only critical information
+- **Single-line format**: Prefer concise single-line outputs over multi-line formatted blocks
+- **Remove decorations**: No emojis, ASCII art, or excessive formatting unless specifically requested
+- **Progress indicators**: Simple status messages like "Safe deployed at: 0x..." instead of verbose explanations
+
+### Anti-patterns to Avoid
+
+1. **Verbose console output blocks**:
+
+   ```typescript
+   // ❌ Avoid
+   console.log("🎉 Safe account deployed successfully!")
+   console.log(`   Block Number: ${receipt.blockNumber}`)
+   console.log(`   Gas Used: ${receipt.gasUsed}`)
+
+   // ✅ Prefer
+   console.log("Safe deployed in block:", receipt.blockNumber)
+   ```
+
+2. **Inline complex operations**:
+
+   ```typescript
+   // ❌ Avoid - 30+ lines of token deployment in main flow
+
+   // ✅ Prefer - Extract to helper
+   const tokenAddress = await setupTestToken(walletClient, publicClient, safeAddress)
+   ```
+
+3. **Repetitive setup code**:
+
+   ```typescript
+   // ❌ Avoid - Same 15 lines of client setup in every example
+
+   // ✅ Prefer - Shared setup
+   const { walletClient, publicClient } = setupClients(rpcUrl)
+   ```
+
 ## Common Patterns
 
 ### Provider Pattern
