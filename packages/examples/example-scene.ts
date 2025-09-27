@@ -29,12 +29,18 @@ export type ExampleScene<
 	walletClient: WalletClient<Transport, Chain, Account>;
 	publicClient: PublicClient;
 
-	// Pre-deployed Safes with different configurations
+	// Pre-deployed Safes - includes built-in configurations and any custom safes
 	safes: {
 		singleOwner: Address; // 1-of-1 Safe with walletClient.account as owner
 		multiOwner: Address; // 2-of-3 Safe with test addresses
 		highThreshold: Address; // 3-of-3 Safe for demonstrating threshold changes
-	};
+	} & (TOptions extends { customSafes: ReadonlyArray<infer CS> }
+		? CS extends { name: infer Name }
+			? Name extends string
+				? Record<Name, Address>
+				: Record<string, never>
+			: Record<string, never>
+		: Record<string, never>);
 
 	// Test accounts (private keys available)
 	accounts: {
@@ -143,11 +149,11 @@ export async function withExampleScene<
 			});
 
 			// Deploy standard Safes
-			const safes: ExampleScene["safes"] = {
+			const safes = {
 				singleOwner: "" as Address,
 				multiOwner: "" as Address,
 				highThreshold: "" as Address,
-			};
+			} as ExampleScene<TOptions>["safes"];
 
 			// 1. Single owner Safe (1-of-1)
 			const singleOwnerDeployment = await deploySafeAccount(walletClient, {
@@ -198,8 +204,9 @@ export async function withExampleScene<
 						hash: await deployment.send(),
 					});
 					// Add to safes object with custom name
-					(safes as Record<string, Address>)[customSafe.name] = deployment.data
-						.safeAddress as Address;
+					Object.assign(safes, {
+						[customSafe.name]: deployment.data.safeAddress as Address,
+					});
 				}
 			}
 
