@@ -1,16 +1,11 @@
-import { withAnvil } from "@volga/anvil-manager";
 import {
 	buildSafeTransaction,
-	deploySafeAccount,
 	executeSafeTransaction,
-	type SafeDeploymentConfig,
 	signSafeTransaction,
 } from "@volga/picosafe";
-import { getSafeGenesisPath } from "@volga/safe-genesis";
 import { TestERC20Abi } from "@volga/test-contracts";
 import { type Address, encodeFunctionData, type Hex, parseEther } from "viem";
-import { setupTestToken, verifyTransfers } from "./helpers.js";
-import { setupClients } from "./setup.js";
+import { withExampleScene } from "./example-scene.js";
 
 /**
  * Example: Multiple Transfers with Automatic MultiSend
@@ -20,40 +15,10 @@ import { setupClients } from "./setup.js";
  * single atomic Safe transaction without manual MultiSend encoding.
  */
 
-await withAnvil(
-	async (anvilInstance) => {
-		const { walletClient, publicClient } = setupClients(anvilInstance.rpcUrl);
+await withExampleScene(
+	async (scene) => {
+		const { walletClient, publicClient, safes, accounts, contracts } = scene;
 
-		// 1. Deploy Safe
-		const deploymentConfig: SafeDeploymentConfig = {
-			owners: [walletClient.account.address],
-			threshold: 1n,
-		};
-
-		const { send: sendDeploymentTx, data: deploymentData } =
-			await deploySafeAccount(walletClient, deploymentConfig);
-
-		const deploymentHash = await sendDeploymentTx();
-		await publicClient.waitForTransactionReceipt({ hash: deploymentHash });
-		console.log("Safe deployed at:", deploymentData.safeAddress);
-
-		// 2. Fund Safe with ETH
-		const fundEthHash = await walletClient.sendTransaction({
-			to: deploymentData.safeAddress,
-			value: parseEther("1"),
-		});
-		await publicClient.waitForTransactionReceipt({ hash: fundEthHash });
-
-		// 3. Setup test token (deploy and fund Safe)
-		const tokenAddress = await setupTestToken(
-			walletClient,
-			publicClient,
-			deploymentData.safeAddress as Address,
-		);
-
-		console.log("Safe funded with ETH and tokens");
-
-		// 4. Create multiple transfers (3 ETH + 3 token transfers)
 		const recipients = {
 			eth1: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as Address,
 			eth2: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as Address,
@@ -70,7 +35,7 @@ await withAnvil(
 			{ to: recipients.eth3, value: parseEther("0.2"), data: "0x" as Hex },
 			// Token transfers
 			{
-				to: tokenAddress,
+				to: contracts.testToken,
 				value: 0n,
 				data: encodeFunctionData({
 					abi: TestERC20Abi,
@@ -79,7 +44,7 @@ await withAnvil(
 				}),
 			},
 			{
-				to: tokenAddress,
+				to: contracts.testToken,
 				value: 0n,
 				data: encodeFunctionData({
 					abi: TestERC20Abi,
@@ -88,7 +53,7 @@ await withAnvil(
 				}),
 			},
 			{
-				to: tokenAddress,
+				to: contracts.testToken,
 				value: 0n,
 				data: encodeFunctionData({
 					abi: TestERC20Abi,
@@ -98,52 +63,32 @@ await withAnvil(
 			},
 		];
 
-		console.log(`Prepared ${transactions.length} transfers:`);
-		console.log("  - 0.1 ETH + 0.15 ETH + 0.2 ETH");
-		console.log("  - 100 + 200 + 150 tokens");
-
-		// 5. Build Safe transaction (automatically uses MultiSend for multiple txs)
 		const safeTx = await buildSafeTransaction(
 			walletClient,
-			deploymentData.safeAddress as Address,
+			safes.singleOwner,
 			transactions,
 		);
 
-		console.log("Safe transaction built with automatic MultiSend");
-		console.log("Nonce:", safeTx.nonce);
-
-		// 6. Sign and execute
 		const signature = await signSafeTransaction(
 			walletClient,
 			safeTx,
-			walletClient.account.address,
+			accounts.owner1.address,
 		);
-
-		console.log("Transaction signed");
 
 		const execTx = await executeSafeTransaction(walletClient, safeTx, [
 			signature,
 		]);
 
 		const execHash = await execTx.send();
-		const execReceipt = await publicClient.waitForTransactionReceipt({
+		await publicClient.waitForTransactionReceipt({
 			hash: execHash,
 		});
 
-		console.log("Transaction executed:", execHash);
-		console.log("Gas used:", execReceipt.gasUsed.toLocaleString());
-
-		// 7. Verify transfers completed
-		const transfersVerified = await verifyTransfers(
-			publicClient,
-			recipients,
-			tokenAddress,
-		);
-
-		console.log("✓ All transfers completed:", transfersVerified);
+		console.log("MultiSend transaction executed:", execHash);
 		console.log("✓ 6 transfers executed atomically in one Safe transaction");
 	},
 	{
-		genesisPath: getSafeGenesisPath(),
+		deployToken: true,
+		fundSafesWithEth: "1", // Fund Safe with 1 ETH for the transfers
 	},
 );
