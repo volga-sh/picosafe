@@ -33,7 +33,7 @@ import {
 	type Transport,
 	type WalletClient,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { type PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 
 /**
@@ -61,10 +61,10 @@ export type ExampleScene<
 
 	// Test accounts (private keys available)
 	accounts: {
-		owner1: Account; // Primary account (walletClient.account)
-		owner2: Account; // Additional test accounts
-		owner3: Account;
-		nonOwner: Account;
+		owner1: PrivateKeyAccount; // Primary account (walletClient.account)
+		owner2: PrivateKeyAccount; // Additional test accounts
+		owner3: PrivateKeyAccount;
+		nonOwner: PrivateKeyAccount;
 	};
 
 	// Test contracts - guaranteed to exist when corresponding deploy flag is true
@@ -414,7 +414,9 @@ export async function withExampleScene<
 				// Enable module on specified Safe if requested
 				if (options.enableModuleOnSafe && contracts.testModule) {
 					const targetSafe = safes[options.enableModuleOnSafe];
-					const { UNSAFE_getEnableModuleTransaction } = await import("@volga/picosafe");
+					const { UNSAFE_getEnableModuleTransaction } = await import(
+						"@volga/picosafe"
+					);
 					const enableModuleTx = await UNSAFE_getEnableModuleTransaction(
 						walletClient,
 						targetSafe,
@@ -422,7 +424,8 @@ export async function withExampleScene<
 					);
 
 					// Determine threshold and owners based on Safe type
-					const threshold = options.enableModuleOnSafe === "singleOwner" ? 1 : 2;
+					const threshold =
+						options.enableModuleOnSafe === "singleOwner" ? 1 : 2;
 					const availableOwners = [
 						accounts.owner1,
 						accounts.owner2,

@@ -3,6 +3,7 @@ import {
 	signSafeTransaction,
 	UNSAFE_getEnableModuleTransaction,
 } from "@volga/picosafe";
+import { createWalletClient, http } from "viem";
 import { withExampleScene } from "./example-scene.js";
 
 /**
@@ -24,7 +25,14 @@ import { withExampleScene } from "./example-scene.js";
 
 await withExampleScene(
 	async (scene) => {
-		const { walletClient, publicClient, safes, accounts, contracts } = scene;
+		const {
+			walletClient,
+			publicClient,
+			safes,
+			accounts,
+			contracts,
+			anvilInstance,
+		} = scene;
 
 		console.warn("\n⚠️  MODULE SECURITY WARNING");
 		console.warn(
@@ -49,9 +57,11 @@ await withExampleScene(
 		);
 
 		// Second owner signs
-		const walletClient2 = walletClient.extend((client) => ({
+		const walletClient2 = createWalletClient({
+			chain: walletClient.chain,
+			transport: http(anvilInstance.rpcUrl),
 			account: accounts.owner2,
-		}));
+		});
 		const signature2 = await signSafeTransaction(
 			walletClient2,
 			enableModuleTx,

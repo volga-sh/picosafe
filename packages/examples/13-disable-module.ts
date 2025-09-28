@@ -3,6 +3,7 @@ import {
 	getDisableModuleTransaction,
 	signSafeTransaction,
 } from "@volga/picosafe";
+import { createWalletClient, http } from "viem";
 import { withExampleScene } from "./example-scene.js";
 
 /**
@@ -19,7 +20,14 @@ import { withExampleScene } from "./example-scene.js";
 
 await withExampleScene(
 	async (scene) => {
-		const { walletClient, publicClient, safes, accounts, contracts } = scene;
+		const {
+			walletClient,
+			publicClient,
+			safes,
+			accounts,
+			contracts,
+			anvilInstance,
+		} = scene;
 
 		const moduleAddress = contracts.testModule;
 
@@ -37,9 +45,11 @@ await withExampleScene(
 			accounts.owner1.address,
 		);
 
-		const walletClient2 = walletClient.extend((client) => ({
+		const walletClient2 = createWalletClient({
+			chain: walletClient.chain,
+			transport: http(anvilInstance.rpcUrl),
 			account: accounts.owner2,
-		}));
+		});
 		const signature2 = await signSafeTransaction(
 			walletClient2,
 			disableModuleTx,
@@ -57,7 +67,9 @@ await withExampleScene(
 		await publicClient.waitForTransactionReceipt({ hash: txHash });
 
 		console.log(`Module disabled in transaction: ${txHash}`);
-		console.log("✓ Module has been successfully disabled and can no longer execute transactions");
+		console.log(
+			"✓ Module has been successfully disabled and can no longer execute transactions",
+		);
 	},
 	{
 		deployModule: true,

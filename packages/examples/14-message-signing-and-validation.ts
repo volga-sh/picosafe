@@ -23,7 +23,7 @@ import { withExampleScene } from "./example-scene.js";
 
 await withExampleScene(
 	async (scene) => {
-		const { walletClient, publicClient, safes, accounts } = scene;
+		const { publicClient, safes, accounts } = scene;
 
 		const message = "Hello from Safe!";
 
@@ -61,7 +61,7 @@ await withExampleScene(
 			},
 		]);
 
-		console.log(`\n✓ Message signed by 2 owners`);
+		console.log("\n✓ Message signed by 2 owners");
 
 		// Step 2: Validate signatures via EIP-1271
 		// This validates that the Safe contract accepts the signature
@@ -75,7 +75,9 @@ await withExampleScene(
 			{ dataHash: messageHash },
 		);
 
-		console.log(`\n✓ EIP-1271 validation: ${eip1271Result.valid ? "VALID" : "INVALID"}`);
+		console.log(
+			`\n✓ EIP-1271 validation: ${eip1271Result.valid ? "VALID" : "INVALID"}`,
+		);
 
 		// Step 3: Full Safe signature validation
 		// This additionally verifies that signers are owners and meet threshold
@@ -97,13 +99,25 @@ await withExampleScene(
 			},
 		);
 
-		console.log(`✓ Safe signature validation: ${safeValidation.valid ? "VALID" : "INVALID"}`);
-		console.log(`  Valid signatures: ${safeValidation.results.filter((r) => r.valid).length}/${safeValidation.results.length}`);
+		console.log(
+			`✓ Safe signature validation: ${
+				safeValidation.valid ? "VALID" : "INVALID"
+			}`,
+		);
+		console.log(
+			`  Valid signatures: ${
+				safeValidation.results.filter((r) => r.valid).length
+			}/${safeValidation.results.length}`,
+		);
 		console.log(`  Threshold met: ${safeValidation.valid}`);
 
-		console.log(`\nTo verify via EIP-1271, dApps call:`);
-		console.log(`isValidSignature(messageHash, signatures) on the Safe contract`);
-		console.log(`\nThis enables off-chain signature validation without transactions.`);
+		console.log("\nTo verify via EIP-1271, dApps call:");
+		console.log(
+			"isValidSignature(messageHash, signatures) on the Safe contract",
+		);
+		console.log(
+			"\nThis enables off-chain signature validation without transactions.",
+		);
 	},
 	{
 		setFallbackHandlerOnSafe: "multiOwner",
