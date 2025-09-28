@@ -21,7 +21,7 @@ type Log = {
 };
 
 import { PARSED_SAFE_ABI, PARSED_SAFE_PROXY_FACTORY_ABI } from "./abis.js";
-import { V141_ADDRESSES } from "./safe-contracts.js";
+import { V150_ADDRESSES } from "./safe-contracts.js";
 import type { EIP1193ProviderWithRequestFn } from "./types.js";
 import { EMPTY_BYTES, ZERO_ADDRESS } from "./utilities/constants.js";
 import { getAccounts } from "./utilities/eip1193-provider.js";
@@ -58,7 +58,7 @@ type SafeDeploymentConfig = {
 
 	/**
 	 * Address of fallback handler contract
-	 * @default V141_ADDRESSES.CompatibilityFallbackHandler
+	 * @default V150_ADDRESSES.CompatibilityFallbackHandler
 	 */
 	fallbackHandler?: Address;
 
@@ -88,13 +88,13 @@ type SafeDeploymentConfig = {
 
 	/**
 	 * Address of Safe singleton/master copy contract
-	 * @default V141_ADDRESSES.SafeL2
+	 * @default V150_ADDRESSES.SafeL2
 	 */
 	singleton?: Address;
 
 	/**
 	 * Address of Safe proxy factory contract
-	 * @default V141_ADDRESSES.SafeProxyFactory
+	 * @default V150_ADDRESSES.SafeProxyFactory
 	 */
 	proxyFactory?: Address;
 };
@@ -118,13 +118,13 @@ type SafeAddressCalculationWithSetupData = {
 
 	/**
 	 * Address of Safe singleton/master copy contract
-	 * @default V141_ADDRESSES.SafeL2
+	 * @default V150_ADDRESSES.SafeL2
 	 */
 	singleton?: Address;
 
 	/**
 	 * Address of Safe proxy factory contract
-	 * @default V141_ADDRESSES.SafeProxyFactory
+	 * @default V150_ADDRESSES.SafeProxyFactory
 	 */
 	proxyFactory?: Address;
 };
@@ -174,15 +174,15 @@ function calculateSafeAddress(
 	if ("setupData" in config) {
 		setupData = config.setupData;
 		saltNonce = config.saltNonce ?? 0n;
-		singleton = config.singleton ?? V141_ADDRESSES.SafeL2;
-		proxyFactory = config.proxyFactory ?? V141_ADDRESSES.SafeProxyFactory;
+		singleton = config.singleton ?? V150_ADDRESSES.SafeL2;
+		proxyFactory = config.proxyFactory ?? V150_ADDRESSES.SafeProxyFactory;
 	} else {
 		const {
 			owners,
 			threshold,
 			UNSAFE_DELEGATECALL_to = ZERO_ADDRESS,
 			UNSAFE_DELEGATECALL_data = EMPTY_BYTES,
-			fallbackHandler = V141_ADDRESSES.CompatibilityFallbackHandler,
+			fallbackHandler = V150_ADDRESSES.CompatibilityFallbackHandler,
 			paymentToken = ZERO_ADDRESS,
 			payment = 0n,
 			paymentReceiver = ZERO_ADDRESS,
@@ -200,8 +200,8 @@ function calculateSafeAddress(
 		});
 
 		saltNonce = config.saltNonce ?? 0n;
-		singleton = config.singleton ?? V141_ADDRESSES.SafeL2;
-		proxyFactory = config.proxyFactory ?? V141_ADDRESSES.SafeProxyFactory;
+		singleton = config.singleton ?? V150_ADDRESSES.SafeL2;
+		proxyFactory = config.proxyFactory ?? V150_ADDRESSES.SafeProxyFactory;
 	}
 
 	const salt = Hash.keccak256(
@@ -304,7 +304,7 @@ function calculateSafeAddress(
  * const sameAddress = calculateSafeAddress(deployment.data.deploymentConfig);
  * console.log('Addresses match:', sameAddress === deployment.data.safeAddress);
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/proxies/SafeProxyFactory.sol#L52
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/proxies/SafeProxyFactory.sol
  */
 async function deploySafeAccount(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
@@ -320,13 +320,13 @@ async function deploySafeAccount(
 		threshold,
 		UNSAFE_DELEGATECALL_to = ZERO_ADDRESS,
 		UNSAFE_DELEGATECALL_data = EMPTY_BYTES,
-		fallbackHandler = V141_ADDRESSES.CompatibilityFallbackHandler,
+		fallbackHandler = V150_ADDRESSES.CompatibilityFallbackHandler,
 		paymentToken = ZERO_ADDRESS,
 		payment = 0n,
 		paymentReceiver = ZERO_ADDRESS,
 		saltNonce = 0n,
-		singleton = V141_ADDRESSES.SafeL2,
-		proxyFactory = V141_ADDRESSES.SafeProxyFactory,
+		singleton = V150_ADDRESSES.SafeL2,
+		proxyFactory = V150_ADDRESSES.SafeProxyFactory,
 	} = config;
 
 	const setupData = encodeSetupData({
@@ -397,7 +397,7 @@ async function deploySafeAccount(
  *   ],
  *   threshold: 2n,
  * });
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L95
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 function encodeSetupData(
 	config: Omit<
@@ -433,7 +433,7 @@ type SafeSetupEvent = {
  *
  * A Safe proxy emits a single `SafeSetup(address initiator,address[] owners,uint256 threshold,address initializer,address fallbackHandler)`
  * event during its `setup` call. This utility iterates over the provided `logs`, attempts to decode each one as a
- * `SafeSetup` event using the canonical Safe v1.4.1 ABI, and returns an array containing only the successfully decoded
+ * `SafeSetup` event using the canonical Safe v1.5.0 ABI, and returns an array containing only the successfully decoded
  * events.
  *
  * Logs that do not correspond to the `SafeSetup` signature are silently ignored—no exception is thrown. This makes the

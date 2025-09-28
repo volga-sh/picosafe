@@ -72,7 +72,7 @@ import { encodeWithSelector } from "./utilities/encoding.js";
  * const txHash = await execution.send();
  * console.log(`Module enabled in transaction: ${txHash}`);
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L47
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/ModuleManager.sol
  */
 async function UNSAFE_getEnableModuleTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
@@ -141,7 +141,7 @@ async function UNSAFE_getEnableModuleTransaction(
  * const txHash = await execution.send();
  * console.log(`Module disabled in transaction: ${txHash}`);
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L63
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/ModuleManager.sol
  */
 async function getDisableModuleTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,

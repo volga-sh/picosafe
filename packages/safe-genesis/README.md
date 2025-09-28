@@ -1,6 +1,6 @@
 # @volga/safe-genesis
 
-Genesis configuration for Anvil containing pre-deployed Safe Smart Account v1.4.1 contracts. This package provides a genesis file that can be used with Anvil to start a local blockchain with all necessary Safe contracts already deployed at their canonical addresses.
+Genesis configuration for Anvil containing pre-deployed Safe Smart Account v1.5.0 contracts. This package provides a genesis file that can be used with Anvil to start a local blockchain with all necessary Safe contracts already deployed at their canonical addresses.
 
 ## Installation
 
@@ -32,17 +32,22 @@ const { getSafeGenesisPath } = require("@volga/safe-genesis")
 
 ## Pre-deployed Contracts
 
-The genesis file includes the following Safe v1.4.1 contracts at their canonical addresses:
+The genesis file includes the following Safe v1.5.0 contracts at their canonical addresses:
 
 | Contract                     | Address                                      |
 | ---------------------------- | -------------------------------------------- |
-| SafeProxyFactory             | `0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67` |
-| Safe (Singleton)             | `0x41675C099F32341bf84BFc5382aF534df5C7461a` |
-| SafeL2 (Singleton)           | `0x29fcB43b46531BcA003ddC8FCB67FFE91900C762` |
-| CompatibilityFallbackHandler | `0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99` |
-| MultiSend                    | `0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526` |
-| MultiSendCallOnly            | `0x9641d764fc13c8B624c04430C7356C1C7C8102e2` |
-| CreateCall                   | `0x9b35Af71d77eaf8d7e40252370304687390A1A52` |
+| SafeProxyFactory             | `0x14F2982D601c9458F93bd70B218933A6f8165e7b` |
+| Safe (Singleton)             | `0xFf51A5898e281Db6DfC7855790607438dF2ca44b` |
+| SafeL2 (Singleton)           | `0xEdd160fEBBD92E350D4D398fb636302fccd67C7e` |
+| CompatibilityFallbackHandler | `0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4` |
+| TokenCallbackHandler         | `0x54e86d004d71a8D2112ec75FaCE57D730b0433F3` |
+| MultiSend                    | `0x218543288004CD07832472D464648173c77D7eB7` |
+| MultiSendCallOnly            | `0xA83c336B20401Af773B6219BA5027174338D1836` |
+| CreateCall                   | `0x2Ef5ECfbea521449E4De05EDB1ce63B75eDA90B4` |
+| SignMessageLib               | `0x4FfeF8222648872B3dE295Ba1e49110E61f5b5aa` |
+| SafeMigration                | `0x6439e7ABD8Bb915A5263094784C5CF561c4172AC` |
+| SafeToL2Setup                | `0x900C7589200010D6C6eCaaE5B06EBe653bc2D82a` |
+| SimulateTxAccessor           | `0x07EfA797c55B5DdE3698d876b277aBb6B893654C` |
 
 ## Benefits
 
@@ -70,7 +75,7 @@ await withAnvil(
 
     // Safe contracts are already deployed and ready to use
     const safeCode = await client.getCode({
-      address: "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+      address: "0xFf51A5898e281Db6DfC7855790607438dF2ca44b",
     })
 
     console.log("Safe contract deployed:", safeCode !== "0x")

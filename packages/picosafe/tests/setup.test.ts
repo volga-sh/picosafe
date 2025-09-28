@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { V141_ADDRESSES } from "../src/safe-contracts";
+import { V150_ADDRESSES } from "../src/safe-contracts";
 import { createClients, snapshot } from "./fixtures/setup";
 
 describe("Test Environment Setup", () => {
@@ -50,7 +50,7 @@ describe("Test Environment Setup", () => {
 	});
 
 	it("should verify that the Safe contracts are available", async () => {
-		for (const contract of Object.values(V141_ADDRESSES)) {
+		for (const contract of Object.values(V150_ADDRESSES)) {
 			const code = await publicClient.getCode({
 				address: contract,
 			});

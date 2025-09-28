@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code (claude.ai/code) for ef
 
 ## Project Overview
 
-PicoSafe is a minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.4.1+). The SDK follows a one-action-one-function principle, providing a simple API for Safe operations without managing keys or connections.
+PicoSafe is a minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.5.0+). The SDK follows a one-action-one-function principle, providing a simple API for Safe operations without managing keys or connections.
 
 **Library Dependencies**: The SDK uses [Ox](https://oxlib.sh) as its core Ethereum library for ABI encoding, address manipulation, and cryptographic operations. Ox provides a minimal, type-safe API that aligns with PicoSafe's philosophy of simplicity and correctness.
 
@@ -82,9 +82,9 @@ The SDK includes utility modules in `packages/picosafe/src/utilities/` that prov
 
 ### Safe Contracts Version
 
-This SDK is built for and tested against Safe Smart Account contracts **v1.4.1**. When implementing features or resolving ambiguities about Safe behavior, always consult the official Solidity smart contract code at:
+This SDK is built for and tested against Safe Smart Account contracts **v1.5.0**. When implementing features or resolving ambiguities about Safe behavior, always consult the official Solidity smart contract code at:
 
-https://github.com/safe-global/safe-smart-account/tree/v1.4.1-3
+https://github.com/safe-global/safe-smart-account/tree/v1.5.0
 
 The contracts serve as the authoritative source for:
 
@@ -210,7 +210,7 @@ The test suite covers all SDK functionality including deployment, transactions, 
 
 The PicoSafe package includes an automated Anvil setup for testing. When running tests:
 
-- Tests automatically start and stop Anvil with pre-deployed Safe 1.4.1 contracts
+- Tests automatically start and stop Anvil with pre-deployed Safe 1.5.0 contracts
 - The setup is handled by `packages/picosafe/tests/setup-anvil.ts`
 - Tests run in isolated Anvil instances to enable parallel execution
 - Each test gets a clean blockchain state
@@ -236,7 +236,7 @@ The PicoSafe package includes an automated Anvil setup for testing. When running
 - **Maintain accuracy**: Update JSDoc when function behavior changes
 - **Document edge cases**: Note any limitations, special behaviors, or requirements
 - **Type descriptions**: Even with TypeScript types, describe what values mean
-- **Reference Safe contracts**: For functions that call Safe smart contract methods, include a `@see` tag with a link to the specific function in the official Safe v1.4.1 contracts repository (e.g., `@see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L78`)
+- **Reference Safe contracts**: For functions that call Safe smart contract methods, include a `@see` tag with a link to the specific function in the official Safe v1.5.0 contracts repository (e.g., `@see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/OwnerManager.sol`)
 - **Use @link for custom TypeScript types**: If JSDOC uses a custom typescript type, make sure it is included with a @link tag
 - **Even internal functions should have JSDOC documentation, it can be a minimal one (without an example)**
 

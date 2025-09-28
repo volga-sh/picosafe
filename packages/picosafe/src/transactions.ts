@@ -4,7 +4,7 @@ import { getNonce } from "./account-state.js";
 import { getSafeEip712Domain, SAFE_TX_EIP712_TYPES } from "./eip712.js";
 import { encodeMultiSendCall } from "./multisend.js";
 import type { Address, Hex } from "./ox-types";
-import { V141_ADDRESSES } from "./safe-contracts.js";
+import { V150_ADDRESSES } from "./safe-contracts.js";
 import { encodeSafeSignaturesBytes } from "./safe-signatures.js";
 import type {
 	ECDSASignature,
@@ -159,7 +159,7 @@ async function buildSafeTransaction(
 	let txValue: bigint;
 	let txOperation: Operation;
 	if (normalizedTransactions.length > 1) {
-		txTo = OxAddress.checksum(V141_ADDRESSES.MultiSendCallOnly);
+		txTo = OxAddress.checksum(V150_ADDRESSES.MultiSendCallOnly);
 		txData = encodeMultiSendCall(normalizedTransactions);
 		txValue = 0n;
 		txOperation = Operation.UNSAFE_DELEGATECALL;
@@ -338,7 +338,7 @@ async function signSafeTransaction(
  * // Or get raw transaction data for manual sending
  * console.log('Raw transaction:', executionTx.rawTransaction);
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L139
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 async function executeSafeTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,

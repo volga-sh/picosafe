@@ -97,7 +97,7 @@ const encodeFunctionData = ({
 import { PARSED_SAFE_ABI } from "../src/abis";
 import { deploySafeAccount } from "../src/deployment";
 import { calculateSafeMessageHash } from "../src/eip712";
-import { V141_ADDRESSES } from "../src/safe-contracts";
+import { V150_ADDRESSES } from "../src/safe-contracts";
 import { getApprovedHashSignatureBytes } from "../src/safe-signatures";
 import {
 	isValidApprovedHashSignature,
@@ -753,7 +753,7 @@ describe("isValidApprovedHashSignature", () => {
 			staticSignature,
 			{
 				dataHash,
-				safeAddress: V141_ADDRESSES.MultiSend,
+				safeAddress: V150_ADDRESSES.MultiSend,
 			},
 		);
 

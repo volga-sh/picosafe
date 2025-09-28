@@ -181,7 +181,7 @@ const SAFE_MESSAGE_EIP712_TYPES = {
  * // Owners can now sign this hash
  * const signature = await walletClient.signMessage({ message: hash });
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L427
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 function calculateSafeTransactionHash(
 	safeTx: Readonly<FullSafeTransaction>,

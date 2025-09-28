@@ -26,7 +26,7 @@ import {
 	getVersion,
 } from "../src/account-state";
 import { deploySafeAccount } from "../src/deployment";
-import { V141_ADDRESSES } from "../src/safe-contracts";
+import { V150_ADDRESSES } from "../src/safe-contracts";
 import { SAFE_STORAGE_SLOTS } from "../src/storage";
 import { SENTINEL_NODE, ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
@@ -109,7 +109,7 @@ describe("Account State Functions", () => {
 			});
 
 			expect(handler.toLowerCase()).toBe(
-				V141_ADDRESSES.CompatibilityFallbackHandler.toLowerCase(),
+				V150_ADDRESSES.CompatibilityFallbackHandler.toLowerCase(),
 			);
 		});
 
@@ -151,7 +151,7 @@ describe("Account State Functions", () => {
 				{ block: toHex(blockNumber) },
 			);
 			expect(handler.toLowerCase()).toBe(
-				V141_ADDRESSES.CompatibilityFallbackHandler.toLowerCase(),
+				V150_ADDRESSES.CompatibilityFallbackHandler.toLowerCase(),
 			);
 
 			// Should fail if safe doesn't exist at block
@@ -719,7 +719,7 @@ describe("Account State Functions", () => {
 			const version = await getVersion(publicClient, {
 				safeAddress: deployment.data.safeAddress,
 			});
-			expect(version).toBe("1.4.1");
+                    expect(version).toBe("1.5.0");
 		});
 
 		it("should return version without verification when verify is false", async () => {
@@ -756,7 +756,7 @@ describe("Account State Functions", () => {
 				{ safeAddress: deployment.data.safeAddress },
 				{ verify: true },
 			);
-			expect(version).toBe("1.4.1");
+                    expect(version).toBe("1.5.0");
 		});
 
 		it("should support querying at specific block", async () => {
@@ -776,7 +776,7 @@ describe("Account State Functions", () => {
 				{ safeAddress: deployment.data.safeAddress },
 				{ block: toHex(blockNumber) },
 			);
-			expect(version).toBe("1.4.1");
+                    expect(version).toBe("1.5.0");
 
 			// Should fail if safe doesn't exist at block
 			await expect(
@@ -823,7 +823,7 @@ describe("Account State Functions", () => {
 
 			// Execute the call
 			const version = await versionCall.call();
-			expect(version).toBe("1.4.1");
+                    expect(version).toBe("1.5.0");
 		});
 
 		it("should support lazy evaluation with verify option", async () => {
@@ -873,7 +873,7 @@ describe("Account State Functions", () => {
 
 			// Execute the call
 			const version = await versionCall.call();
-			expect(version).toBe("1.4.1");
+                    expect(version).toBe("1.5.0");
 		});
 
 		it("should return proper wrapped call structure in lazy mode", async () => {

@@ -383,7 +383,7 @@ async function isValidERC1271Signature(
  *   console.log('Transaction is pre-approved by owner');
  * }
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L233
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 async function isValidApprovedHashSignature(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
@@ -535,7 +535,7 @@ async function isValidApprovedHashSignature(
  * });
  * ```
  * @see {@link SignatureTypeVByte} for all supported signature types
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L284
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 async function validateSignature<T extends PicosafeSignature>(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
