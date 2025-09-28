@@ -28,7 +28,7 @@ import {
 	deploySafeAccount,
 	encodeSetupData,
 } from "../src/deployment";
-import { V141_ADDRESSES } from "../src/safe-contracts";
+import { V150_ADDRESSES } from "../src/safe-contracts";
 import { ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
 import { pickRandom, randomAddress, randomBytesHex } from "./utils";
@@ -71,8 +71,8 @@ describe("Safe Deployment Functions", () => {
 					paymentToken: Math.random() > 0.5 ? randomAddress() : ZERO_ADDRESS,
 					payment: 0n,
 					paymentReceiver: Math.random() > 0.5 ? randomAddress() : ZERO_ADDRESS,
-					singleton: pickRandom([V141_ADDRESSES.SafeL2, V141_ADDRESSES.Safe]),
-					proxyFactory: V141_ADDRESSES.SafeProxyFactory,
+					singleton: pickRandom([V150_ADDRESSES.SafeL2, V150_ADDRESSES.Safe]),
+					proxyFactory: V150_ADDRESSES.SafeProxyFactory,
 				};
 
 				// Why we set bytecode for UNSAFE_DELEGATECALL_to: The Safe contract's setup()
@@ -95,7 +95,7 @@ describe("Safe Deployment Functions", () => {
 				const setupData = encodeSetupData(config);
 
 				const { result: proxyAddress } = await publicClient.simulateContract({
-					address: V141_ADDRESSES.SafeProxyFactory,
+					address: V150_ADDRESSES.SafeProxyFactory,
 					abi: PARSED_SAFE_PROXY_FACTORY_ABI,
 					functionName: "createProxyWithNonce",
 					args: [config.singleton, setupData, config.saltNonce],
@@ -211,7 +211,7 @@ describe("Safe Deployment Functions", () => {
 
 			// Verify singleton is set to the expected Safe implementation
 			const singleton = await getSingleton(publicClient, { safeAddress });
-			expect(singleton.toLowerCase()).toBe(V141_ADDRESSES.SafeL2.toLowerCase());
+			expect(singleton.toLowerCase()).toBe(V150_ADDRESSES.SafeL2.toLowerCase());
 		});
 
 		it("should deploy a Safe with multiple owners and various thresholds", async () => {
@@ -296,11 +296,11 @@ describe("Safe Deployment Functions", () => {
 			}
 
 			expect(safeSetupEvent[0].args).toMatchObject({
-				initiator: V141_ADDRESSES.SafeProxyFactory,
+				initiator: V150_ADDRESSES.SafeProxyFactory,
 				owners: [owner],
 				threshold: 1n,
 				initializer: ZERO_ADDRESS,
-				fallbackHandler: V141_ADDRESSES.CompatibilityFallbackHandler,
+				fallbackHandler: V150_ADDRESSES.CompatibilityFallbackHandler,
 			});
 		});
 
@@ -318,13 +318,13 @@ describe("Safe Deployment Functions", () => {
 				threshold: 1n,
 				UNSAFE_DELEGATECALL_to: ZERO_ADDRESS,
 				UNSAFE_DELEGATECALL_data: "0x",
-				fallbackHandler: V141_ADDRESSES.CompatibilityFallbackHandler,
+				fallbackHandler: V150_ADDRESSES.CompatibilityFallbackHandler,
 				paymentToken: ZERO_ADDRESS,
 				payment: 0n,
 				paymentReceiver: ZERO_ADDRESS,
 				saltNonce: 0n,
-				singleton: V141_ADDRESSES.SafeL2,
-				proxyFactory: V141_ADDRESSES.SafeProxyFactory,
+				singleton: V150_ADDRESSES.SafeL2,
+				proxyFactory: V150_ADDRESSES.SafeProxyFactory,
 			});
 		});
 
@@ -348,7 +348,7 @@ describe("Safe Deployment Functions", () => {
 				payment,
 				paymentReceiver,
 				saltNonce,
-				singleton: V141_ADDRESSES.Safe, // Use L1 version
+				singleton: V150_ADDRESSES.Safe, // Use L1 version
 			});
 
 			// Verify deploymentConfig contains all custom values
@@ -362,8 +362,8 @@ describe("Safe Deployment Functions", () => {
 				payment,
 				paymentReceiver,
 				saltNonce,
-				singleton: V141_ADDRESSES.Safe,
-				proxyFactory: V141_ADDRESSES.SafeProxyFactory,
+				singleton: V150_ADDRESSES.Safe,
+				proxyFactory: V150_ADDRESSES.SafeProxyFactory,
 			});
 		});
 
@@ -429,7 +429,7 @@ describe("Safe Deployment Functions", () => {
 			const deployment = await deploySafeAccount(walletClient, {
 				owners: [owner],
 				threshold: 1n,
-				singleton: V141_ADDRESSES.Safe, // Use L1 version instead of L2
+				singleton: V150_ADDRESSES.Safe, // Use L1 version instead of L2
 			});
 			const txHash = await deployment.send();
 			await publicClient.waitForTransactionReceipt({ hash: txHash });
@@ -443,7 +443,7 @@ describe("Safe Deployment Functions", () => {
 
 			// Verify the singleton address is set correctly
 			const singleton = await getSingleton(publicClient, { safeAddress });
-			expect(singleton.toLowerCase()).toBe(V141_ADDRESSES.Safe.toLowerCase());
+			expect(singleton.toLowerCase()).toBe(V150_ADDRESSES.Safe.toLowerCase());
 		});
 
 		it("should deploy with custom fallbackHandler", async () => {

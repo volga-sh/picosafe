@@ -13,7 +13,7 @@ Our test suite uses a parallel testing architecture where each Vitest worker run
 
 - **Parallel Execution**: Tests run concurrently across multiple workers for faster execution
 - **Isolated Environments**: Each worker gets a unique Anvil instance on a dedicated port (8545 + worker ID)
-- **Pre-deployed Contracts**: Safe 1.4.1 contracts are pre-deployed via genesis.json for faster test execution
+- **Pre-deployed Contracts**: Safe 1.5.0 contracts are pre-deployed via genesis.json for faster test execution
 - **Automatic Management**: Anvil instances are automatically started and stopped by the test runner
 
 ## Running Tests

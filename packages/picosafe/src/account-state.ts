@@ -98,7 +98,7 @@ const ADDRESS_HEX_LENGTH = 40; // 20 bytes = 40 hex chars for an Ethereum addres
  * // Execute later or batch with multicall
  * const values = await storageCall.call();
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/common/StorageAccessible.sol#L17
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/common/StorageAccessible.sol
  */
 function getStorageAt<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
@@ -676,7 +676,7 @@ function getSingleton<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  * );
  * const owners = await ownersCall.call();
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L148
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/OwnerManager.sol
  */
 function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,
@@ -797,7 +797,7 @@ function getOwners<A = void, O extends MaybeLazy<A> | undefined = undefined>(
  * );
  * const modules = await modulesCall.call();
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L144
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/ModuleManager.sol
  */
 function getModulesPaginated<
 	A = void,
@@ -906,7 +906,7 @@ function getModulesPaginated<
  *   provider,
  *   { safeAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f4278' }
  * );
- * console.log('Safe version:', version); // "1.4.1"
+ * console.log('Safe version:', version); // "1.5.0"
  *
  * // Get version without verification
  * const rawVersion = await getVersion(
@@ -924,7 +924,7 @@ function getModulesPaginated<
  * );
  * const version = await versionCall.call();
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L35
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 function getVersion<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	provider: EIP1193ProviderWithRequestFn,

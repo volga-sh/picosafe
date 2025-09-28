@@ -50,7 +50,7 @@ const EMPTY_BYTES = "0x";
  *   newThreshold: 1n
  * });
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/libraries/SafeStorage.sol#L6
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/libraries/SafeStorage.sol
  */
 const SENTINEL_NODE = "0x0000000000000000000000000000000000000001";
 

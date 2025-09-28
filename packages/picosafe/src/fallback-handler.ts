@@ -53,7 +53,7 @@ import { encodeWithSelector } from "./utilities/encoding.js";
  * );
  *
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/FallbackManager.sol#L50
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/FallbackManager.sol
  */
 function UNSAFE_getSetFallbackHandlerTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,

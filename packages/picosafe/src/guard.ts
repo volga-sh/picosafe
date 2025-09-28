@@ -47,7 +47,7 @@ import { encodeWithSelector } from "./utilities/encoding.js";
  * );
  *
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/GuardManager.sol#L53
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/GuardManager.sol
  */
 function UNSAFE_getSetGuardTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,

@@ -9,7 +9,7 @@ import {
 	signSafeTransaction,
 	UNSAFE_getSetFallbackHandlerTransaction,
 	UNSAFE_getSetGuardTransaction,
-	V141_ADDRESSES,
+	V150_ADDRESSES,
 } from "@volga/picosafe";
 import { getSafeGenesisPath } from "@volga/safe-genesis";
 import {
@@ -386,7 +386,7 @@ export async function withExampleScene<
 				const setHandlerTx = await UNSAFE_getSetFallbackHandlerTransaction(
 					walletClient,
 					targetSafe,
-					V141_ADDRESSES.CompatibilityFallbackHandler,
+					V150_ADDRESSES.CompatibilityFallbackHandler,
 				);
 
 				// Determine threshold and owners based on Safe type

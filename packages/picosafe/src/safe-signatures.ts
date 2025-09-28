@@ -286,7 +286,7 @@ function readDynamicData(
  * console.log(decoded);
  * // [{ signer: "0x742d35Cc6634C0532925a3b844Bc9e7595f8fA8e", data: "0x..." }]
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 async function decodeSafeSignatureBytesToPicosafeSignatures(
 	encodedSignatures: Hex,
@@ -664,7 +664,7 @@ async function validateSignaturesForSafe(
  * ];
  * ```
  * @see {@link SignatureTypeVByte} for signature type constants
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L274
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 function getApprovedHashSignatureBytes(signer: Address): Hex {
 	return HexUtils.concat(

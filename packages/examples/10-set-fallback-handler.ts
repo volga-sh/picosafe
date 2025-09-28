@@ -3,7 +3,7 @@ import {
 	getFallbackHandler,
 	signSafeTransaction,
 	UNSAFE_getSetFallbackHandlerTransaction,
-	V141_ADDRESSES,
+	V150_ADDRESSES,
 } from "@volga/picosafe";
 import { withExampleScene } from "./example-scene.js";
 
@@ -28,7 +28,7 @@ await withExampleScene(async (scene) => {
 	const setHandlerTx = await UNSAFE_getSetFallbackHandlerTransaction(
 		walletClient,
 		safes.singleOwner,
-		V141_ADDRESSES.CompatibilityFallbackHandler,
+                V150_ADDRESSES.CompatibilityFallbackHandler,
 	);
 
 	// Sign the transaction

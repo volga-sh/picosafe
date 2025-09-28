@@ -8,7 +8,7 @@ import {
 	getStorageAt,
 	isSafeAccount,
 	SAFE_STORAGE_SLOTS,
-	V141_ADDRESSES,
+	V150_ADDRESSES,
 } from "../src";
 import type { Address } from "../src/ox-types";
 import { SENTINEL_NODE } from "../src/utilities/constants";
@@ -101,7 +101,7 @@ describe("Safe account detection", () => {
 	test("should return false for non-Safe contracts", async () => {
 		// Use a known contract that's not a Safe (e.g., a simple token contract)
 		// For this test, we'll use the Safe factory contract itself
-		const factoryAddress = V141_ADDRESSES.SafeProxyFactory;
+		const factoryAddress = V150_ADDRESSES.SafeProxyFactory;
 
 		const isSafe = await isSafeAccount(publicClient, factoryAddress);
 		expect(isSafe).toBe(false);

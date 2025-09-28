@@ -3,7 +3,7 @@ import {
 	deploySafeAccount,
 	encodeMultiSendCall,
 	type SafeDeploymentConfig,
-	V141_ADDRESSES,
+	V150_ADDRESSES,
 } from "@volga/picosafe";
 import type { Address } from "viem";
 import { withExampleScene } from "./example-scene.js";
@@ -78,7 +78,7 @@ await withExampleScene(async (scene) => {
 	}));
 
 	const multiSendData = encodeMultiSendCall(deploymentTransactions);
-	const multiSendAddress = V141_ADDRESSES.MultiSend;
+	const multiSendAddress = V150_ADDRESSES.MultiSend;
 
 	const txHash = await walletClient.sendTransaction({
 		to: multiSendAddress,

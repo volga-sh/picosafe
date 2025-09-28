@@ -58,7 +58,7 @@ enum Operation {
  * @property {Address} to - Target address to send the transaction to
  * @property {bigint} value - Amount of ETH to send (in wei)
  * @property {Hex} data - Encoded transaction data (function selector + parameters)
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/Executor.sol#L21
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/Executor.sol
  */
 type MetaTransaction = {
 	to: Address;
@@ -75,7 +75,7 @@ type MetaTransaction = {
  * @property {Address} gasToken - Token address for gas payment (0x0 = ETH)
  * @property {Address} refundReceiver - Address to receive gas payment (0x0 = tx.origin)
  * @property {bigint} nonce - Safe account nonce to prevent replay attacks
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L139
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 type SafeTransactionData = MetaTransaction & {
 	operation: Operation;
@@ -129,7 +129,7 @@ type FullSafeTransaction = Prettify<
  * hash in advance, which can then be used as a valid signature.
  *
  * @property {Address} signer - The owner address that approved the hash
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L348
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 type ApprovedHashSignature = {
 	signer: Address;
@@ -216,7 +216,7 @@ type SafeMessage = {
  * | `31`  | `ETH_SIGN_RECID_1` | `{ r (32) | s (32) | ECDSA v+4 (1) }`                   | `eth_sign` / `personal_sign` |
  * | `32`  | `ETH_SIGN_RECID_2` | `{ r (32) | s (32) | ECDSA v+4 (1) }`                   | `eth_sign` / `personal_sign` |
  *
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L284
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/Safe.sol
  */
 enum SignatureTypeVByte {
 	CONTRACT = 0,

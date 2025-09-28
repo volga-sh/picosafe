@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { encodeMultiSendCall, SAFE_STORAGE_SLOTS } from "../src";
 import { deploySafeAccount } from "../src/deployment";
 import { calculateSafeTransactionHash } from "../src/eip712";
-import { V141_ADDRESSES } from "../src/safe-contracts";
+import { V150_ADDRESSES } from "../src/safe-contracts";
 import {
 	buildSafeTransaction,
 	executeSafeTransaction,
@@ -229,7 +229,7 @@ describe("Safe Transaction Functions", () => {
 					transactions,
 				);
 
-				expect(transaction.to).toBe(V141_ADDRESSES.MultiSendCallOnly);
+				expect(transaction.to).toBe(V150_ADDRESSES.MultiSendCallOnly);
 				expect(transaction.value).toBe(0n); // Value is 0 because MultiSend executes via delegatecall in Safe context
 				expect(transaction.data).toMatch(encodeMultiSendCall(transactions)); // multiSend selector
 				expect(transaction.operation).toBe(Operation.UNSAFE_DELEGATECALL);
@@ -279,7 +279,7 @@ describe("Safe Transaction Functions", () => {
 					transactions,
 				);
 
-				expect(transaction.to).toBe(V141_ADDRESSES.MultiSendCallOnly);
+				expect(transaction.to).toBe(V150_ADDRESSES.MultiSendCallOnly);
 				expect(transaction.data).toMatch(encodeMultiSendCall(transactions)); // multiSend selector
 				expect(transaction.operation).toBe(Operation.UNSAFE_DELEGATECALL);
 				expect(transaction.safeAddress).toBe(safeAddress);
@@ -350,7 +350,7 @@ describe("Safe Transaction Functions", () => {
 
 				// Should not throw and properly encode empty data
 				expect(transaction).toBeDefined();
-				expect(transaction.to).toBe(V141_ADDRESSES.MultiSendCallOnly);
+				expect(transaction.to).toBe(V150_ADDRESSES.MultiSendCallOnly);
 				expect(transaction.data).toMatch(encodeMultiSendCall(transactions)); // multiSend selector
 				expect(transaction.operation).toBe(Operation.UNSAFE_DELEGATECALL);
 				expect(transaction.safeAddress).toBe(safeAddress);

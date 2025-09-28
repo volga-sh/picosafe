@@ -1,7 +1,13 @@
 import { Abi } from "ox";
 
 const SAFE_PROXY_FACTORY_ABI = [
-	"function createProxyWithNonce(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)",
+        "function createProxyWithNonce(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)",
+        "function createProxyWithNonceL2(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)",
+        "function createChainSpecificProxyWithNonce(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)",
+        "function createChainSpecificProxyWithNonceL2(address singleton, bytes initializer, uint256 saltNonce) returns (address proxy)",
+        "event ProxyCreation(address indexed proxy, address singleton)",
+        "event ProxyCreationL2(address indexed proxy, address singleton, bytes initializer, uint256 saltNonce)",
+        "event ChainSpecificProxyCreationL2(address indexed proxy, address singleton, bytes initializer, uint256 saltNonce, uint256 chainId)",
 ] as const;
 
 const SAFE_ABI = [
@@ -14,7 +20,10 @@ const SAFE_ABI = [
 	"function execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures) payable returns (bool success)",
 	"function domainSeparator() view returns (bytes32)",
 	"function getMessageHash(bytes message) view returns (bytes32)",
-	"function checkNSignatures(bytes32 dataHash, bytes data, bytes signatures, uint256 requiredSignatures) view",
+        "function checkSignatures(address executor, bytes32 dataHash, bytes signatures) view",
+        "function checkSignatures(bytes32 dataHash, bytes data, bytes signatures) view",
+        "function checkNSignatures(address executor, bytes32 dataHash, bytes signatures, uint256 requiredSignatures) view",
+        "function checkNSignatures(bytes32 dataHash, bytes data, bytes signatures, uint256 requiredSignatures) view",
 	"function approvedHashes(address, bytes32) view returns (uint256)",
 	"function approveHash(bytes32 hash)",
 	"event SafeSetup(address indexed initiator, address[] owners, uint256 threshold, address initializer, address fallbackHandler)",

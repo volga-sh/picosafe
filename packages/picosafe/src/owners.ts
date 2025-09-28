@@ -57,7 +57,7 @@ import { encodeWithSelector } from "./utilities/encoding.js";
  * const txHash = await execution.send();
  * console.log(`Owner added in transaction: ${txHash}`);
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L58
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/OwnerManager.sol
  */
 async function getAddOwnerTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
@@ -136,7 +136,7 @@ async function getAddOwnerTransaction(
  * const txHash = await execution.send();
  * console.log(`Owner removed in transaction: ${txHash}`);
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L78
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/OwnerManager.sol
  */
 async function getRemoveOwnerTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,
@@ -241,7 +241,7 @@ async function getRemoveOwnerTransaction(
  * const txHash = await execution.send();
  * console.log(`Threshold changed in transaction: ${txHash}`);
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L119
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/base/OwnerManager.sol
  */
 async function getChangeThresholdTransaction(
 	provider: Readonly<EIP1193ProviderWithRequestFn>,

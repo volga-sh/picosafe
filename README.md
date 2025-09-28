@@ -1,6 +1,6 @@
 # PicoSafe
 
-A minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.4.1), providing a simple API for Safe operations without managing keys or connections.
+A minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.5.0), providing a simple API for Safe operations without managing keys or connections.
 
 **⚠️ Work in Progress**: This project is under active development and not yet ready for production use.
 
@@ -120,7 +120,7 @@ This is a monorepo managed with npm workspaces, containing:
 
 - `packages/picosafe` - The main PicoSafe SDK
 - `packages/anvil-manager` - Anvil process management for tests and examples
-- `packages/safe-genesis` - Genesis configuration with pre-deployed Safe v1.4.1 contracts
+- `packages/safe-genesis` - Genesis configuration with pre-deployed Safe v1.5.0 contracts
 - `packages/examples` - Example applications demonstrating SDK usage
 
 ## Development

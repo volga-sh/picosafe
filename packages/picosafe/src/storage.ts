@@ -18,7 +18,7 @@ import type { Address, Hex } from "./ox-types";
  * @property approvedHashesMapping - Storage slot for the approved hashes mapping (slot 8).
  * @property fallbackHandler - Storage slot for the custom fallback handler address (keccak256("fallback_manager.handler.address")).
  * @property guard - Storage slot for the custom guard address (keccak256("guard_manager.guard.address")).
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/libraries/SafeStorage.sol
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/libraries/SafeStorage.sol
  */
 const SAFE_STORAGE_SLOTS = {
 	singleton: HexUtils.padLeft("0x0", 32),
@@ -85,7 +85,7 @@ function computeMappingStorageSlot(key: Address, mappingSlot: Hex): Hex {
  * // Get storage slot for a specific owner
  * const ownerSlot = computeOwnersMappingSlot("0x1234567890123456789012345678901234567890");
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/libraries/SafeStorage.sol#L15
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/libraries/SafeStorage.sol
  */
 function computeOwnersMappingSlot(ownerAddress: Address): Hex {
 	return computeMappingStorageSlot(
@@ -115,7 +115,7 @@ function computeOwnersMappingSlot(ownerAddress: Address): Hex {
  * const slot = computeModulesMappingSlot(moduleAddress);
  * console.log(slot); // 0xcc69885fda6bcc1a4ace058b4a62bf5e179ea78fd58a1ccd71c22cc9b688792f
  * ```
- * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/libraries/SafeStorage.sol#L13
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.5.0/contracts/libraries/SafeStorage.sol
  */
 function computeModulesMappingSlot(moduleAddress: Address): Hex {
 	return computeMappingStorageSlot(

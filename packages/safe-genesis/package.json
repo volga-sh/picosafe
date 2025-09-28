@@ -1,7 +1,7 @@
 {
 	"name": "@volga/safe-genesis",
 	"version": "0.0.1",
-	"description": "Genesis configuration for Safe Smart Account v1.4.1 contracts used in tests and examples",
+      "description": "Genesis configuration for Safe Smart Account v1.5.0 contracts used in tests and examples",
 	"type": "module",
 	"main": "./dist/index.js",
 	"module": "./dist/index.js",
