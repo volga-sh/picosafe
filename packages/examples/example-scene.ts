@@ -3,9 +3,13 @@ import { withAnvil } from "@volga/anvil-manager";
 import {
 	deploySafeAccount,
 	executeSafeTransaction,
+	type FullSafeTransaction,
+	type PicosafeSignature,
 	type SafeDeploymentConfig,
 	signSafeTransaction,
+	UNSAFE_getSetFallbackHandlerTransaction,
 	UNSAFE_getSetGuardTransaction,
+	V141_ADDRESSES,
 } from "@volga/picosafe";
 import { getSafeGenesisPath } from "@volga/safe-genesis";
 import {
@@ -94,6 +98,11 @@ export type ExampleSceneOptions = {
 	setGuardOnSafe?: "singleOwner" | "multiOwner" | "highThreshold";
 
 	/**
+	 * Set fallback handler on a specific Safe
+	 */
+	setFallbackHandlerOnSafe?: "singleOwner" | "multiOwner" | "highThreshold";
+
+	/**
 	 * Fund the Safes with ETH (in ether units)
 	 */
 	fundSafesWithEth?: string;
@@ -115,6 +124,48 @@ const TEST_PRIVATE_KEYS = {
 	nonOwner:
 		"0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
 };
+
+/**
+ * Helper function to collect signatures for a Safe transaction based on threshold
+ */
+async function collectSignaturesForSafe(
+	safeTx: Readonly<FullSafeTransaction>,
+	owners: ReadonlyArray<Account>,
+	threshold: number,
+	anvilInstance: Readonly<AnvilInstance>,
+): Promise<PicosafeSignature[]> {
+	// Validate that we have enough owners to meet the threshold
+	if (owners.length < threshold) {
+		throw new Error(
+			`Cannot collect ${threshold} signatures: only ${owners.length} owners provided`,
+		);
+	}
+
+	const signatures: PicosafeSignature[] = [];
+
+	// Collect exactly 'threshold' number of signatures
+	for (let i = 0; i < threshold; i++) {
+		const owner = owners[i];
+		if (!owner) {
+			throw new Error(`Missing owner at index ${i}`);
+		}
+
+		const walletClient = createWalletClient({
+			chain: anvil,
+			transport: http(anvilInstance.rpcUrl),
+			account: owner,
+		});
+
+		const signature = await signSafeTransaction(
+			walletClient,
+			safeTx,
+			owner.address,
+		);
+		signatures.push(signature);
+	}
+
+	return signatures;
+}
 
 /**
  * Execute a function with a pre-configured test environment including deployed Safes
@@ -301,45 +352,21 @@ export async function withExampleScene<
 						contracts.testGuard,
 					);
 
+					// Determine threshold and owners based on Safe type
+					const threshold = options.setGuardOnSafe === "singleOwner" ? 1 : 2;
+					const availableOwners = [
+						accounts.owner1,
+						accounts.owner2,
+						accounts.owner3,
+					];
+
 					// Collect signatures based on the Safe's threshold
-					const signatures = [];
-
-					// For singleOwner Safe (threshold 1), only need one signature
-					if (options.setGuardOnSafe === "singleOwner") {
-						const sig = await signSafeTransaction(
-							walletClient,
-							setGuardTx,
-							accounts.owner1.address,
-						);
-						signatures.push(sig);
-					} else {
-						// For multiOwner and highThreshold Safes (threshold 2), need two signatures
-						// Sign with owner1
-						const walletClient1 = createWalletClient({
-							chain: anvil,
-							transport: http(anvilInstance.rpcUrl),
-							account: accounts.owner1,
-						});
-						const sig1 = await signSafeTransaction(
-							walletClient1,
-							setGuardTx,
-							accounts.owner1.address,
-						);
-						signatures.push(sig1);
-
-						// Sign with owner2
-						const walletClient2 = createWalletClient({
-							chain: anvil,
-							transport: http(anvilInstance.rpcUrl),
-							account: accounts.owner2,
-						});
-						const sig2 = await signSafeTransaction(
-							walletClient2,
-							setGuardTx,
-							accounts.owner2.address,
-						);
-						signatures.push(sig2);
-					}
+					const signatures = await collectSignaturesForSafe(
+						setGuardTx,
+						availableOwners,
+						threshold,
+						anvilInstance,
+					);
 
 					const execution = await executeSafeTransaction(
 						walletClient,
@@ -351,6 +378,43 @@ export async function withExampleScene<
 						hash: await execution.send(),
 					});
 				}
+			}
+
+			// Set fallback handler on specified Safe if requested
+			if (options?.setFallbackHandlerOnSafe) {
+				const targetSafe = safes[options.setFallbackHandlerOnSafe];
+				const setHandlerTx = await UNSAFE_getSetFallbackHandlerTransaction(
+					walletClient,
+					targetSafe,
+					V141_ADDRESSES.CompatibilityFallbackHandler,
+				);
+
+				// Determine threshold and owners based on Safe type
+				const threshold =
+					options.setFallbackHandlerOnSafe === "singleOwner" ? 1 : 2;
+				const availableOwners = [
+					accounts.owner1,
+					accounts.owner2,
+					accounts.owner3,
+				];
+
+				// Collect signatures based on the Safe's threshold
+				const signatures = await collectSignaturesForSafe(
+					setHandlerTx,
+					availableOwners,
+					threshold,
+					anvilInstance,
+				);
+
+				const execution = await executeSafeTransaction(
+					walletClient,
+					setHandlerTx,
+					signatures,
+				);
+
+				await publicClient.waitForTransactionReceipt({
+					hash: await execution.send(),
+				});
 			}
 
 			// Create the scene object
