@@ -301,16 +301,50 @@ export async function withExampleScene<
 						contracts.testGuard,
 					);
 
-					const signature = await signSafeTransaction(
-						walletClient,
-						setGuardTx,
-						accounts.owner1.address,
-					);
+					// Collect signatures based on the Safe's threshold
+					const signatures = [];
+
+					// For singleOwner Safe (threshold 1), only need one signature
+					if (options.setGuardOnSafe === "singleOwner") {
+						const sig = await signSafeTransaction(
+							walletClient,
+							setGuardTx,
+							accounts.owner1.address,
+						);
+						signatures.push(sig);
+					} else {
+						// For multiOwner and highThreshold Safes (threshold 2), need two signatures
+						// Sign with owner1
+						const walletClient1 = createWalletClient({
+							chain: anvil,
+							transport: http(anvilInstance.rpcUrl),
+							account: accounts.owner1,
+						});
+						const sig1 = await signSafeTransaction(
+							walletClient1,
+							setGuardTx,
+							accounts.owner1.address,
+						);
+						signatures.push(sig1);
+
+						// Sign with owner2
+						const walletClient2 = createWalletClient({
+							chain: anvil,
+							transport: http(anvilInstance.rpcUrl),
+							account: accounts.owner2,
+						});
+						const sig2 = await signSafeTransaction(
+							walletClient2,
+							setGuardTx,
+							accounts.owner2.address,
+						);
+						signatures.push(sig2);
+					}
 
 					const execution = await executeSafeTransaction(
 						walletClient,
 						setGuardTx,
-						[signature],
+						signatures,
 					);
 
 					await publicClient.waitForTransactionReceipt({
