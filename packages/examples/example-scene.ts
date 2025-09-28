@@ -3,9 +3,9 @@ import { withAnvil } from "@volga/anvil-manager";
 import {
 	deploySafeAccount,
 	executeSafeTransaction,
+	type FullSafeTransaction,
+	type PicosafeSignature,
 	type SafeDeploymentConfig,
-	type SafeSignature,
-	type SafeTransaction,
 	signSafeTransaction,
 	UNSAFE_getSetFallbackHandlerTransaction,
 	UNSAFE_getSetGuardTransaction,
@@ -129,25 +129,28 @@ const TEST_PRIVATE_KEYS = {
  * Helper function to collect signatures for a Safe transaction based on threshold
  */
 async function collectSignaturesForSafe(
-	safeTx: Readonly<SafeTransaction>,
+	safeTx: Readonly<FullSafeTransaction>,
 	owners: ReadonlyArray<Account>,
 	threshold: number,
 	anvilInstance: Readonly<AnvilInstance>,
-): Promise<SafeSignature[]> {
-	const signatures: SafeSignature[] = [];
+): Promise<PicosafeSignature[]> {
+	const signatures: PicosafeSignature[] = [];
 
 	// Collect exactly 'threshold' number of signatures
 	for (let i = 0; i < threshold && i < owners.length; i++) {
+		const owner = owners[i];
+		if (!owner) continue;
+
 		const walletClient = createWalletClient({
 			chain: anvil,
 			transport: http(anvilInstance.rpcUrl),
-			account: owners[i],
+			account: owner,
 		});
 
 		const signature = await signSafeTransaction(
 			walletClient,
 			safeTx,
-			owners[i].address,
+			owner.address,
 		);
 		signatures.push(signature);
 	}
