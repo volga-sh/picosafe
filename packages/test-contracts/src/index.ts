@@ -1,5 +1,6 @@
 import { parseAbi } from "viem";
 import TestERC20Json from "../artifacts/contracts/TestERC20.sol/TestERC20.json";
+import TestGuardJson from "../artifacts/contracts/TestGuard.sol/TestGuard.json";
 
 /**
  * TestERC20 ABI
@@ -51,3 +52,17 @@ const TEST_ERC20_ABI = [
 export const TestERC20Abi = parseAbi(TEST_ERC20_ABI);
 
 export const TestERC20Bytecode = TestERC20Json.bytecode as `0x${string}`;
+
+/**
+ * TestGuard ABI
+ *
+ * Simple test guard contract that implements the ITransactionGuard interface.
+ * Allows all transactions and tracks execution count for testing purposes.
+ * This guard is for demonstration only and should not be used in production.
+ */
+const TEST_GUARD_ABI = ["constructor()"] as const;
+
+// Export the parsed ABI for use with viem
+export const TestGuardAbi = parseAbi(TEST_GUARD_ABI);
+
+export const TestGuardBytecode = TestGuardJson.bytecode as `0x${string}`;

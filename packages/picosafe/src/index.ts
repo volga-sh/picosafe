@@ -11,3 +11,4 @@ export * from "./safe-signatures";
 export * from "./storage";
 export * from "./transactions";
 export * from "./types";
+export * from "./utilities/constants";
