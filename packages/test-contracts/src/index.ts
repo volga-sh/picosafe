@@ -1,6 +1,7 @@
 import { parseAbi } from "viem";
 import TestERC20Json from "../artifacts/contracts/TestERC20.sol/TestERC20.json";
 import TestGuardJson from "../artifacts/contracts/TestGuard.sol/TestGuard.json";
+import TestModuleJson from "../artifacts/contracts/TestModule.sol/TestModule.json";
 
 /**
  * TestERC20 ABI
@@ -66,3 +67,21 @@ const TEST_GUARD_ABI = ["constructor()"] as const;
 export const TestGuardAbi = parseAbi(TEST_GUARD_ABI);
 
 export const TestGuardBytecode = TestGuardJson.bytecode as `0x${string}`;
+
+/**
+ * TestModule ABI
+ *
+ * Simple test module contract that demonstrates module capabilities.
+ * Can only execute a self-call to increment its own counter.
+ * This module is for demonstration only and should not be used in production.
+ */
+const TEST_MODULE_ABI = [
+	"constructor()",
+	"function executeFromSafe(address safe)",
+	"function callCount() view returns (uint256)",
+] as const;
+
+// Export the parsed ABI for use with viem
+export const TestModuleAbi = parseAbi(TEST_MODULE_ABI);
+
+export const TestModuleBytecode = TestModuleJson.bytecode as `0x${string}`;
