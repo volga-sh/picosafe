@@ -5,7 +5,9 @@ import {
 	executeSafeTransaction,
 	type SafeDeploymentConfig,
 	signSafeTransaction,
+	UNSAFE_getSetFallbackHandlerTransaction,
 	UNSAFE_getSetGuardTransaction,
+	V141_ADDRESSES,
 } from "@volga/picosafe";
 import { getSafeGenesisPath } from "@volga/safe-genesis";
 import {
@@ -92,6 +94,11 @@ export type ExampleSceneOptions = {
 	 * Set guard on a specific Safe (requires deployGuard: true)
 	 */
 	setGuardOnSafe?: "singleOwner" | "multiOwner" | "highThreshold";
+
+	/**
+	 * Set fallback handler on a specific Safe
+	 */
+	setFallbackHandlerOnSafe?: "singleOwner" | "multiOwner" | "highThreshold";
 
 	/**
 	 * Fund the Safes with ETH (in ether units)
@@ -351,6 +358,66 @@ export async function withExampleScene<
 						hash: await execution.send(),
 					});
 				}
+			}
+
+			// Set fallback handler on specified Safe if requested
+			if (options?.setFallbackHandlerOnSafe) {
+				const targetSafe = safes[options.setFallbackHandlerOnSafe];
+				const setHandlerTx = await UNSAFE_getSetFallbackHandlerTransaction(
+					walletClient,
+					targetSafe,
+					V141_ADDRESSES.CompatibilityFallbackHandler,
+				);
+
+				// Collect signatures based on the Safe's threshold
+				const signatures = [];
+
+				// For singleOwner Safe (threshold 1), only need one signature
+				if (options.setFallbackHandlerOnSafe === "singleOwner") {
+					const sig = await signSafeTransaction(
+						walletClient,
+						setHandlerTx,
+						accounts.owner1.address,
+					);
+					signatures.push(sig);
+				} else {
+					// For multiOwner and highThreshold Safes (threshold 2), need two signatures
+					// Sign with owner1
+					const walletClient1 = createWalletClient({
+						chain: anvil,
+						transport: http(anvilInstance.rpcUrl),
+						account: accounts.owner1,
+					});
+					const sig1 = await signSafeTransaction(
+						walletClient1,
+						setHandlerTx,
+						accounts.owner1.address,
+					);
+					signatures.push(sig1);
+
+					// Sign with owner2
+					const walletClient2 = createWalletClient({
+						chain: anvil,
+						transport: http(anvilInstance.rpcUrl),
+						account: accounts.owner2,
+					});
+					const sig2 = await signSafeTransaction(
+						walletClient2,
+						setHandlerTx,
+						accounts.owner2.address,
+					);
+					signatures.push(sig2);
+				}
+
+				const execution = await executeSafeTransaction(
+					walletClient,
+					setHandlerTx,
+					signatures,
+				);
+
+				await publicClient.waitForTransactionReceipt({
+					hash: await execution.send(),
+				});
 			}
 
 			// Create the scene object
