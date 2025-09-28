@@ -41,7 +41,6 @@ await withExampleScene(
 
 		const moduleAddress = contracts.testModule;
 
-		// Build the enable module transaction
 		// Note the UNSAFE_ prefix - this operation can compromise your Safe
 		const enableModuleTx = await UNSAFE_getEnableModuleTransaction(
 			walletClient,
@@ -68,7 +67,6 @@ await withExampleScene(
 			accounts.owner2.address,
 		);
 
-		// Execute the transaction with both signatures
 		const execution = await executeSafeTransaction(
 			walletClient,
 			enableModuleTx,

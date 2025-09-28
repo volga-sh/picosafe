@@ -20,21 +20,18 @@ await withExampleScene(
 
 		console.log("Safe has guard:", contracts.testGuard);
 
-		// Remove the guard by setting it to zero address
 		const removeGuardTx = await UNSAFE_getSetGuardTransaction(
 			walletClient,
 			safes.singleOwner,
 			ZERO_ADDRESS,
 		);
 
-		// Sign the transaction
 		const signature = await signSafeTransaction(
 			walletClient,
 			removeGuardTx,
 			accounts.owner1.address,
 		);
 
-		// Execute the transaction
 		const execution = await executeSafeTransaction(
 			walletClient,
 			removeGuardTx,

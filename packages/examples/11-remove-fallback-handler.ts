@@ -20,21 +20,18 @@ await withExampleScene(
 
 		console.log("Safe has fallback handler set");
 
-		// Remove the fallback handler by setting it to zero address
 		const removeHandlerTx = await UNSAFE_getSetFallbackHandlerTransaction(
 			walletClient,
 			safes.singleOwner,
 			ZERO_ADDRESS,
 		);
 
-		// Sign the transaction
 		const signature = await signSafeTransaction(
 			walletClient,
 			removeHandlerTx,
 			accounts.owner1.address,
 		);
 
-		// Execute the transaction
 		const execution = await executeSafeTransaction(
 			walletClient,
 			removeHandlerTx,
@@ -44,7 +41,6 @@ await withExampleScene(
 
 		await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-		// Get the current fallback handler
 		const currentHandler = await getFallbackHandler(walletClient, {
 			safeAddress: safes.singleOwner,
 		});

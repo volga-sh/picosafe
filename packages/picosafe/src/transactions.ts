@@ -129,7 +129,6 @@ async function buildSafeTransaction(
 	// consistently receive checksummed values, no matter the input.
 	const normalizedSafeAddress = OxAddress.checksum(safeAddress);
 
-	// Initialize the transactions with the defaults
 	const normalizedTransactions: MetaTransaction[] = transactions.map((tx) => ({
 		to: OxAddress.checksum(tx.to),
 		data: tx.data ?? EMPTY_BYTES,
