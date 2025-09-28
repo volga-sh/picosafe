@@ -13,7 +13,7 @@ import { withExampleScene } from "./example-scene.js";
  * Example: Changing a Safe's Signature Threshold
  *
  * Demonstrates updating the number of signatures required to authorize Safe
- * transactions. Deploys a misconfigured Safe, computes the recommended quorum
+ * transactions. Deploys a Safe with threshold 1, computes the quorum threshold
  * (ceil(owners / 2)), and raises the threshold with signatures from the
  * necessary owners.
  */

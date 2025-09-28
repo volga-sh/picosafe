@@ -36,7 +36,7 @@ await withExampleScene(async (scene) => {
 		safes.singleOwner,
 		{
 			newOwner: accounts.owner2.address,
-			newThreshold: newThreshold, // 3 owners → ceil(3 / 2) = 2 signatures
+			newThreshold: newThreshold, // After addition: 3 owners → ceil(3 / 2) = 2 signatures
 		},
 	);
 

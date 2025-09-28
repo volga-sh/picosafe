@@ -1,9 +1,9 @@
 # Examples Contribution Guide
 
 ## Safe Configuration Principles
-- Never present a Safe example where the signature threshold equals the number of owners; a single lost key would brick the account.
+- Avoid presenting Safe examples where the signature threshold equals the number of owners, except when temporarily demonstrating governance operations or remediation of dangerous thresholds. Highlight the risks (e.g., a single lost key would brick the account) and clarify that such configurations are not recommended as defaults.
 - Default to the quorum formula `ceil(number_of_owners / 2)` when choosing a threshold. Show the calculation or reference it in examples when thresholds change.
-- Demonstrate governance operations that remediate misconfigured thresholds instead of codifying unsafe defaults.
+- Demonstrate governance operations that adjust thresholds instead of codifying unsafe defaults.
 
 ## Implementation Notes
 - Use `withExampleScene` for deterministic test environments and prefer fetching current owners/thresholds with `getOwners` / `getThreshold` before changes.
