@@ -65,6 +65,11 @@ run_example 1 "1-basic-account-deployment.ts" "Basic Account Deployment"
 run_example 2 "2-safe-transaction-execution.ts" "Safe Transaction Execution"
 run_example 3 "3-batch-safe-deployment-with-multisend.ts" "Batch Safe Deployment with MultiSend"
 run_example 4 "4-multiple-transfers-with-multisend.ts" "Multiple Transfers with MultiSend"
+run_example 5 "5-add-owner-to-safe.ts" "Add Owner to Safe"
+run_example 6 "6-remove-owner-from-safe.ts" "Remove Owner from Safe"
+run_example 7 "7-change-safe-threshold.ts" "Change Safe Threshold"
+run_example 8 "8-set-guard.ts" "Set Guard on Safe"
+run_example 9 "9-remove-guard.ts" "Remove Guard from Safe"
 
 # Summary
 echo "=================================="

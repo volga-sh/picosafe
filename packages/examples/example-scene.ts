@@ -1,8 +1,19 @@
 import type { AnvilInstance } from "@volga/anvil-manager";
 import { withAnvil } from "@volga/anvil-manager";
-import { deploySafeAccount, type SafeDeploymentConfig } from "@volga/picosafe";
+import {
+	deploySafeAccount,
+	executeSafeTransaction,
+	type SafeDeploymentConfig,
+	signSafeTransaction,
+	UNSAFE_getSetGuardTransaction,
+} from "@volga/picosafe";
 import { getSafeGenesisPath } from "@volga/safe-genesis";
-import { TestERC20Abi, TestERC20Bytecode } from "@volga/test-contracts";
+import {
+	TestERC20Abi,
+	TestERC20Bytecode,
+	TestGuardAbi,
+	TestGuardBytecode,
+} from "@volga/test-contracts";
 import {
 	type Account,
 	type Address,
@@ -50,10 +61,14 @@ export type ExampleScene<
 		nonOwner: Account;
 	};
 
-	// Test contracts - guaranteed to exist when deployToken is true
+	// Test contracts - guaranteed to exist when corresponding deploy flag is true
 	contracts: TOptions extends { deployToken: true }
-		? { testToken: Address }
-		: { testToken?: Address };
+		? TOptions extends { deployGuard: true }
+			? { testToken: Address; testGuard: Address }
+			: { testToken: Address; testGuard?: Address }
+		: TOptions extends { deployGuard: true }
+			? { testToken?: Address; testGuard: Address }
+			: { testToken?: Address; testGuard?: Address };
 
 	// Anvil instance reference
 	anvilInstance: AnvilInstance;
@@ -67,6 +82,16 @@ export type ExampleSceneOptions = {
 	 * Deploy a test ERC20 token
 	 */
 	deployToken?: boolean;
+
+	/**
+	 * Deploy a test guard contract
+	 */
+	deployGuard?: boolean;
+
+	/**
+	 * Set guard on a specific Safe (requires deployGuard: true)
+	 */
+	setGuardOnSafe?: "singleOwner" | "multiOwner" | "highThreshold";
 
 	/**
 	 * Fund the Safes with ETH (in ether units)
@@ -253,6 +278,44 @@ export async function withExampleScene<
 						});
 						await publicClient.waitForTransactionReceipt({ hash: fundHash });
 					}
+				}
+			}
+
+			if (options?.deployGuard) {
+				const deployHash = await walletClient.deployContract({
+					abi: TestGuardAbi,
+					bytecode: TestGuardBytecode as Hex,
+				});
+
+				const receipt = await publicClient.waitForTransactionReceipt({
+					hash: deployHash,
+				});
+				contracts.testGuard = receipt.contractAddress as Address;
+
+				// Set guard on specified Safe if requested
+				if (options.setGuardOnSafe && contracts.testGuard) {
+					const targetSafe = safes[options.setGuardOnSafe];
+					const setGuardTx = await UNSAFE_getSetGuardTransaction(
+						walletClient,
+						targetSafe,
+						contracts.testGuard,
+					);
+
+					const signature = await signSafeTransaction(
+						walletClient,
+						setGuardTx,
+						accounts.owner1.address,
+					);
+
+					const execution = await executeSafeTransaction(
+						walletClient,
+						setGuardTx,
+						[signature],
+					);
+
+					await publicClient.waitForTransactionReceipt({
+						hash: await execution.send(),
+					});
 				}
 			}
 
