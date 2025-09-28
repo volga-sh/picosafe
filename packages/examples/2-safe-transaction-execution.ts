@@ -20,6 +20,10 @@ await withExampleScene(
 	async (scene) => {
 		const { walletClient, publicClient, safes, accounts } = scene;
 
+		console.log(
+			"Operating on Safe with 2 owners and threshold 1 (single-signer ready)",
+		);
+
 		const safeTx = await buildSafeTransaction(walletClient, safes.singleOwner, [
 			{
 				to: accounts.nonOwner.address,

@@ -31,9 +31,9 @@ export type ExampleScene<
 
 	// Pre-deployed Safes - includes built-in configurations and any custom safes
 	safes: {
-		singleOwner: Address; // 1-of-1 Safe with walletClient.account as owner
+		singleOwner: Address; // Low-friction Safe (2 owners, threshold 1) for simple flows
 		multiOwner: Address; // 2-of-3 Safe with test addresses
-		highThreshold: Address; // 3-of-3 Safe for demonstrating threshold changes
+		highThreshold: Address; // 2-of-3 Safe ready for threshold governance examples
 	} & (TOptions extends { customSafes: ReadonlyArray<infer CS> }
 		? CS extends { name: infer Name }
 			? Name extends string
@@ -155,10 +155,11 @@ export async function withExampleScene<
 				highThreshold: "" as Address,
 			} as ExampleScene<TOptions>["safes"];
 
-			// 1. Single owner Safe (1-of-1)
+			// 1. Low-friction Safe (2 owners, threshold 1)
 			const singleOwnerDeployment = await deploySafeAccount(walletClient, {
-				owners: [accounts.owner1.address],
+				owners: [accounts.owner1.address, accounts.owner3.address],
 				threshold: 1n,
+				saltNonce: 0n,
 			});
 			await publicClient.waitForTransactionReceipt({
 				hash: await singleOwnerDeployment.send(),
@@ -173,20 +174,22 @@ export async function withExampleScene<
 					accounts.owner3.address,
 				],
 				threshold: 2n,
+				saltNonce: 1n,
 			});
 			await publicClient.waitForTransactionReceipt({
 				hash: await multiOwnerDeployment.send(),
 			});
 			safes.multiOwner = multiOwnerDeployment.data.safeAddress as Address;
 
-			// 3. High threshold Safe (3-of-3)
+			// 3. Governance Safe (2-of-3)
 			const highThresholdDeployment = await deploySafeAccount(walletClient, {
 				owners: [
 					accounts.owner1.address,
 					accounts.owner2.address,
 					accounts.owner3.address,
 				],
-				threshold: 3n,
+				threshold: 2n,
+				saltNonce: 2n,
 			});
 			await publicClient.waitForTransactionReceipt({
 				hash: await highThresholdDeployment.send(),
