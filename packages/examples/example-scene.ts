@@ -134,12 +134,21 @@ async function collectSignaturesForSafe(
 	threshold: number,
 	anvilInstance: Readonly<AnvilInstance>,
 ): Promise<PicosafeSignature[]> {
+	// Validate that we have enough owners to meet the threshold
+	if (owners.length < threshold) {
+		throw new Error(
+			`Cannot collect ${threshold} signatures: only ${owners.length} owners provided`,
+		);
+	}
+
 	const signatures: PicosafeSignature[] = [];
 
 	// Collect exactly 'threshold' number of signatures
-	for (let i = 0; i < threshold && i < owners.length; i++) {
+	for (let i = 0; i < threshold; i++) {
 		const owner = owners[i];
-		if (!owner) continue;
+		if (!owner) {
+			throw new Error(`Missing owner at index ${i}`);
+		}
 
 		const walletClient = createWalletClient({
 			chain: anvil,
