@@ -17,3 +17,5 @@ packages/test-contracts/artifacts
 packages/test-contracts/typechain-types
 
 typechain-types
+
+.example.logs.*

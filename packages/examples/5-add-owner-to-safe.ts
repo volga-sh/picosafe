@@ -1,6 +1,8 @@
 import {
 	executeSafeTransaction,
 	getAddOwnerTransaction,
+	getOwners,
+	getThreshold,
 	signSafeTransaction,
 } from "@volga/picosafe";
 import { withExampleScene } from "./example-scene.js";
@@ -16,14 +18,25 @@ import { withExampleScene } from "./example-scene.js";
 await withExampleScene(async (scene) => {
 	const { walletClient, publicClient, safes, accounts } = scene;
 
-	console.log("Initial state: 1 owner, threshold 1");
+	const currentOwners = await getOwners(walletClient, {
+		safeAddress: safes.singleOwner,
+	});
+	const currentThreshold = await getThreshold(walletClient, {
+		safeAddress: safes.singleOwner,
+	});
+
+	console.log(
+		`Initial state: ${currentOwners.length} owners, threshold ${currentThreshold.toString()}`,
+	);
+	const projectedOwnerCount = currentOwners.length + 1;
+	const newThreshold = BigInt(Math.ceil(projectedOwnerCount / 2));
 
 	const addOwnerTx = await getAddOwnerTransaction(
 		walletClient,
 		safes.singleOwner,
 		{
 			newOwner: accounts.owner2.address,
-			newThreshold: 2n, // Changing from 1-of-1 to 2-of-2
+			newThreshold: newThreshold, // 3 owners → ceil(3 / 2) = 2 signatures
 		},
 	);
 
@@ -41,5 +54,7 @@ await withExampleScene(async (scene) => {
 	await publicClient.waitForTransactionReceipt({ hash: txHash });
 
 	console.log("Owner added:", txHash);
-	console.log("✓ Upgraded to 2-of-2 multi-signature Safe");
+	console.log(
+		`✓ Safe now operates with ${projectedOwnerCount} owners and ${newThreshold.toString()} required signatures`,
+	);
 });

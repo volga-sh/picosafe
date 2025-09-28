@@ -18,8 +18,16 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Create a temporary directory for logs
-TEMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TEMP_DIR"' EXIT
+LOG_ROOT=$(mktemp -d)
+ARCHIVE_DIR=""
+
+cleanup() {
+    if [ -n "$ARCHIVE_DIR" ]; then
+        echo "Logs preserved at $ARCHIVE_DIR"
+    fi
+    rm -rf "$LOG_ROOT"
+}
+trap cleanup EXIT
 
 # Track which examples pass/fail
 PASSED=0
@@ -36,12 +44,16 @@ run_example() {
     echo "   File: $example_file"
     echo "   Running..."
 
-    if npm run run-example -- "$example_file" > "$TEMP_DIR/example_$example_number.log" 2>&1; then
+    if npm run run-example -- "$example_file" > "$LOG_ROOT/example_$example_number.log" 2>&1; then
         echo -e "   ${GREEN}✅ PASSED${NC}"
         PASSED=$((PASSED + 1))
     else
         echo -e "   ${RED}❌ FAILED${NC}"
-        echo "   Check $TEMP_DIR/example_$example_number.log for details"
+        if [ -z "$ARCHIVE_DIR" ]; then
+            ARCHIVE_DIR=$(mktemp -d "${PWD}/.example-logs.XXXXXX")
+        fi
+        cp "$LOG_ROOT/example_$example_number.log" "$ARCHIVE_DIR/"
+        echo "   Check $ARCHIVE_DIR/example_$example_number.log for details"
         FAILED=$((FAILED + 1))
         FAILED_EXAMPLES="$FAILED_EXAMPLES\n   - Example $example_number: $example_name"
     fi
