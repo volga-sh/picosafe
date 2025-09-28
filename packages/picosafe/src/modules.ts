@@ -149,7 +149,6 @@ async function getDisableModuleTransaction(
 	moduleAddress: Address,
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
-	// Get all modules to find the previous module
 	const modules = await getModulesPaginated(provider, { safeAddress });
 	// Normalise to checksum so look-ups are case-insensitive
 	const normalizedModuleAddress = OxAddress.checksum(moduleAddress);

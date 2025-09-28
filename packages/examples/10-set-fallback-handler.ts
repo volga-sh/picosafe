@@ -24,21 +24,18 @@ await withExampleScene(async (scene) => {
 
 	console.log("Setting fallback handler on Safe:", safes.singleOwner);
 
-	// Prepare the transaction to set the fallback handler
 	const setHandlerTx = await UNSAFE_getSetFallbackHandlerTransaction(
 		walletClient,
 		safes.singleOwner,
 		V141_ADDRESSES.CompatibilityFallbackHandler,
 	);
 
-	// Sign the transaction
 	const signature = await signSafeTransaction(
 		walletClient,
 		setHandlerTx,
 		accounts.owner1.address,
 	);
 
-	// Execute the transaction
 	const execution = await executeSafeTransaction(walletClient, setHandlerTx, [
 		signature,
 	]);
@@ -46,7 +43,6 @@ await withExampleScene(async (scene) => {
 
 	await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-	// Get the current fallback handler
 	const currentHandler = await getFallbackHandler(walletClient, {
 		safeAddress: safes.singleOwner,
 	});

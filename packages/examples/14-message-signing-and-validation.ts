@@ -31,7 +31,6 @@ await withExampleScene(
 		// we need to hash the message first if it's longer than 32 bytes
 		const messageHash = keccak256(toHex(message));
 
-		// Calculate the Safe's EIP-712 hash for this message hash
 		// The Safe treats the 32-byte hash as the "message" to sign
 		const chainId = await publicClient.getChainId();
 		const safeMessageHash = calculateSafeMessageHash(
@@ -44,7 +43,6 @@ await withExampleScene(
 		console.log(`Message hash: ${messageHash}`);
 		console.log(`Safe message hash (EIP-712): ${safeMessageHash}`);
 
-		// Step 1: Sign the message with Safe owners
 		// We use the account's sign method to sign the hash directly without prefix
 		const signature1 = await accounts.owner1.sign({ hash: safeMessageHash });
 		const signature2 = await accounts.owner2.sign({ hash: safeMessageHash });
@@ -63,7 +61,6 @@ await withExampleScene(
 
 		console.log("\n✓ Message signed by 2 owners");
 
-		// Step 2: Validate signatures via EIP-1271
 		// This validates that the Safe contract accepts the signature
 		const eip1271Result = await isValidERC1271Signature(
 			publicClient,
