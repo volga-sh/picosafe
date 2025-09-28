@@ -17,6 +17,8 @@ import {
 	TestERC20Bytecode,
 	TestGuardAbi,
 	TestGuardBytecode,
+	TestModuleAbi,
+	TestModuleBytecode,
 } from "@volga/test-contracts";
 import {
 	type Account,
@@ -68,11 +70,19 @@ export type ExampleScene<
 	// Test contracts - guaranteed to exist when corresponding deploy flag is true
 	contracts: TOptions extends { deployToken: true }
 		? TOptions extends { deployGuard: true }
-			? { testToken: Address; testGuard: Address }
-			: { testToken: Address; testGuard?: Address }
+			? TOptions extends { deployModule: true }
+				? { testToken: Address; testGuard: Address; testModule: Address }
+				: { testToken: Address; testGuard: Address; testModule?: Address }
+			: TOptions extends { deployModule: true }
+				? { testToken: Address; testGuard?: Address; testModule: Address }
+				: { testToken: Address; testGuard?: Address; testModule?: Address }
 		: TOptions extends { deployGuard: true }
-			? { testToken?: Address; testGuard: Address }
-			: { testToken?: Address; testGuard?: Address };
+			? TOptions extends { deployModule: true }
+				? { testToken?: Address; testGuard: Address; testModule: Address }
+				: { testToken?: Address; testGuard: Address; testModule?: Address }
+			: TOptions extends { deployModule: true }
+				? { testToken?: Address; testGuard?: Address; testModule: Address }
+				: { testToken?: Address; testGuard?: Address; testModule?: Address };
 
 	// Anvil instance reference
 	anvilInstance: AnvilInstance;
@@ -91,6 +101,16 @@ export type ExampleSceneOptions = {
 	 * Deploy a test guard contract
 	 */
 	deployGuard?: boolean;
+
+	/**
+	 * Deploy a test module contract
+	 */
+	deployModule?: boolean;
+
+	/**
+	 * Enable module on a specific Safe (requires deployModule: true)
+	 */
+	enableModuleOnSafe?: "singleOwner" | "multiOwner" | "highThreshold";
 
 	/**
 	 * Set guard on a specific Safe (requires deployGuard: true)
@@ -371,6 +391,55 @@ export async function withExampleScene<
 					const execution = await executeSafeTransaction(
 						walletClient,
 						setGuardTx,
+						signatures,
+					);
+
+					await publicClient.waitForTransactionReceipt({
+						hash: await execution.send(),
+					});
+				}
+			}
+
+			if (options?.deployModule) {
+				const deployHash = await walletClient.deployContract({
+					abi: TestModuleAbi,
+					bytecode: TestModuleBytecode as Hex,
+				});
+
+				const receipt = await publicClient.waitForTransactionReceipt({
+					hash: deployHash,
+				});
+				contracts.testModule = receipt.contractAddress as Address;
+
+				// Enable module on specified Safe if requested
+				if (options.enableModuleOnSafe && contracts.testModule) {
+					const targetSafe = safes[options.enableModuleOnSafe];
+					const { UNSAFE_getEnableModuleTransaction } = await import("@volga/picosafe");
+					const enableModuleTx = await UNSAFE_getEnableModuleTransaction(
+						walletClient,
+						targetSafe,
+						contracts.testModule,
+					);
+
+					// Determine threshold and owners based on Safe type
+					const threshold = options.enableModuleOnSafe === "singleOwner" ? 1 : 2;
+					const availableOwners = [
+						accounts.owner1,
+						accounts.owner2,
+						accounts.owner3,
+					];
+
+					// Collect signatures based on the Safe's threshold
+					const signatures = await collectSignaturesForSafe(
+						enableModuleTx,
+						availableOwners,
+						threshold,
+						anvilInstance,
+					);
+
+					const execution = await executeSafeTransaction(
+						walletClient,
+						enableModuleTx,
 						signatures,
 					);
 
