@@ -100,6 +100,13 @@ function encodeMultiSendCall(
 	// ABI encoding would add. Therefore we manually build the bytes sequence below
 	// instead of using high-level Abi helpers.
 	for (const tx of transactions) {
+		// Validate that data is hex-prefixed
+		if (!tx.data.startsWith("0x")) {
+			throw new Error(
+				`Transaction data must be hex-prefixed (start with "0x"). Received: ${tx.data.slice(0, 10)}...`,
+			);
+		}
+
 		const encoded = Bytes.fromArray([
 			...Bytes.from(
 				Bytes.fromNumber(

@@ -364,17 +364,25 @@ async function deploySafeAccount(
 		{
 			safeAddress: predictedAddress,
 			deploymentConfig: {
-				owners,
+				owners: owners.map((owner) => OxAddress.checksum(owner)),
 				threshold,
-				UNSAFE_DELEGATECALL_to,
+				UNSAFE_DELEGATECALL_to: UNSAFE_DELEGATECALL_to
+					? OxAddress.checksum(UNSAFE_DELEGATECALL_to)
+					: UNSAFE_DELEGATECALL_to,
 				UNSAFE_DELEGATECALL_data,
-				fallbackHandler,
-				paymentToken,
+				fallbackHandler: fallbackHandler
+					? OxAddress.checksum(fallbackHandler)
+					: fallbackHandler,
+				paymentToken: paymentToken
+					? OxAddress.checksum(paymentToken)
+					: paymentToken,
 				payment,
-				paymentReceiver,
+				paymentReceiver: paymentReceiver
+					? OxAddress.checksum(paymentReceiver)
+					: paymentReceiver,
 				saltNonce,
-				singleton,
-				proxyFactory,
+				singleton: OxAddress.checksum(singleton),
+				proxyFactory: OxAddress.checksum(proxyFactory),
 			},
 		},
 	);
