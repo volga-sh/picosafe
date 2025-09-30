@@ -1,11 +1,14 @@
-import { Address as OxAddress } from "ox"
-import { getModulesPaginated } from "./account-state.js"
-import type { Address } from "./ox-types"
-import type { SecureSafeTransactionOptions } from "./transactions.js"
-import { buildSafeTransaction } from "./transactions.js"
-import type { EIP1193ProviderWithRequestFn, FullSafeTransaction } from "./types.js"
-import { SENTINEL_NODE } from "./utilities/constants.js"
-import { encodeWithSelector } from "./utilities/encoding.js"
+import { Address as OxAddress } from "ox";
+import { getModulesPaginated } from "./account-state.js";
+import type { Address } from "./ox-types";
+import type { SecureSafeTransactionOptions } from "./transactions.js";
+import { buildSafeTransaction } from "./transactions.js";
+import type {
+	EIP1193ProviderWithRequestFn,
+	FullSafeTransaction,
+} from "./types.js";
+import { SENTINEL_NODE } from "./utilities/constants.js";
+import { encodeWithSelector } from "./utilities/encoding.js";
 
 /**
  * Builds an unsigned Safe transaction object to enable a module for the Safe account.
@@ -72,25 +75,25 @@ import { encodeWithSelector } from "./utilities/encoding.js"
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L47
  */
 async function UNSAFE_getEnableModuleTransaction(
-  provider: Readonly<EIP1193ProviderWithRequestFn>,
-  safeAddress: Address,
-  moduleAddress: Address,
-  transactionOptions?: Readonly<SecureSafeTransactionOptions>
+	provider: Readonly<EIP1193ProviderWithRequestFn>,
+	safeAddress: Address,
+	moduleAddress: Address,
+	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
-  const enableModuleData = encodeWithSelector("0x610b5925", moduleAddress)
+	const enableModuleData = encodeWithSelector("0x610b5925", moduleAddress);
 
-  return buildSafeTransaction(
-    provider,
-    safeAddress,
-    [
-      {
-        to: safeAddress,
-        value: 0n,
-        data: enableModuleData,
-      },
-    ],
-    transactionOptions
-  )
+	return buildSafeTransaction(
+		provider,
+		safeAddress,
+		[
+			{
+				to: safeAddress,
+				value: 0n,
+				data: enableModuleData,
+			},
+		],
+		transactionOptions,
+	);
 }
 
 /**
@@ -105,26 +108,26 @@ async function UNSAFE_getEnableModuleTransaction(
  * @internal
  */
 async function getAllModules(
-  provider: Readonly<EIP1193ProviderWithRequestFn>,
-  safeAddress: Address,
-  pageSize = 100
+	provider: Readonly<EIP1193ProviderWithRequestFn>,
+	safeAddress: Address,
+	pageSize = 100,
 ): Promise<Address[]> {
-  const allModules: Address[] = []
-  let next: Address = SENTINEL_NODE
+	const allModules: Address[] = [];
+	let next: Address = SENTINEL_NODE;
 
-  // Keep paginating until we reach the end of the list (when next === SENTINEL_NODE after first iteration)
-  do {
-    const result = await getModulesPaginated(provider, {
-      safeAddress,
-      start: next,
-      pageSize,
-    })
+	// Keep paginating until we reach the end of the list (when next === SENTINEL_NODE after first iteration)
+	do {
+		const result = await getModulesPaginated(provider, {
+			safeAddress,
+			start: next,
+			pageSize,
+		});
 
-    allModules.push(...result.modules)
-    next = result.next
-  } while (next !== SENTINEL_NODE)
+		allModules.push(...result.modules);
+		next = result.next;
+	} while (next !== SENTINEL_NODE);
 
-  return allModules
+	return allModules;
 }
 
 /**
@@ -175,47 +178,53 @@ async function getAllModules(
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L63
  */
 async function getDisableModuleTransaction(
-  provider: Readonly<EIP1193ProviderWithRequestFn>,
-  safeAddress: Address,
-  moduleAddress: Address,
-  transactionOptions?: Readonly<SecureSafeTransactionOptions>
+	provider: Readonly<EIP1193ProviderWithRequestFn>,
+	safeAddress: Address,
+	moduleAddress: Address,
+	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
-  // Get all modules across all pages to find the previous module
-  const modules = await getAllModules(provider, safeAddress)
-  // Normalise to checksum so look-ups are case-insensitive
-  const normalizedModuleAddress = OxAddress.checksum(moduleAddress)
-  const moduleIndex = modules.indexOf(normalizedModuleAddress)
+	// Get all modules across all pages to find the previous module
+	const modules = await getAllModules(provider, safeAddress);
+	// Normalise to checksum so look-ups are case-insensitive
+	const normalizedModuleAddress = OxAddress.checksum(moduleAddress);
+	const moduleIndex = modules.indexOf(normalizedModuleAddress);
 
-  if (moduleIndex === -1) {
-    throw new Error(`Module ${moduleAddress} not found in Safe ${safeAddress}`)
-  }
+	if (moduleIndex === -1) {
+		throw new Error(`Module ${moduleAddress} not found in Safe ${safeAddress}`);
+	}
 
-  // Find previous module (or sentinel if it's the first)
-  let prevModule: Address
-  if (moduleIndex === 0) {
-    prevModule = SENTINEL_NODE
-  } else {
-    const prevModuleCandidate = modules[moduleIndex - 1]
-    if (!prevModuleCandidate) {
-      throw new Error(`Failed to find previous module for index ${moduleIndex}`)
-    }
-    prevModule = prevModuleCandidate
-  }
+	// Find previous module (or sentinel if it's the first)
+	let prevModule: Address;
+	if (moduleIndex === 0) {
+		prevModule = SENTINEL_NODE;
+	} else {
+		const prevModuleCandidate = modules[moduleIndex - 1];
+		if (!prevModuleCandidate) {
+			throw new Error(
+				`Failed to find previous module for index ${moduleIndex}`,
+			);
+		}
+		prevModule = prevModuleCandidate;
+	}
 
-  const disableModuleData = encodeWithSelector("0xe009cfde", prevModule, normalizedModuleAddress)
+	const disableModuleData = encodeWithSelector(
+		"0xe009cfde",
+		prevModule,
+		normalizedModuleAddress,
+	);
 
-  return buildSafeTransaction(
-    provider,
-    safeAddress,
-    [
-      {
-        to: safeAddress,
-        value: 0n,
-        data: disableModuleData,
-      },
-    ],
-    transactionOptions
-  )
+	return buildSafeTransaction(
+		provider,
+		safeAddress,
+		[
+			{
+				to: safeAddress,
+				value: 0n,
+				data: disableModuleData,
+			},
+		],
+		transactionOptions,
+	);
 }
 
-export { UNSAFE_getEnableModuleTransaction, getDisableModuleTransaction }
+export { UNSAFE_getEnableModuleTransaction, getDisableModuleTransaction };
