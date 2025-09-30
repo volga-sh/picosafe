@@ -23,21 +23,18 @@ await withExampleScene(
 
 		console.log("Setting guard on Safe:", safes.singleOwner);
 
-		// Prepare the transaction to set the guard
 		const setGuardTx = await UNSAFE_getSetGuardTransaction(
 			walletClient,
 			safes.singleOwner,
 			contracts.testGuard,
 		);
 
-		// Sign the transaction
 		const signature = await signSafeTransaction(
 			walletClient,
 			setGuardTx,
 			accounts.owner1.address,
 		);
 
-		// Execute the transaction
 		const execution = await executeSafeTransaction(walletClient, setGuardTx, [
 			signature,
 		]);

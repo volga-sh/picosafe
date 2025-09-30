@@ -31,7 +31,6 @@ await withExampleScene(
 
 		const moduleAddress = contracts.testModule;
 
-		// Build the disable module transaction
 		const disableModuleTx = await getDisableModuleTransaction(
 			walletClient,
 			safes.multiOwner,
@@ -56,7 +55,6 @@ await withExampleScene(
 			accounts.owner2.address,
 		);
 
-		// Execute disable transaction
 		const execution = await executeSafeTransaction(
 			walletClient,
 			disableModuleTx,
