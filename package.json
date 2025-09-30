@@ -15,8 +15,8 @@
 		"test": "npm run --ws test",
 		"test:e2e": "npm run test:e2e -w picosafe-webapp",
 		"format": "biome format --write .",
-		"check": "biome check",
-		"check:write": "biome check --write ."
+		"check": "npm run --ws --if-present check",
+		"check:write": "npm run --ws --if-present check:write"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.1.4",
