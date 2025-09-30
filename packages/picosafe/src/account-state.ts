@@ -846,9 +846,10 @@ function getModulesPaginated<
 		// Remove 0x prefix for slicing
 		const hex = result.slice(2);
 
-		// Decode 'next' address (bytes32 padded)
-		const next =
+		// Decode 'next' address (bytes32 padded) and normalize to checksum
+		const nextRaw =
 			`0x${hex.slice(MODULE_NEXT_OFFSET_START, MODULE_NEXT_OFFSET_END).slice(-ADDRESS_HEX_LENGTH)}` as Address;
+		const next = OxAddress.checksum(nextRaw);
 
 		// Decode array length
 		const arrayLength = Number.parseInt(

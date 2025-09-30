@@ -97,6 +97,40 @@ async function UNSAFE_getEnableModuleTransaction(
 }
 
 /**
+ * Helper function to retrieve all modules from a Safe by paginating through
+ * the entire linked list. This ensures we get all modules even when the total
+ * count exceeds a single page size.
+ *
+ * @param provider - EIP-1193 provider to interact with the blockchain
+ * @param safeAddress - Address of the Safe account
+ * @param pageSize - Number of modules to fetch per page (default: 100)
+ * @returns Promise resolving to array of all module addresses
+ * @internal
+ */
+async function getAllModules(
+	provider: Readonly<EIP1193ProviderWithRequestFn>,
+	safeAddress: Address,
+	pageSize = 100,
+): Promise<Address[]> {
+	const allModules: Address[] = [];
+	let next: Address = SENTINEL_NODE;
+
+	// Keep paginating until we reach the end of the list (when next === SENTINEL_NODE after first iteration)
+	do {
+		const result = await getModulesPaginated(provider, {
+			safeAddress,
+			start: next,
+			pageSize,
+		});
+
+		allModules.push(...result.modules);
+		next = result.next;
+	} while (next !== SENTINEL_NODE);
+
+	return allModules;
+}
+
+/**
  * Builds an unsigned Safe transaction object to disable a previously enabled module for the Safe account, revoking its authorization to execute transactions.
  * This operation requires finding the correct previous module in the linked list structure used by Safe contracts.
  *
@@ -149,11 +183,11 @@ async function getDisableModuleTransaction(
 	moduleAddress: Address,
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
-	// Get all modules to find the previous module
-	const modules = await getModulesPaginated(provider, { safeAddress });
+	// Get all modules across all pages to find the previous module
+	const modules = await getAllModules(provider, safeAddress);
 	// Normalise to checksum so look-ups are case-insensitive
 	const normalizedModuleAddress = OxAddress.checksum(moduleAddress);
-	const moduleIndex = modules.modules.indexOf(normalizedModuleAddress);
+	const moduleIndex = modules.indexOf(normalizedModuleAddress);
 
 	if (moduleIndex === -1) {
 		throw new Error(`Module ${moduleAddress} not found in Safe ${safeAddress}`);
@@ -164,7 +198,7 @@ async function getDisableModuleTransaction(
 	if (moduleIndex === 0) {
 		prevModule = SENTINEL_NODE;
 	} else {
-		const prevModuleCandidate = modules.modules[moduleIndex - 1];
+		const prevModuleCandidate = modules[moduleIndex - 1];
 		if (!prevModuleCandidate) {
 			throw new Error(
 				`Failed to find previous module for index ${moduleIndex}`,

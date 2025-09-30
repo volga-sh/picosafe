@@ -555,6 +555,8 @@ async function validateSignaturesForSafe(
 		safeConfig?.owners ?? (await getOwners(provider, { safeAddress }));
 	const requiredSignatures =
 		safeConfig?.threshold ?? (await getThreshold(provider, { safeAddress }));
+	// Convert owners array to Set for O(1) lookup instead of O(n) with includes()
+	const safeOwnersSet = new Set<Address>(safeOwners);
 	const seenOwners = new Set<Address>();
 
 	const signatures = Array.isArray(validationParams.signatures)
@@ -600,7 +602,7 @@ async function validateSignaturesForSafe(
 		if (
 			result.valid &&
 			result.validatedSigner &&
-			safeOwners.includes(result.validatedSigner) &&
+			safeOwnersSet.has(result.validatedSigner) &&
 			!seenOwners.has(result.validatedSigner)
 		) {
 			validSignaturesCount++;
