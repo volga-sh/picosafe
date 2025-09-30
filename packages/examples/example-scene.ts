@@ -37,7 +37,7 @@ import { type PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 
 /**
- * Pre-configured test environment for PicoSafe examples
+ * Pre-configured test environment for picosafe examples
  */
 export type ExampleScene<
 	TOptions extends ExampleSceneOptions = ExampleSceneOptions,
@@ -205,7 +205,7 @@ async function collectSignaturesForSafe(
  * await withExampleScene(async (scene) => {
  *   const { walletClient, publicClient, safes, accounts } = scene;
  *
- *   // Your example code here, focusing purely on PicoSafe functionality
+ *   // Your example code here, focusing purely on picosafe functionality
  *   const safeTx = await buildSafeTransaction(
  *     walletClient,
  *     safes.singleOwner,

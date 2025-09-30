@@ -878,11 +878,11 @@ function getModulesPaginated<
  *
  * @remarks
  * This function calls the `VERSION()` method on the Safe contract to get the version string.
- * By default, it validates that the returned version is one of the supported versions by PicoSafe.
+ * By default, it validates that the returned version is one of the supported versions by picosafe.
  * You can disable this validation by setting `verify: false` in the options.
  *
  * The verification helps ensure you're working with a Safe contract version that's compatible
- * with PicoSafe's functionality and has been tested against this SDK.
+ * with picosafe's functionality and has been tested against this SDK.
  *
  * @param provider - An EIP-1193 compliant provider used to perform the eth_call
  * @param params - Parameters for the version read
@@ -891,9 +891,9 @@ function getModulesPaginated<
  *                  - `lazy`: If true, returns a wrapped call object instead of executing immediately
  *                  - `block`: Block number or tag to query at (defaults to "latest")
  *                  - `data`: Optional additional data to attach to the wrapped call
- *                  - `verify`: If true (default), validates that the version is supported by PicoSafe
+ *                  - `verify`: If true (default), validates that the version is supported by picosafe
  * @returns The version string of the Safe contract, or a wrapped call object
- * @throws {Error} If the eth_call fails or if verify is true and the version is not supported by PicoSafe
+ * @throws {Error} If the eth_call fails or if verify is true and the version is not supported by picosafe
  * @example
  * ```typescript
  * import { createPublicClient, http } from "viem";
@@ -977,7 +977,7 @@ function getVersion<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 		) {
 			throw new Error(
 				`Unsupported Safe version "${version}" at ${safeAddress}. ` +
-					`PicoSafe only supports Safe versions: ${SUPPORTED_SAFE_VERSIONS.join(", ")}. ` +
+					`picosafe only supports Safe versions: ${SUPPORTED_SAFE_VERSIONS.join(", ")}. ` +
 					"To get the raw version without validation, use { verify: false }.",
 			);
 		}

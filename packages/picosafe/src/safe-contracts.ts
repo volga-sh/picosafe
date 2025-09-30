@@ -17,7 +17,7 @@ type SafeContracts =
 	| "CreateCall";
 
 /**
- * Supported Safe contract versions by PicoSafe SDK.
+ * Supported Safe contract versions by picosafe SDK.
  * The SDK is tested and compatible with these specific versions.
  */
 const SUPPORTED_SAFE_VERSIONS = ["1.4.1"] as const;

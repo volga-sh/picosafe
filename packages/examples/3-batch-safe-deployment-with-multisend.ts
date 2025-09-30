@@ -11,7 +11,7 @@ import { withExampleScene } from "./example-scene.js";
 /**
  * Example: Batch Safe Deployment with MultiSend
  *
- * Demonstrates PicoSafe's composability by deploying multiple Safe accounts
+ * Demonstrates picosafe's composability by deploying multiple Safe accounts
  * in a single transaction using the MultiSend contract. Shows how to:
  * - Use rawTransaction data from deploySafeAccount()
  * - Batch operations with encodeMultiSendCall()

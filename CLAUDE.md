@@ -1,12 +1,12 @@
 # CLAUDE.md
 
-This file provides comprehensive guidance to Claude Code (claude.ai/code) for efficiently working with the PicoSafe SDK codebase. It defines coding standards, workflow procedures, and architectural patterns to ensure consistent, high-quality contributions.
+This file provides comprehensive guidance to Claude Code (claude.ai/code) for efficiently working with the picosafe SDK codebase. It defines coding standards, workflow procedures, and architectural patterns to ensure consistent, high-quality contributions.
 
 ## Project Overview
 
-PicoSafe is a minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.4.1+). The SDK follows a one-action-one-function principle, providing a simple API for Safe operations without managing keys or connections.
+picosafe is a minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.4.1+). The SDK follows a one-action-one-function principle, providing a simple API for Safe operations without managing keys or connections.
 
-**Library Dependencies**: The SDK uses [Ox](https://oxlib.sh) as its core Ethereum library for ABI encoding, address manipulation, and cryptographic operations. Ox provides a minimal, type-safe API that aligns with PicoSafe's philosophy of simplicity and correctness.
+**Library Dependencies**: The SDK uses [Ox](https://oxlib.sh) as its core Ethereum library for ABI encoding, address manipulation, and cryptographic operations. Ox provides a minimal, type-safe API that aligns with picosafe's philosophy of simplicity and correctness.
 
 ## Key Commands
 
@@ -30,9 +30,9 @@ Use the `-w` flag with the package name to run commands for a specific package:
 
 ```bash
 # Development
-npm run dev -w @volga/picosafe       # Watch mode development build for PicoSafe
+npm run dev -w @volga/picosafe       # Watch mode development build for picosafe
 npm run build -w @volga/picosafe     # Build the SDK (CJS and ESM)
-npm run typecheck -w @volga/picosafe # TypeScript type checking for PicoSafe only
+npm run typecheck -w @volga/picosafe # TypeScript type checking for picosafe only
 
 # Testing
 npm run test -w @volga/picosafe     # Run tests with automated Anvil setup
@@ -208,7 +208,7 @@ The test suite covers all SDK functionality including deployment, transactions, 
 
 ### Testing with Anvil
 
-The PicoSafe package includes an automated Anvil setup for testing. When running tests:
+The picosafe package includes an automated Anvil setup for testing. When running tests:
 
 - Tests automatically start and stop Anvil with pre-deployed Safe 1.4.1 contracts
 - The setup is handled by `packages/picosafe/tests/setup-anvil.ts`
@@ -290,7 +290,7 @@ Examples serve as both documentation and learning tools. They should showcase li
 
 ### Core Principles for Examples
 
-1. **Focus on Library APIs**: Examples should highlight PicoSafe functions, not boilerplate setup
+1. **Focus on Library APIs**: Examples should highlight picosafe functions, not boilerplate setup
 2. **Minimize Noise**: Remove excessive console.logs, decorative output, and verbose formatting
 3. **Runnable but Readable**: Primary purpose is to be read and understood, secondary is execution
 4. **Concise Output**: Only log essential information (addresses, transaction hashes, success confirmations)
@@ -300,7 +300,7 @@ Examples serve as both documentation and learning tools. They should showcase li
 #### Setup Abstraction
 
 - **Use shared setup modules**: Extract repetitive client configuration to `setup.ts`
-- **Comment non-library code**: Clearly indicate when code is standard Ethereum setup vs PicoSafe-specific
+- **Comment non-library code**: Clearly indicate when code is standard Ethereum setup vs picosafe-specific
 - **Type explicitly**: Add explicit type annotations to avoid complex type inference issues
 
 Example setup module:
@@ -310,7 +310,7 @@ export function setupClients(rpcUrl: string): {
   walletClient: WalletClient<Transport, Chain, Account>
   publicClient: PublicClient
 } {
-  // Standard Viem setup - not PicoSafe specific
+  // Standard Viem setup - not picosafe specific
   // Implementation details...
 }
 ```
@@ -399,7 +399,7 @@ This pattern is implemented using the `wrapEthereumTransaction` utility from `ut
 
 ### Critical Safety Requirements
 
-PicoSafe handles financial assets where mistakes can lead to irreversible loss of funds. Every change must be approached with extreme caution:
+picosafe handles financial assets where mistakes can lead to irreversible loss of funds. Every change must be approached with extreme caution:
 
 1. **Test Everything Meticulously**: All functionality must have comprehensive test coverage including edge cases, error conditions, and adversarial inputs
 2. **Prevent Footguns**: Design APIs to make dangerous operations impossible or extremely explicit. Focus on operations allowed by Safe contracts but potentially dangerous:
@@ -459,6 +459,10 @@ Before any code changes:
 
 ## Developer Notes
 
+- **Brand Name Convention**:
+  - Always use lowercase "picosafe" when referring to the project, SDK, or brand
+  - TypeScript type names follow PascalCase with "Picosafe" prefix (e.g., `PicosafeSignature`, `PicosafeRpcBlockIdentifier`)
+  - This applies to documentation, code comments, JSDoc, error messages, and all user-facing text
 - **Type Management**:
   - Keep the types in `types.ts`, unless it's only crucial for that particular file
 - **Ox Library Usage**:

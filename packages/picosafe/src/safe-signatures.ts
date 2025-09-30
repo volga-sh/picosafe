@@ -211,7 +211,7 @@ function readDynamicData(
  * Decodes Safe signature bytes back into individual signature components
  *
  * Parses the concatenated signature format used by Safe contracts back into
- * an array of individual {@link PicoSafeSignature} objects. This function performs
+ * an array of individual {@link PicosafeSignature} objects. This function performs
  * signature recovery for ECDSA signatures to populate the signer address field.
  *
  * The function handles all Safe signature types as defined by {@link SignatureTypeVByte}:
@@ -234,7 +234,7 @@ function readDynamicData(
  *                     - eth_sign: Safe applies "\x19Ethereum Signed Message:\n32" prefix internally
  *                     - Contract: Passed to isValidSignature
  *                     - Approved: Checked against approvedHashes mapping
- * @returns Array of {@link PicoSafeSignature} objects with recovered signer addresses
+ * @returns Array of {@link PicosafeSignature} objects with recovered signer addresses
  * @throws {Error} If signature data is malformed, has invalid type bytes, or offsets are invalid
  * @example
  * ```typescript

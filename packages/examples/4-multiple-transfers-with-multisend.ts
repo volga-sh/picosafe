@@ -10,7 +10,7 @@ import { withExampleScene } from "./example-scene.js";
 /**
  * Example: Multiple Transfers with Automatic MultiSend
  *
- * Shows PicoSafe's automatic MultiSend handling when passing multiple transactions
+ * Shows picosafe's automatic MultiSend handling when passing multiple transactions
  * to buildSafeTransaction(). Demonstrates batching ETH and ERC20 transfers in a
  * single atomic Safe transaction without manual MultiSend encoding.
  */

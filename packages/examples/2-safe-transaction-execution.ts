@@ -12,7 +12,7 @@ import { withExampleScene } from "./example-scene.js";
  * Demonstrates the full Safe transaction workflow:
  * Build transaction → Sign → Execute
  *
- * Shows how PicoSafe separates transaction building, signing, and execution
+ * Shows how picosafe separates transaction building, signing, and execution
  * for maximum flexibility in multi-signature workflows.
  */
 

@@ -1,6 +1,6 @@
-# PicoSafe Testing Guide
+# picosafe Testing Guide
 
-This directory contains comprehensive integration tests for the PicoSafe SDK.
+This directory contains comprehensive integration tests for the picosafe SDK.
 
 ## Prerequisites
 
