@@ -1,5 +1,5 @@
 /**
- * @fileoverview Vitest configuration for PicoSafe integration tests.
+ * @fileoverview Vitest configuration for picosafe integration tests.
  *
  * Configuration choices explained:
  * - globals: true - Enables global test functions (describe, it, expect) without imports

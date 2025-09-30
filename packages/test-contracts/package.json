@@ -2,7 +2,7 @@
 	"name": "@volga/test-contracts",
 	"version": "0.0.1",
 	"private": true,
-	"description": "Test contracts for PicoSafe examples",
+	"description": "Test contracts for picosafe examples",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"scripts": {

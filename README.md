@@ -1,4 +1,4 @@
-# PicoSafe
+# picosafe
 
 A minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.4.1), providing a simple API for Safe operations without managing keys or connections.
 
@@ -8,7 +8,7 @@ A minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.
 
 ## Overview
 
-PicoSafe provides modules for:
+picosafe provides modules for:
 
 - Account deployment and management
 - Transaction building, signing, and execution
@@ -25,7 +25,7 @@ npm install picosafe
 
 ## Basic Usage
 
-PicoSafe works with any EIP-1193 provider. You can use Viem, Ethers, or any other library that provides an EIP-1193 compatible provider.
+picosafe works with any EIP-1193 provider. You can use Viem, Ethers, or any other library that provides an EIP-1193 compatible provider.
 
 ### Using with Viem
 
@@ -118,7 +118,7 @@ The SDK requires an EIP-1193 compatible provider that supports:
 
 This is a monorepo managed with npm workspaces, containing:
 
-- `packages/picosafe` - The main PicoSafe SDK
+- `packages/picosafe` - The main picosafe SDK
 - `packages/anvil-manager` - Anvil process management for tests and examples
 - `packages/safe-genesis` - Genesis configuration with pre-deployed Safe v1.4.1 contracts
 - `packages/examples` - Example applications demonstrating SDK usage

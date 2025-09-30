@@ -16,7 +16,7 @@ A TypeScript library for managing Anvil (Foundry) instances in tests and example
 
 We chose to build anvil-manager instead of using existing solutions like [prool](https://github.com/wevm/prool) for several key reasons:
 
-1. **Simplicity**: Our implementation is simpler and more direct, which aligns with PicoSafe's minimalistic philosophy. We provide straightforward process management without unnecessary abstractions.
+1. **Simplicity**: Our implementation is simpler and more direct, which aligns with picosafe's minimalistic philosophy. We provide straightforward process management without unnecessary abstractions.
 
 2. **Specific Purpose**: We only need Anvil management, not the full suite of capabilities that prool offers (bundlers, multiple instance types, etc.). This focused approach keeps our codebase lean and easy to understand.
 
