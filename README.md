@@ -1,4 +1,4 @@
-# picosafe
+# ✨🔒 picosafe
 
 A minimalistic but advanced TypeScript SDK for Safe Smart Account contracts (v1.4.1), providing a simple API for Safe operations without managing keys or connections.
 
