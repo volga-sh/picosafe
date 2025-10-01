@@ -1,0 +1,14 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"extends": ["../../biome.json"],
+	"files": {
+		"includes": [
+			"**",
+			"!**/node_modules/**",
+			"!**/dist/**",
+			"!**/artifacts/**",
+			"!**/cache/**",
+			"!**/routeTree.gen.ts"
+		]
+	}
+}

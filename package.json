@@ -2,17 +2,21 @@
 	"name": "picosafe-monorepo",
 	"private": true,
 	"workspaces": [
-		"packages/*"
+		"packages/*",
+		"apps/*"
 	],
 	"packageManager": "npm@11",
 	"scripts": {
 		"build": "npm run build -w @volga/picosafe",
 		"dev": "npm run dev -w @volga/picosafe",
+		"dev:webapp": "npm run dev -w picosafe-webapp",
+		"build:webapp": "npm run build -w picosafe-webapp",
 		"typecheck": "npm run --ws typecheck",
 		"test": "npm run --ws test",
+		"test:e2e": "npm run test:e2e -w picosafe-webapp",
 		"format": "biome format --write .",
-		"check": "biome check",
-		"check:write": "biome check --write ."
+		"check": "npm run --ws --if-present check",
+		"check:write": "npm run --ws --if-present check:write"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.1.4",

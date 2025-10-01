@@ -25,7 +25,9 @@
 		"test": "vitest run",
 		"test:anvil-verbose": "ANVIL_VERBOSE=true vitest run",
 		"typecheck": "tsc --noEmit",
-		"coverage": "vitest run --coverage"
+		"coverage": "vitest run --coverage",
+		"check": "biome check",
+		"check:write": "biome check --write"
 	},
 	"keywords": [],
 	"author": "",
