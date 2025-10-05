@@ -12,6 +12,7 @@ type TransactionRequest = {
 	maxFeePerGas?: bigint;
 	maxPriorityFeePerGas?: bigint;
 	nonce?: number;
+	gasBuffer?: bigint;
 };
 
 type RpcTransactionRequest = {
@@ -81,16 +82,17 @@ type WrappedTransaction<A = void> = A extends void
  * console.log('Transaction sent:', txHash);
  *
  * @example
- * // Using overrides to adjust gas price at send time
+ * // Using overrides to adjust gas price and buffer at send time
  * const wrappedTx = wrapEthereumTransaction(provider, {
  *   to: contractAddress,
  *   data: encodedFunctionData
  * });
  *
- * // Override gas parameters when sending
+ * // Override gas parameters and buffer when sending
  * const txHash = await wrappedTx.send({
- *   maxFeePerGas: '0x77359400', // 2 gwei
- *   maxPriorityFeePerGas: '0x3b9aca00' // 1 gwei
+ *   maxFeePerGas: 2000000000n, // 2 gwei
+ *   maxPriorityFeePerGas: 1000000000n, // 1 gwei
+ *   gasBuffer: 30n // Use 30% buffer instead of default 20%
  * });
  *
  * @example
@@ -187,11 +189,13 @@ function wrapEthereumTransaction<A = void>(
 				params: [rpcTransaction],
 			})) as string;
 
-			// Add 20% buffer to gas estimate for safety
+			// Add configurable buffer to gas estimate for safety (default 20%)
 			// Sometimes the transaction may use more gas than estimated
 			// e.g., in case of a gas refund, where the refund is applied after the transaction is executed
 			const gasEstimateBigInt = BigInt(gasEstimate);
-			const gasWithBuffer = (gasEstimateBigInt * 120n) / 100n;
+			const bufferPercentage = txRequest.gasBuffer ?? 20n;
+			const gasWithBuffer =
+				(gasEstimateBigInt * (100n + bufferPercentage)) / 100n;
 			rpcTransaction.gas = HexUtils.fromNumber(gasWithBuffer);
 		}
 

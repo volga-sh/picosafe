@@ -197,6 +197,110 @@ async function getRemoveOwnerTransaction(
 }
 
 /**
+ * Builds an unsigned Safe transaction to swap an existing owner with a new owner atomically.
+ *
+ * This function encodes a call to the Safe contract's `swapOwner` method,
+ * replacing `oldOwner` with `newOwner` in a single transaction. If `prevOwner` is not provided,
+ * it is inferred from the current owner list (or set to the sentinel node if swapping the first owner).
+ *
+ * @param provider - The EIP-1193 compatible provider for blockchain interactions.
+ * @param safeAddress - The address of the Safe contract.
+ * @param swapOwnerParams - Parameters for owner swap:
+ *   - oldOwner: The Ethereum address of the owner to replace. May be lower- or mixed-case; it will be normalised to an EIP-55 checksum internally.
+ *   - newOwner: The Ethereum address of the new owner. May be lower- or mixed-case; it will be normalised to an EIP-55 checksum internally.
+ *   - prevOwner: (Optional) The address of the previous owner in the linked list. Provide it if already known; otherwise it is inferred automatically. Case-insensitive.
+ * @param transactionOptions - Optional Safe transaction build options (excluding UNSAFE_DELEGATE_CALL).
+ * @returns A Promise resolving to the prepared Safe transaction with raw data and send method.
+ * @throws {Error} If the specified old owner does not exist or the previous owner cannot be determined.
+ * @example
+ * ```typescript
+ * import { getSwapOwnerTransaction, signSafeTransaction, executeSafeTransaction } from 'picosafe';
+ * import { createWalletClient, http } from 'viem';
+ * import { mainnet } from 'viem/chains';
+ *
+ * const walletClient = createWalletClient({
+ *   chain: mainnet,
+ *   transport: http(),
+ * });
+ *
+ * // Swap an owner with a new owner
+ * const tx = await getSwapOwnerTransaction(
+ *   walletClient,
+ *   '0xSafeAddress',
+ *   {
+ *     oldOwner: '0xOldOwner',
+ *     newOwner: '0xNewOwner',
+ *   },
+ *   { nonce: 10n, baseGas: 30000n }
+ * );
+ *
+ * // Sign and execute
+ * const signature = await signSafeTransaction(walletClient, tx, walletClient.account.address);
+ * const execution = await executeSafeTransaction(walletClient, tx, [signature]);
+ * const txHash = await execution.send();
+ * console.log(`Owner swapped in transaction: ${txHash}`);
+ * ```
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L99
+ */
+async function getSwapOwnerTransaction(
+	provider: Readonly<EIP1193ProviderWithRequestFn>,
+	safeAddress: Address,
+	swapOwnerParams: Readonly<{
+		oldOwner: Address;
+		newOwner: Address;
+		prevOwner?: Address;
+	}>,
+	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
+): Promise<FullSafeTransaction> {
+	const normalizedOldOwner = OxAddress.checksum(swapOwnerParams.oldOwner);
+	const normalizedNewOwner = OxAddress.checksum(swapOwnerParams.newOwner);
+	let { prevOwner } = swapOwnerParams;
+
+	if (!prevOwner) {
+		const currentOwners = await getOwners(provider, { safeAddress });
+		const ownerIndex = currentOwners.indexOf(normalizedOldOwner);
+		if (ownerIndex === -1) {
+			throw new Error(
+				`Owner ${swapOwnerParams.oldOwner} not found in Safe ${safeAddress}`,
+			);
+		}
+
+		if (ownerIndex === 0) {
+			prevOwner = SENTINEL_NODE;
+		} else {
+			const prevCandidate = currentOwners[ownerIndex - 1];
+			if (!prevCandidate) {
+				throw new Error(
+					`Failed to find previous owner for index ${ownerIndex}`,
+				);
+			}
+			prevOwner = prevCandidate;
+		}
+	}
+
+	const swapOwnerSelector = "0xe318b52b";
+	const data = encodeWithSelector(
+		swapOwnerSelector,
+		prevOwner,
+		normalizedOldOwner,
+		normalizedNewOwner,
+	);
+
+	return buildSafeTransaction(
+		provider,
+		safeAddress,
+		[
+			{
+				to: safeAddress,
+				value: 0n,
+				data,
+			},
+		],
+		transactionOptions,
+	);
+}
+
+/**
  * Builds an unsigned Safe transaction object to change the threshold required for Safe transactions.
  * This function builds a Safe transaction to update the minimum number of owner signatures
  * required to execute transactions on the Safe.
@@ -269,5 +373,6 @@ async function getChangeThresholdTransaction(
 export {
 	getAddOwnerTransaction,
 	getRemoveOwnerTransaction,
+	getSwapOwnerTransaction,
 	getChangeThresholdTransaction,
 };

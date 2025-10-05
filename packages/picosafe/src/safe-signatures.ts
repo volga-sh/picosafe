@@ -551,10 +551,13 @@ async function validateSignaturesForSafe(
 	valid: boolean;
 	results: SignatureValidationResult<PicosafeSignature>[];
 }> {
-	const safeOwners =
-		safeConfig?.owners ?? (await getOwners(provider, { safeAddress }));
-	const requiredSignatures =
-		safeConfig?.threshold ?? (await getThreshold(provider, { safeAddress }));
+	const [safeOwners, requiredSignatures] =
+		safeConfig?.owners !== undefined && safeConfig?.threshold !== undefined
+			? [safeConfig.owners, safeConfig.threshold]
+			: await Promise.all([
+					getOwners(provider, { safeAddress }),
+					getThreshold(provider, { safeAddress }),
+				]);
 	// Convert owners array to Set for O(1) lookup instead of O(n) with includes()
 	const safeOwnersSet = new Set<Address>(safeOwners);
 	const seenOwners = new Set<Address>();
