@@ -67,25 +67,45 @@ type MetaTransaction = {
 };
 
 /**
- * Complete Safe transaction data structure with all gas and fee parameters
- * @property {Operation} operation - Type of operation (Call or UNSAFE_DELEGATECALL)
- * @property {bigint} safeTxGas - Gas limit for the Safe transaction execution
- * @property {bigint} baseGas - Gas costs not related to the transaction execution (signature check, refund payment)
- * @property {bigint} gasPrice - Gas price in wei for gas payment (0 = no refund)
- * @property {Address} gasToken - Token address for gas payment (0x0 = ETH)
- * @property {Address} refundReceiver - Address to receive gas payment (0x0 = tx.origin)
- * @property {bigint} nonce - Safe account nonce to prevent replay attacks
+ * Gas refund parameters for Safe transactions.
+ *
+ * Only set these when intentionally using Safe's built‑in gas refund mechanism
+ * to compensate a relayer/sender. In typical usage, leave these at their
+ * defaults (`0n`/zero address) which disables refunds and avoids underpayment
+ * risks on volatile fee markets.
+ *
+ * @property {bigint} safeTxGas - Gas limit for the Safe's internal execution.
+ * @property {bigint} baseGas - Non‑execution overhead (e.g., signature checks, refund payment).
+ * @property {bigint} gasPrice - Signed gas price in wei used for refund calculation.
+ * @property {Address} gasToken - Refund token. Zero address means ETH.
+ * @property {Address} refundReceiver - Refund recipient. Zero address resolves to `tx.origin`.
+ *
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L139
  */
-type SafeTransactionData = MetaTransaction & {
-	operation: Operation;
+type GasRefundParams = {
 	safeTxGas: bigint;
 	baseGas: bigint;
 	gasPrice: bigint;
 	gasToken: Address;
 	refundReceiver: Address;
-	nonce: bigint;
 };
+
+/** Partial variant for options composition */
+type PartialGasRefundParams = Partial<GasRefundParams>;
+
+/**
+ * Complete Safe transaction data structure with all gas and fee parameters
+ * @property {Operation} operation - Type of operation (Call or UNSAFE_DELEGATECALL)
+ * Includes {@link GasRefundParams} for refund‑related fields.
+ * - Leave refund fields at defaults unless intentionally using refunds.
+ * @property {bigint} nonce - Safe transaction nonce to prevent replay attacks
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L139
+ */
+type SafeTransactionData = MetaTransaction &
+	GasRefundParams & {
+		operation: Operation;
+		nonce: bigint;
+	};
 
 /**
  * A full Safe transaction with all required fields to calculate the hash
@@ -362,6 +382,8 @@ export { isApprovedHashSignature, isDynamicSignature, isECDSASignature };
 export type {
 	MetaTransaction,
 	SafeTransactionData,
+	GasRefundParams,
+	PartialGasRefundParams,
 	ApprovedHashSignature,
 	ECDSASignature,
 	StaticSignature,

@@ -84,7 +84,6 @@ async function getAddOwnerTransaction(
 		[
 			{
 				to: safeAddress,
-				value: 0n,
 				data,
 			},
 		],
@@ -127,7 +126,7 @@ async function getAddOwnerTransaction(
  *     ownerToRemove: '0xOwnerToRemove',
  *     newThreshold: 1,
  *   },
- *   { nonce: 10n, baseGas: 30000n }
+ *   { nonce: 10n }
  * );
  *
  * // Sign and execute
@@ -188,7 +187,6 @@ async function getRemoveOwnerTransaction(
 		[
 			{
 				to: safeAddress,
-				value: 0n,
 				data,
 			},
 		],
@@ -231,7 +229,7 @@ async function getRemoveOwnerTransaction(
  *     oldOwner: '0xOldOwner',
  *     newOwner: '0xNewOwner',
  *   },
- *   { nonce: 10n, baseGas: 30000n }
+ *   { nonce: 10n }
  * );
  *
  * // Sign and execute
@@ -292,7 +290,6 @@ async function getSwapOwnerTransaction(
 		[
 			{
 				to: safeAddress,
-				value: 0n,
 				data,
 			},
 		],
@@ -326,7 +323,7 @@ async function getSwapOwnerTransaction(
  *   walletClient,
  *   '0x742d35Cc6634C0532925a3b844Bc9e7595f4d3e2',
  *   3,
- *   { nonce: 10n, safeTxGas: 50000n }
+ *   { nonce: 10n }
  * );
  *
  * // Sign the transaction with an owner account
@@ -362,7 +359,6 @@ async function getChangeThresholdTransaction(
 		[
 			{
 				to: safeAddress,
-				value: 0n,
 				data,
 			},
 		],
