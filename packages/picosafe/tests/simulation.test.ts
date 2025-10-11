@@ -33,10 +33,7 @@ describe("Safe Transaction Simulation - simulation.ts", () => {
 	});
 
 	describe("simulateSafeTransaction without signatures", () => {
-		it.skip("should simulate a successful transaction and return gas estimate (requires SimulateTxAccessor deployment)", async () => {
-			// NOTE: This test is skipped because SimulateTxAccessor is not deployed on local Anvil network
-			// Simulation without signatures requires the SimulateTxAccessor contract at the canonical address
-
+		it("should simulate a successful transaction and return gas estimate", async () => {
 			// Deploy a Safe
 			const safeDeployment = await deploySafeAccount(walletClient, {
 				owners: [walletClient.account.address],
@@ -77,7 +74,7 @@ describe("Safe Transaction Simulation - simulation.ts", () => {
 			expect(result.gasUsed).toBeGreaterThan(0n);
 		});
 
-		it.skip("should simulate a failing transaction and return failure (requires SimulateTxAccessor deployment)", async () => {
+		it("should simulate a failing transaction and return failure", async () => {
 			// Deploy a Safe
 			const safeDeployment = await deploySafeAccount(walletClient, {
 				owners: [walletClient.account.address],
@@ -253,7 +250,7 @@ describe("Safe Transaction Simulation - simulation.ts", () => {
 	});
 
 	describe("simulation comparison", () => {
-		it.skip("should produce consistent results with and without signatures for valid transactions (requires SimulateTxAccessor deployment)", async () => {
+		it("should produce consistent results with and without signatures for valid transactions", async () => {
 			// Deploy a Safe
 			const safeDeployment = await deploySafeAccount(walletClient, {
 				owners: [walletClient.account.address],

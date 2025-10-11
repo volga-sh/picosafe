@@ -8,6 +8,11 @@ import type {
 	PicosafeSignature,
 } from "./types";
 
+// Canonical ABI for SimulateTxAccessor revert payload
+const SIM_RESULT_ABI = AbiFunction.from(
+	"function result(uint256 estimate, bool success, bytes returnData) returns (uint256, bool, bytes)",
+);
+
 /**
  * Result of a Safe transaction simulation.
  */
@@ -99,6 +104,10 @@ type SimulationResult = {
  * }
  * ```
  *
+ * @throws {Error} If the provider call fails (e.g., network/provider error) or
+ *                 if the simulation revert payload cannot be decoded into the
+ *                 expected (estimate, success, returnData) tuple.
+ *
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/accessors/SimulateTxAccessor.sol
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/common/StorageAccessible.sol
  */
@@ -108,7 +117,6 @@ async function simulateSafeTransaction(
 	signatures?: readonly PicosafeSignature[],
 ): Promise<SimulationResult> {
 	if (signatures && signatures.length > 0) {
-		// Simulate with signatures using eth_call on execTransaction
 		return simulateWithSignatures(provider, transaction, signatures);
 	}
 
@@ -208,11 +216,11 @@ async function simulateWithAccessor(
 			simulateCallData,
 		]);
 
-		// Make the eth_call - this will revert with the simulation result
 		await provider.request({
 			method: "eth_call",
 			params: [
 				{
+					from: transaction.safeAddress, // call from Safe so delegatecall-access checks inside accessor pass
 					to: transaction.safeAddress,
 					data: simulateAndRevertData,
 				},
@@ -226,52 +234,21 @@ async function simulateWithAccessor(
 			error: "Simulation did not revert as expected",
 		};
 	} catch (error) {
-		// The call should revert with the simulation result encoded in the error
-		// Parse the revert data to extract: (uint256 estimate, bool success, bytes returnData)
+		// The call should revert with the simulation result encoded as the canonical tuple
 		const revertData = extractRevertData(error);
-
 		if (!revertData) {
-			return {
-				success: false,
-				error:
-					error instanceof Error
-						? error.message
-						: "Failed to extract simulation result",
-			};
+			return { success: false, error: "Failed to extract simulation result" };
 		}
-
 		try {
-			// Decode the revert data
-			// Format: (uint256 estimate, bool success, bytes returnData)
-			// Skip the first 4 bytes (error selector) if present
-			const dataToDecodeTrimmed = revertData.startsWith("0x08c379a0")
-				? `0x${revertData.slice(10)}`
-				: revertData;
-			const dataToDecode = dataToDecodeTrimmed.startsWith("0x")
-				? dataToDecodeTrimmed
-				: `0x${dataToDecodeTrimmed}`;
-
-			// The revert data contains the ABI-encoded result from simulate()
-			// Decode as: (uint256, bool, bytes)
-			const simulateResultAbi = AbiFunction.from(
-				"function result(uint256 estimate, bool success, bytes returnData) returns (uint256, bool, bytes)",
-			);
-
-			// Remove function selector (first 4 bytes) and decode the parameters
-			const paramsData = `0x${dataToDecode.slice(10)}` as Hex;
-
-			const decoded = AbiFunction.decodeResult(simulateResultAbi, paramsData);
-
+			const decoded = decodeSimulateAccessorReturn(revertData);
+			if (!decoded) throw new Error("decode failed");
 			return {
-				success: decoded[1] as boolean,
-				gasUsed: decoded[0] as bigint,
-				returnData: decoded[2] as Hex,
+				success: decoded.success,
+				gasUsed: decoded.estimate,
+				returnData: decoded.returnData,
 			};
 		} catch {
-			return {
-				success: false,
-				error: "Failed to decode simulation result",
-			};
+			return { success: false, error: "Failed to decode simulation result" };
 		}
 	}
 }
@@ -288,9 +265,9 @@ function extractRevertData(error: unknown): Hex | null {
 		typeof error === "object" &&
 		error !== null &&
 		"data" in error &&
-		typeof error.data === "string"
+		typeof (error as { data?: unknown }).data === "string"
 	) {
-		return error.data as Hex;
+		return (error as { data: string }).data as Hex;
 	}
 
 	// Check error message for hex data
@@ -306,3 +283,66 @@ function extractRevertData(error: unknown): Hex | null {
 
 export { simulateSafeTransaction };
 export type { SimulationResult };
+
+/**
+ * Decodes the ABI-encoded tuple (uint256 estimate, bool success, bytes returnData)
+ * produced by SimulateTxAccessor via StorageAccessible.simulateAndRevert.
+ *
+ * Minimalism with robustness:
+ * - First we decode using the canonical tuple ABI at offset 0 (the only ABI we care about).
+ * - Some providers wrap the revert payload (e.g., Anvil surfaces a custom error envelope),
+ *   which shifts the tuple away from offset 0. To remain simple and robust without
+ *   maintaining wrapper ABIs, we include a tiny fallback that scans for the tuple head
+ *   (estimate, success, 0x60) and decodes the tail.
+ *
+ * References:
+ * - SimulateTxAccessor.sol
+ *   https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/accessors/SimulateTxAccessor.sol
+ * - SimulateTxAccessor.spec.ts
+ *   https://github.com/safe-global/safe-smart-account/blob/main/test/accessors/SimulateTxAccessor.spec.ts
+ */
+function decodeSimulateAccessorReturn(
+	data: Hex,
+): { estimate: bigint; success: boolean; returnData: Hex } | null {
+	const payload = data.startsWith("0x") ? data : (`0x${data}` as Hex);
+
+	try {
+		const [estimate, success, ret] = AbiFunction.decodeResult(
+			SIM_RESULT_ABI,
+			payload,
+		);
+		return {
+			estimate: estimate as bigint,
+			success: success as boolean,
+			returnData: ret as Hex,
+		};
+	} catch {}
+
+	// Minimal fallback: scan for (estimate, success, 0x60) head and decode tail
+	const hex = payload.slice(2);
+	const totalWords = Math.floor(hex.length / 64);
+	for (let base = 0; base + 3 <= totalWords; base++) {
+		const readWord = (i: number): bigint => {
+			const s = i * 64;
+			const slice = hex.slice(s, s + 64);
+			if (slice.length !== 64) return 0n;
+			return BigInt(`0x${slice}`);
+		};
+		const estimate = readWord(base + 0);
+		const successWord = readWord(base + 1);
+		const offsetBytes = readWord(base + 2);
+		if (offsetBytes !== 0x60n) continue;
+		const tailStart = (base + 3) * 64 + Number(offsetBytes) * 2 - 0x60 * 2;
+		if (tailStart < 0 || hex.length < tailStart + 64) continue;
+		const lenSlice = hex.slice(tailStart, tailStart + 64);
+		const length = Number(BigInt(`0x${lenSlice}`));
+		const dataStart = tailStart + 64;
+		const dataEnd = dataStart + length * 2;
+		if (!Number.isFinite(length) || length < 0 || hex.length < dataEnd)
+			continue;
+		const returnData = `0x${hex.slice(dataStart, dataEnd)}` as Hex;
+		return { estimate, success: successWord !== 0n, returnData };
+	}
+
+	return null;
+}
