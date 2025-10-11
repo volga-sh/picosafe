@@ -7,6 +7,7 @@ import type {
 	FullSafeTransaction,
 	PicosafeSignature,
 } from "./types";
+import { ABI_DYNAMIC_OFFSET, ABI_WORD_SIZE_HEX } from "./utilities/constants";
 
 // Canonical ABI for SimulateTxAccessor revert payload
 const SIM_RESULT_ABI = AbiFunction.from(
@@ -311,23 +312,26 @@ function decodeSimulateAccessorReturn(
 
 	// Minimal fallback: scan for (estimate, success, 0x60) head and decode tail
 	const hex = payload.slice(2);
-	const totalWords = Math.floor(hex.length / 64);
+	const totalWords = Math.floor(hex.length / ABI_WORD_SIZE_HEX);
 	for (let base = 0; base + 3 <= totalWords; base++) {
 		const readWord = (i: number): bigint => {
-			const s = i * 64;
-			const slice = hex.slice(s, s + 64);
-			if (slice.length !== 64) return 0n;
+			const s = i * ABI_WORD_SIZE_HEX;
+			const slice = hex.slice(s, s + ABI_WORD_SIZE_HEX);
+			if (slice.length !== ABI_WORD_SIZE_HEX) return 0n;
 			return BigInt(`0x${slice}`);
 		};
 		const estimate = readWord(base + 0);
 		const successWord = readWord(base + 1);
 		const offsetBytes = readWord(base + 2);
-		if (offsetBytes !== 0x60n) continue;
-		const tailStart = (base + 3) * 64 + Number(offsetBytes) * 2 - 0x60 * 2;
-		if (tailStart < 0 || hex.length < tailStart + 64) continue;
-		const lenSlice = hex.slice(tailStart, tailStart + 64);
+		if (offsetBytes !== ABI_DYNAMIC_OFFSET) continue;
+		const tailStart =
+			(base + 3) * ABI_WORD_SIZE_HEX +
+			Number(offsetBytes) * 2 -
+			Number(ABI_DYNAMIC_OFFSET) * 2;
+		if (tailStart < 0 || hex.length < tailStart + ABI_WORD_SIZE_HEX) continue;
+		const lenSlice = hex.slice(tailStart, tailStart + ABI_WORD_SIZE_HEX);
 		const length = Number(BigInt(`0x${lenSlice}`));
-		const dataStart = tailStart + 64;
+		const dataStart = tailStart + ABI_WORD_SIZE_HEX;
 		const dataEnd = dataStart + length * 2;
 		if (!Number.isFinite(length) || length < 0 || hex.length < dataEnd)
 			continue;

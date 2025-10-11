@@ -86,10 +86,60 @@ const ECDSA_SIGNATURE_LENGTH_BYTES = 65;
  */
 const ECDSA_SIGNATURE_LENGTH_HEX = ECDSA_SIGNATURE_LENGTH_BYTES * 2;
 
+/**
+ * Standard ABI word size in bytes.
+ * In Ethereum ABI encoding, all data is encoded in 32-byte chunks.
+ * This is the fundamental unit for ABI encoding and decoding operations.
+ * @example
+ * ```typescript
+ * import { ABI_WORD_SIZE_BYTES } from 'picosafe/utilities/constants';
+ *
+ * // Pad data to ABI word size
+ * const padded = padLeft(data, ABI_WORD_SIZE_BYTES);
+ * ```
+ */
+const ABI_WORD_SIZE_BYTES = 32;
+
+/**
+ * Standard ABI word size in hex characters.
+ * Since each byte is represented by 2 hex characters, this equals 64 hex chars.
+ * Used for hex string operations involving ABI-encoded data.
+ * @example
+ * ```typescript
+ * import { ABI_WORD_SIZE_HEX } from 'picosafe/utilities/constants';
+ *
+ * // Check hex string length for ABI word
+ * if (hexData.length !== ABI_WORD_SIZE_HEX + 2) { // +2 for '0x'
+ *   throw new Error('Invalid ABI word length');
+ * }
+ * ```
+ */
+const ABI_WORD_SIZE_HEX = ABI_WORD_SIZE_BYTES * 2;
+
+/**
+ * Standard ABI offset for dynamic types in bytes.
+ * In Ethereum ABI encoding, dynamic types (like bytes, string) use a 32-byte
+ * offset pointing to the actual data location. This offset is typically 0x60 (96)
+ * for the first dynamic parameter.
+ * @example
+ * ```typescript
+ * import { ABI_DYNAMIC_OFFSET } from 'picosafe/utilities/constants';
+ *
+ * // Check if offset matches dynamic type marker
+ * if (offset === ABI_DYNAMIC_OFFSET) {
+ *   // Handle dynamic type
+ * }
+ * ```
+ */
+const ABI_DYNAMIC_OFFSET = 0x60n;
+
 export {
 	ZERO_ADDRESS,
 	EMPTY_BYTES,
 	SENTINEL_NODE,
 	ECDSA_SIGNATURE_LENGTH_BYTES,
 	ECDSA_SIGNATURE_LENGTH_HEX,
+	ABI_WORD_SIZE_BYTES,
+	ABI_WORD_SIZE_HEX,
+	ABI_DYNAMIC_OFFSET,
 };

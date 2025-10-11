@@ -22,6 +22,7 @@ import {
 	isECDSASignature,
 	SignatureTypeVByte,
 } from "./types.js";
+import { ABI_WORD_SIZE_BYTES } from "./utilities/constants";
 import {
 	ECDSA_SIGNATURE_LENGTH_BYTES,
 	ECDSA_SIGNATURE_LENGTH_HEX,
@@ -143,10 +144,13 @@ function encodeSafeSignaturesBytes(
 				sortedSignatures.length * ECDSA_SIGNATURE_LENGTH_BYTES +
 				dynamicPart.length / 2;
 
-			const paddedSigner = HexUtils.padLeft(signature.signer, 32);
+			const paddedSigner = HexUtils.padLeft(
+				signature.signer,
+				ABI_WORD_SIZE_BYTES,
+			);
 			const offsetHex = HexUtils.padLeft(
 				HexUtils.fromNumber(dynamicOffset),
-				32,
+				ABI_WORD_SIZE_BYTES,
 			);
 			staticPart += HexUtils.concat(paddedSigner, offsetHex, "0x00").slice(2);
 
@@ -654,8 +658,8 @@ async function validateSignaturesForSafe(
  */
 function getApprovedHashSignatureBytes(signer: Address): Hex {
 	return HexUtils.concat(
-		HexUtils.padLeft(signer, 32), // First 32 bytes are the signer address
-		HexUtils.padLeft("0x00", 32), // Next 32 bytes are zeros for approved hash
+		HexUtils.padLeft(signer, ABI_WORD_SIZE_BYTES), // First 32 bytes are the signer address
+		HexUtils.padLeft("0x00", ABI_WORD_SIZE_BYTES), // Next 32 bytes are zeros for approved hash
 		`0x${SignatureTypeVByte.APPROVED_HASH.toString(16).padStart(2, "0")}`, // v-byte
 	);
 }

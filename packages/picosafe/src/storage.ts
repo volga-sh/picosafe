@@ -1,5 +1,6 @@
 import { Hash, Hex as HexUtils } from "ox";
 import type { Address, Hex } from "./ox-types";
+import { ABI_WORD_SIZE_BYTES } from "./utilities/constants";
 
 /**
  * Defines the well-known storage slot addresses used by Safe contracts.
@@ -21,15 +22,15 @@ import type { Address, Hex } from "./ox-types";
  * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/libraries/SafeStorage.sol
  */
 const SAFE_STORAGE_SLOTS = {
-	singleton: HexUtils.padLeft("0x0", 32),
-	modulesMapping: HexUtils.padLeft("0x1", 32),
-	ownersMapping: HexUtils.padLeft("0x2", 32),
-	ownerCount: HexUtils.padLeft("0x3", 32),
-	threshold: HexUtils.padLeft("0x4", 32),
-	nonce: HexUtils.padLeft("0x5", 32),
-	deprecatedDomainSeparator: HexUtils.padLeft("0x6", 32),
-	signedMessagesMapping: HexUtils.padLeft("0x7", 32),
-	approvedHashesMapping: HexUtils.padLeft("0x8", 32),
+	singleton: HexUtils.padLeft("0x0", ABI_WORD_SIZE_BYTES),
+	modulesMapping: HexUtils.padLeft("0x1", ABI_WORD_SIZE_BYTES),
+	ownersMapping: HexUtils.padLeft("0x2", ABI_WORD_SIZE_BYTES),
+	ownerCount: HexUtils.padLeft("0x3", ABI_WORD_SIZE_BYTES),
+	threshold: HexUtils.padLeft("0x4", ABI_WORD_SIZE_BYTES),
+	nonce: HexUtils.padLeft("0x5", ABI_WORD_SIZE_BYTES),
+	deprecatedDomainSeparator: HexUtils.padLeft("0x6", ABI_WORD_SIZE_BYTES),
+	signedMessagesMapping: HexUtils.padLeft("0x7", ABI_WORD_SIZE_BYTES),
+	approvedHashesMapping: HexUtils.padLeft("0x8", ABI_WORD_SIZE_BYTES),
 	// keccak256("fallback_manager.handler.address")
 	fallbackHandler:
 		"0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5",
@@ -62,8 +63,8 @@ function computeMappingStorageSlot(key: Address, mappingSlot: Hex): Hex {
 	// This follows Solidity's storage slot calculation for mappings: keccak256(key + slot)
 	return Hash.keccak256(
 		HexUtils.concat(
-			HexUtils.padLeft(key, 32),
-			HexUtils.padLeft(mappingSlot, 32),
+			HexUtils.padLeft(key, ABI_WORD_SIZE_BYTES),
+			HexUtils.padLeft(mappingSlot, ABI_WORD_SIZE_BYTES),
 		),
 	);
 }
