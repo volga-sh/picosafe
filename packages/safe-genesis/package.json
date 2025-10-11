@@ -47,7 +47,6 @@
 	"homepage": "https://github.com/mmv08/picosafe/tree/main/packages/safe-genesis#readme",
 	"devDependencies": {
 		"@types/node": "^24.2.1",
-		"tsup": "^8.5.0",
-		"typescript": "^5.9.2"
+		"tsup": "^8.5.0"
 	}
 }
