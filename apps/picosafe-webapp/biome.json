@@ -4,10 +4,10 @@
 	"files": {
 		"includes": [
 			"**",
-			"!**/node_modules/**",
-			"!**/dist/**",
-			"!**/artifacts/**",
-			"!**/cache/**",
+			"!**/node_modules",
+			"!**/dist",
+			"!**/artifacts",
+			"!**/cache",
 			"!**/routeTree.gen.ts"
 		]
 	}
