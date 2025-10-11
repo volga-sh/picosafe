@@ -1,4 +1,4 @@
-import { Hex as HexUtils, Address as OxAddress } from "ox";
+import { AbiFunction, Hex as HexUtils, Address as OxAddress } from "ox";
 import type { Address, Hex } from "./ox-types";
 
 type Quantity = `0x${string}`;
@@ -13,8 +13,25 @@ import type {
 	WrapResult,
 } from "./types";
 import { SENTINEL_NODE } from "./utilities/constants";
-import { encodeWithSelector } from "./utilities/encoding.js";
 import { wrapStateRead } from "./utilities/wrapStateRead";
+
+/**
+ * Safe function ABI for getStorageAt(uint256,uint256) returns (bytes)
+ * @internal
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/common/StorageAccessible.sol#L17
+ */
+const GET_STORAGE_AT_FN = AbiFunction.from(
+	"function getStorageAt(uint256,uint256) returns (bytes)",
+);
+
+/**
+ * Safe function ABI for getModulesPaginated(address,uint256) returns (address[],address)
+ * @internal
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L144
+ */
+const GET_MODULES_PAGINATED_FN = AbiFunction.from(
+	"function getModulesPaginated(address,uint256) returns (address[],address)",
+);
 
 /**
  * Constant for address hex length
@@ -112,8 +129,10 @@ function getStorageAt<A = void, O extends MaybeLazy<A> | undefined = undefined>(
 	const { safeAddress, slot, length = 1n } = params;
 	const { block = "latest" } = options || {};
 
-	const getStorageAtSelector = "0x5624b25b";
-	const callData: Hex = encodeWithSelector(getStorageAtSelector, slot, length);
+	const callData: Hex = AbiFunction.encodeData(GET_STORAGE_AT_FN, [
+		BigInt(slot),
+		length,
+	]);
 
 	const call: StateReadCall = {
 		to: safeAddress,
@@ -814,12 +833,10 @@ function getModulesPaginated<
 	const { safeAddress, start = SENTINEL_NODE, pageSize = 100 } = params;
 	const { block = "latest" } = options || {};
 
-	const getModulesPaginatedSelector = "0xcc2f8452";
-	const callData = encodeWithSelector(
-		getModulesPaginatedSelector,
+	const callData = AbiFunction.encodeData(GET_MODULES_PAGINATED_FN, [
 		start,
-		pageSize,
-	);
+		BigInt(pageSize),
+	]);
 
 	const call: StateReadCall = {
 		to: safeAddress,

@@ -1,4 +1,4 @@
-import { Address as OxAddress } from "ox";
+import { AbiFunction, Address as OxAddress } from "ox";
 import { getOwners } from "./account-state.js";
 import type { Address } from "./ox-types";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
@@ -8,7 +8,38 @@ import type {
 	FullSafeTransaction,
 } from "./types.js";
 import { SENTINEL_NODE } from "./utilities/constants.js";
-import { encodeWithSelector } from "./utilities/encoding.js";
+
+/**
+ * Safe function ABI for addOwnerWithThreshold(address,uint256)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L58
+ */
+const ADD_OWNER_WITH_THRESHOLD_FN = AbiFunction.from(
+	"function addOwnerWithThreshold(address,uint256)",
+);
+
+/**
+ * Safe function ABI for removeOwner(address,address,uint256)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L78
+ */
+const REMOVE_OWNER_FN = AbiFunction.from(
+	"function removeOwner(address,address,uint256)",
+);
+
+/**
+ * Safe function ABI for swapOwner(address,address,address)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L99
+ */
+const SWAP_OWNER_FN = AbiFunction.from(
+	"function swapOwner(address,address,address)",
+);
+
+/**
+ * Safe function ABI for changeThreshold(uint256)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/OwnerManager.sol#L119
+ */
+const CHANGE_THRESHOLD_FN = AbiFunction.from(
+	"function changeThreshold(uint256)",
+);
 
 /**
  * Builds an unsigned Safe transaction object to add a new owner to the Safe and optionally update the threshold.
@@ -71,12 +102,10 @@ async function getAddOwnerTransaction(
 	},
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
-	const addOwnerWithThresholdSelector = "0x0d582f13";
-	const data = encodeWithSelector(
-		addOwnerWithThresholdSelector,
+	const data = AbiFunction.encodeData(ADD_OWNER_WITH_THRESHOLD_FN, [
 		newOwner,
 		newThreshold,
-	);
+	]);
 
 	return buildSafeTransaction(
 		provider,
@@ -173,13 +202,11 @@ async function getRemoveOwnerTransaction(
 		}
 	}
 
-	const removeOwnerSelector = "0xf8dc5dd9";
-	const data = encodeWithSelector(
-		removeOwnerSelector,
+	const data = AbiFunction.encodeData(REMOVE_OWNER_FN, [
 		prevOwner,
 		normalizedTargetOwner,
 		removeOwnerParams.newThreshold,
-	);
+	]);
 
 	return buildSafeTransaction(
 		provider,
@@ -276,13 +303,11 @@ async function getSwapOwnerTransaction(
 		}
 	}
 
-	const swapOwnerSelector = "0xe318b52b";
-	const data = encodeWithSelector(
-		swapOwnerSelector,
+	const data = AbiFunction.encodeData(SWAP_OWNER_FN, [
 		prevOwner,
 		normalizedOldOwner,
 		normalizedNewOwner,
-	);
+	]);
 
 	return buildSafeTransaction(
 		provider,
@@ -350,8 +375,7 @@ async function getChangeThresholdTransaction(
 	newThreshold: bigint,
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
-	const changeThresholdSelector = "0x694e80c3";
-	const data = encodeWithSelector(changeThresholdSelector, newThreshold);
+	const data = AbiFunction.encodeData(CHANGE_THRESHOLD_FN, [newThreshold]);
 
 	return buildSafeTransaction(
 		provider,
@@ -371,4 +395,8 @@ export {
 	getRemoveOwnerTransaction,
 	getSwapOwnerTransaction,
 	getChangeThresholdTransaction,
+	ADD_OWNER_WITH_THRESHOLD_FN,
+	REMOVE_OWNER_FN,
+	SWAP_OWNER_FN,
+	CHANGE_THRESHOLD_FN,
 };
