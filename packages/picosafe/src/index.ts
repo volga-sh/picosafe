@@ -9,6 +9,7 @@ export * from "./owners";
 export * from "./safe-contracts";
 export * from "./safe-signatures";
 export * from "./signature-validation";
+export * from "./simulation";
 export * from "./storage";
 export * from "./transactions";
 export * from "./types";

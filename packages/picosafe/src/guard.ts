@@ -1,8 +1,14 @@
+import { AbiFunction } from "ox";
 import type { Address } from "./ox-types";
 import type { SecureSafeTransactionOptions } from "./transactions";
 import { buildSafeTransaction } from "./transactions";
 import type { EIP1193ProviderWithRequestFn } from "./types";
-import { encodeWithSelector } from "./utilities/encoding.js";
+
+/**
+ * Safe function ABI for setGuard(address)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/GuardManager.sol#L53
+ */
+const SET_GUARD_FN = AbiFunction.from("function setGuard(address)");
 
 /**
  * Builds an unsigned Safe transaction object to set a guard for the Safe account.
@@ -55,10 +61,7 @@ function UNSAFE_getSetGuardTransaction(
 	guard: Address,
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ) {
-	const data = encodeWithSelector(
-		"0xe19a9dd9", // setGuard selector
-		guard,
-	);
+	const data = AbiFunction.encodeData(SET_GUARD_FN, [guard]);
 
 	return buildSafeTransaction(
 		provider,
@@ -74,4 +77,4 @@ function UNSAFE_getSetGuardTransaction(
 	);
 }
 
-export { UNSAFE_getSetGuardTransaction };
+export { UNSAFE_getSetGuardTransaction, SET_GUARD_FN };

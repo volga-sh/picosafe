@@ -8,6 +8,7 @@ import {
 	Address as OxAddress,
 } from "ox";
 import type { Address, Hex } from "./ox-types";
+import { ABI_WORD_SIZE_BYTES } from "./utilities/constants";
 
 type Log = {
 	address: Address;
@@ -217,7 +218,7 @@ function calculateSafeAddress(
 	// Construct the full bytecode with constructor argument
 	const fullBytecode = HexUtils.concat(
 		proxyBytecode,
-		HexUtils.padLeft(singleton, 32),
+		HexUtils.padLeft(singleton, ABI_WORD_SIZE_BYTES),
 	);
 
 	const address = ContractAddress.from({

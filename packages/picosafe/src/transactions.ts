@@ -11,6 +11,7 @@ import type {
 	EIP1193ProviderWithRequestFn,
 	FullSafeTransaction,
 	MetaTransaction,
+	PartialGasRefundParams,
 	PicosafeSignature,
 } from "./types";
 import { Operation } from "./types.js";
@@ -22,16 +23,37 @@ import { wrapEthereumTransaction } from "./utilities/wrapEthereumTransaction.js"
 type BuiltSafeTransactionMetaTx = Pick<MetaTransaction, "to"> &
 	Partial<Omit<MetaTransaction, "to">>;
 
-type BuildSafeTransactionOptions = Partial<{
-	UNSAFE_DELEGATE_CALL: boolean;
-	baseGas: bigint;
-	safeTxGas: bigint;
-	gasPrice: bigint;
-	gasToken: Address;
-	refundReceiver: Address;
-	nonce: bigint;
-	chainId: bigint;
-}>;
+/**
+ * Optional parameters for building a Safe transaction.
+ *
+ * These options control how picosafe fills defaults, batches calls, and sets
+ * nonce/chainId. Most users can omit all fields and rely on sensible defaults.
+ *
+ * Refund fields (advanced):
+ * - If you intend to use Safe’s built‑in gas refund mechanism, set the
+ *   {@link PartialGasRefundParams} fields: `safeTxGas`, `baseGas`, `gasPrice`,
+ *   `gasToken`, and `refundReceiver`.
+ * - If you are not using refunds, omit these fields — they default to `0n`/`0x0`
+ *   and Safe’s refund logic effectively ignores them.
+ * - On volatile chains, signing an outdated or too-low `gasPrice` underpays the
+ *   relayer. Consider this carefully before sponsoring refunds.
+ *
+ * Danger:
+ * - `UNSAFE_DELEGATE_CALL`: Executes a delegatecall in the Safe’s context. This
+ *   can compromise the Safe if misused. Only set when you fully understand the
+ *   implications.
+ *
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L139
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L103
+ */
+type BuildSafeTransactionOptions = PartialGasRefundParams & {
+	/**
+	 * If true, executes as delegate call (use with extreme caution - can compromise Safe). Billions of dollars were lost to delegatecall attacks.
+	 */
+	UNSAFE_DELEGATE_CALL?: boolean;
+	nonce?: bigint;
+	chainId?: bigint;
+};
 
 type SecureSafeTransactionOptions = Omit<
 	BuildSafeTransactionOptions,
@@ -46,16 +68,24 @@ type SecureSafeTransactionOptions = Omit<
  * Important: When batching multiple transactions, the Safe executes MultiSend via delegatecall.
  * This means MultiSend runs in the Safe's context and has direct access to the Safe's state.
  *
+ * Gas refund mechanism:
+ * - The parameters `safeTxGas`, `baseGas`, `gasPrice`, `gasToken`, and `refundReceiver` are only
+ *   relevant if you intend to use Safe's built‑in refund mechanism to compensate a relayer/sender.
+ * - In most cases, omit these fields or set them to `0`/`0x0` (default behavior) to disable refunds.
+ * - If you use the refund mechanism, study the Safe contracts to understand how refunds are computed
+ *   and paid. On volatile chains, if the signed `gasPrice` is lower than actual fees, the relayer
+ *   will be underpaid. The SDK does not provide helpers to estimate or optimize these values.
+ *
  * @param provider - EIP-1193 compatible provider for blockchain interaction
  * @param safeAddress - The address of the Safe contract that will execute the transaction
  * @param transactions - Array of meta-transactions.  Each object **must** contain a `to` address and may optionally include `value` (defaults to `0n`) and `data` (defaults to `'0x'`).  Missing fields are automatically filled with those defaults.
  * @param transactionOptions - Optional transaction parameters
  * @param transactionOptions.UNSAFE_DELEGATE_CALL - If true, executes as delegate call (use with extreme caution - can compromise Safe)
- * @param transactionOptions.baseGas - Base gas for transaction execution (defaults to 0n)
- * @param transactionOptions.safeTxGas - Gas limit for Safe transaction execution (defaults to 0n)
- * @param transactionOptions.gasPrice - Gas price for refund calculations (defaults to 0n)
- * @param transactionOptions.gasToken - Token address for gas payment (defaults to 0x0 for ETH)
- * @param transactionOptions.refundReceiver - Address to receive gas refunds (defaults to 0x0)
+ * @param transactionOptions.baseGas - Non‑execution overhead used in refund calculation (defaults to 0n; set only if using refunds)
+ * @param transactionOptions.safeTxGas - Gas limit for Safe's internal execution (defaults to 0n; set only if using refunds)
+ * @param transactionOptions.gasPrice - Signed gas price in wei for refund calculation (defaults to 0n; 0 disables refunds)
+ * @param transactionOptions.gasToken - Token used for refund payment (defaults to 0x0 for ETH)
+ * @param transactionOptions.refundReceiver - Refund recipient (defaults to 0x0 which resolves to tx.origin)
  * @param transactionOptions.nonce - Transaction nonce (defaults to current Safe nonce)
  * @param transactionOptions.chainId - Chain ID (defaults to current chain)
  * @returns Complete FullSafeTransaction object with all fields populated
@@ -63,6 +93,8 @@ type SecureSafeTransactionOptions = Omit<
  *
  * @remarks
  * • All addresses in the returned object are normalised to their EIP-55 checksum representation (even if callers pass lower-case or mixed-case strings).
+ * • See Safe's `execTransaction` and `getTransactionHash` for the authoritative refund logic and field meanings.
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/Safe.sol#L139
  * @example
  * ```typescript
  * import { buildSafeTransaction } from 'picosafe';
@@ -94,18 +126,35 @@ type SecureSafeTransactionOptions = Omit<
  * ]);
  * // batchTx.value will be 0n, individual values are in the MultiSend encoded data
  *
- * // Contract interaction with custom gas settings
+ * // Contract interaction (refund fields omitted)
  * const contractTx = await buildSafeTransaction(
  *   provider,
  *   safeAddress,
  *   [{
  *     to: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', // UNI token
- *     data: '0xa9059cbb000000000000000000000000d8dA6BF26964aF9D7eEd9e03E53415D37aA960450000000000000000000000000000000000000000000000008ac7230489e80000', // transfer(address,uint256)
+ *     data: '0xa9059cbb000000000000000000000000d8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+ *         + '0000000000000000000000000000000000000000000000008ac7230489e80000', // transfer(address,uint256)
  *     value: 0n
+ *   }]
+ * );
+ *
+ * // Contract interaction with Safe refund (advanced)
+ * // Note: Only use when you intentionally sponsor execution. Refunds require a non-zero gasPrice.
+ * const contractTxWithRefund = await buildSafeTransaction(
+ *   provider,
+ *   safeAddress,
+ *   [{
+ *     to: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+ *     data: '0xa9059cbb000000000000000000000000d8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+ *         + '0000000000000000000000000000000000000000000000008ac7230489e80000',
+ *     value: 0n,
  *   }],
  *   {
  *     safeTxGas: 100000n,
- *     baseGas: 30000n
+ *     baseGas: 30000n,
+ *     gasPrice: 10_000_000_000n, // 10 gwei — enables refunds
+ *     gasToken: '0x0000000000000000000000000000000000000000', // ETH
+ *     refundReceiver: '0x0000000000000000000000000000000000000000', // defaults to tx.origin in Safe
  *   }
  * );
  * ```

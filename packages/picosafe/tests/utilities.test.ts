@@ -9,9 +9,8 @@
  * Tests run against a local Anvil blockchain.
  */
 
-import { type Address, encodeFunctionData, type Hex, parseEther } from "viem";
+import { type Address, type Hex, parseEther } from "viem";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { encodeWithSelector } from "../src/utilities/encoding";
 import { wrapEthereumTransaction } from "../src/utilities/wrapEthereumTransaction";
 import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress } from "./utils";
@@ -270,81 +269,6 @@ describe("Utility Functions", () => {
 				hash: txHash,
 			});
 			expect(receipt.status).toBe("success");
-		});
-	});
-
-	describe("Encoding Utilities", () => {
-		describe("encodeWithSelector", () => {
-			it("should encode with a selector and a single address argument", () => {
-				const selector = "0x610b5925"; // enableModule(address)
-				const address = "0x1234deadbeef1234deadbeef1234deadbeef1234";
-				const expected = encodeFunctionData({
-					abi: [
-						{
-							type: "function",
-							name: "enableModule",
-							inputs: [{ type: "address" }],
-						},
-					],
-					functionName: "enableModule",
-					args: [address],
-				});
-				expect(encodeWithSelector(selector, address)).toBe(expected);
-			});
-
-			it("should encode with multiple arguments of different types", () => {
-				const address = "0x1234deadbeef1234deadbeef1234deadbeef1234";
-				const amount = 12345n;
-				const bytes32 =
-					"0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
-
-				const abi = [
-					{
-						type: "function",
-						name: "someFunction",
-						inputs: [
-							{ type: "address" },
-							{ type: "uint256" },
-							{ type: "bytes32" },
-						],
-					},
-				] as const;
-
-				const expected = encodeFunctionData({
-					abi,
-					functionName: "someFunction",
-					args: [address, amount, bytes32],
-				});
-
-				const selector = expected.slice(0, 10) as Hex;
-
-				expect(encodeWithSelector(selector, address, amount, bytes32)).toBe(
-					expected,
-				);
-			});
-
-			it("should throw an error for an invalid selector length", () => {
-				const invalidSelector = "0x123"; // Too short
-				expect(() =>
-					encodeWithSelector(invalidSelector as Hex, "0x123"),
-				).toThrow(
-					"Selector must represent exactly 4 bytes (8 hex chars) prefixed with 0x",
-				);
-				const anotherInvalidSelector = "0x123456789"; // Too long
-				expect(() =>
-					encodeWithSelector(anotherInvalidSelector as Hex, "0x123"),
-				).toThrow(
-					"Selector must represent exactly 4 bytes (8 hex chars) prefixed with 0x",
-				);
-			});
-
-			it("should throw an error if an argument exceeds 32 bytes", () => {
-				const selector = "0x12345678";
-				const longHex = `0x${"a".repeat(65)}`; // 33 bytes
-				expect(() => encodeWithSelector(selector, longHex)).toThrow(
-					"Hex size (`33`) exceeds padding size (`32`)",
-				);
-			});
 		});
 	});
 });

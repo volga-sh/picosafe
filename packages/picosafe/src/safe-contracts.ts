@@ -14,7 +14,8 @@ type SafeContracts =
 	| "CompatibilityFallbackHandler"
 	| "MultiSend"
 	| "MultiSendCallOnly"
-	| "CreateCall";
+	| "CreateCall"
+	| "SimulateTxAccessor";
 
 /**
  * Supported Safe contract versions by picosafe SDK.
@@ -30,6 +31,7 @@ const V141_ADDRESSES = {
 	MultiSend: "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526",
 	MultiSendCallOnly: "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
 	CreateCall: "0x9b35Af71d77eaf8d7e40252370304687390A1A52",
+	SimulateTxAccessor: "0x3d4BA2E0884aa488718476ca2FB8Efc291A46199",
 } satisfies Record<SafeContracts, Address>;
 
 /**
@@ -101,11 +103,8 @@ async function isSafeAccount(
 			return false;
 		}
 
-		// Convert storage value to address (remove padding)
-		// Storage values are 32 bytes (64 hex chars + "0x"), addresses are 20 bytes (40 hex chars)
-		const storageAddress = `0x${storageValue.slice(-40)}`; // Extract last 20 bytes as address
+		const storageAddress = `0x${storageValue.slice(-40)}`;
 
-		// Verify that owners[SENTINEL_NODE] points to the first owner
 		return firstOwner.toLowerCase() === storageAddress.toLowerCase();
 	} catch {
 		return false;

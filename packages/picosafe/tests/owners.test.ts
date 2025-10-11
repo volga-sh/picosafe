@@ -19,6 +19,7 @@ import {
 	getAddOwnerTransaction,
 	getChangeThresholdTransaction,
 	getRemoveOwnerTransaction,
+	getSwapOwnerTransaction,
 } from "../src/owners";
 import { SENTINEL_NODE, ZERO_ADDRESS } from "../src/utilities/constants";
 import { createClients, snapshot } from "./fixtures/setup";
@@ -28,6 +29,7 @@ import { randomAddress } from "./utils";
 const SAFE_OWNER_ABI = parseAbi([
 	"function addOwnerWithThreshold(address owner, uint256 _threshold)",
 	"function removeOwner(address prevOwner, address owner, uint256 _threshold)",
+	"function swapOwner(address prevOwner, address oldOwner, address newOwner)",
 	"function changeThreshold(uint256 _threshold)",
 ]);
 
@@ -371,6 +373,237 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 		});
 	});
 
+	describe("getSwapOwnerTransaction", () => {
+		it("should throw error when trying to swap an owner that doesn't exist", async () => {
+			const safeDeployment = await deploySafeAccount(walletClient, {
+				owners: [walletClient.account.address],
+				threshold: 1n,
+			});
+			const deployTxHash = await safeDeployment.send();
+			await publicClient.waitForTransactionReceipt({ hash: deployTxHash });
+			const safeAddress = safeDeployment.data.safeAddress;
+
+			const nonExistentOwner = randomAddress();
+			const newOwner = randomAddress();
+
+			await expect(
+				getSwapOwnerTransaction(walletClient, safeAddress, {
+					oldOwner: nonExistentOwner,
+					newOwner,
+				}),
+			).rejects.toThrow(
+				`Owner ${nonExistentOwner} not found in Safe ${safeAddress}`,
+			);
+		});
+
+		it("should build correct Safe transaction for swapping an owner", async () => {
+			const owner1 = walletClient.account.address;
+			const owner2 = walletClients[1].account.address;
+			const owner3 = walletClients[2].account.address;
+			const newOwner = randomAddress();
+
+			const safeDeployment = await deploySafeAccount(walletClient, {
+				owners: [owner1, owner2, owner3],
+				threshold: 2n,
+			});
+			const deployTxHash = await safeDeployment.send();
+			await publicClient.waitForTransactionReceipt({ hash: deployTxHash });
+			const safeAddress = safeDeployment.data.safeAddress;
+
+			const swapOwnerTx = await getSwapOwnerTransaction(
+				walletClient,
+				safeAddress,
+				{
+					oldOwner: owner2,
+					newOwner,
+				},
+			);
+
+			// Verify the transaction details
+			expect(swapOwnerTx.safeAddress).toBe(safeAddress);
+			expect(swapOwnerTx.to).toBe(safeAddress);
+			expect(swapOwnerTx.value).toBe(0n);
+			expect(swapOwnerTx.operation).toBe(0); // Call operation
+			expect(swapOwnerTx.nonce).toBe(0n);
+			expect(swapOwnerTx.safeTxGas).toBe(0n);
+			expect(swapOwnerTx.baseGas).toBe(0n);
+			expect(swapOwnerTx.gasPrice).toBe(0n);
+			expect(swapOwnerTx.gasToken).toBe(ZERO_ADDRESS);
+			expect(swapOwnerTx.refundReceiver).toBe(ZERO_ADDRESS);
+
+			// Get owners to find the previous owner
+			const owners = await getOwners(walletClient, { safeAddress });
+			const ownerIndex = owners.indexOf(owner2);
+			const prevOwner =
+				ownerIndex === 0 ? SENTINEL_NODE : owners[ownerIndex - 1];
+			if (!prevOwner) {
+				throw new Error("No previous owner found");
+			}
+
+			// Verify full data encoding
+			const expectedData = encodeFunctionData({
+				abi: SAFE_OWNER_ABI,
+				functionName: "swapOwner",
+				args: [prevOwner, owner2, newOwner],
+			});
+			expect(swapOwnerTx.data.toLowerCase()).toBe(expectedData.toLowerCase());
+		});
+
+		it("should handle swapping the first owner in the linked list", async () => {
+			const owner1 = walletClient.account.address;
+			const owner2 = walletClients[1].account.address;
+			const owner3 = walletClients[2].account.address;
+			const newOwner = randomAddress();
+
+			const safeDeployment = await deploySafeAccount(walletClient, {
+				owners: [owner1, owner2, owner3],
+				threshold: 1n,
+			});
+			const deployTxHash = await safeDeployment.send();
+			await publicClient.waitForTransactionReceipt({ hash: deployTxHash });
+			const safeAddress = safeDeployment.data.safeAddress;
+
+			// Get initial owners to verify order
+			const initialOwners = await getOwners(walletClient, { safeAddress });
+			const firstOwner = initialOwners[0];
+			if (!firstOwner) {
+				throw new Error("No first owner found");
+			}
+
+			// Build swap owner transaction for the first owner
+			const swapOwnerTx = await getSwapOwnerTransaction(
+				walletClient,
+				safeAddress,
+				{
+					oldOwner: firstOwner,
+					newOwner,
+				},
+			);
+
+			// Verify the transaction uses SENTINEL_NODE as prevOwner
+			const expectedData = encodeFunctionData({
+				abi: SAFE_OWNER_ABI,
+				functionName: "swapOwner",
+				args: [SENTINEL_NODE, firstOwner, newOwner],
+			});
+			expect(swapOwnerTx.data.toLowerCase()).toBe(expectedData.toLowerCase());
+		});
+
+		it("should build transaction with custom transaction options", async () => {
+			const owner1 = walletClient.account.address;
+			const owner2 = walletClients[1].account.address;
+			const newOwner = randomAddress();
+			const safeDeployment = await deploySafeAccount(walletClient, {
+				owners: [owner1, owner2],
+				threshold: 1n,
+			});
+			const deployTxHash = await safeDeployment.send();
+			await publicClient.waitForTransactionReceipt({ hash: deployTxHash });
+			const safeAddress = safeDeployment.data.safeAddress;
+
+			const gasToken = Address.checksum(randomAddress());
+			const refundReceiver = Address.checksum(randomAddress());
+			const swapOwnerTx = await getSwapOwnerTransaction(
+				walletClient,
+				safeAddress,
+				{ oldOwner: owner2, newOwner },
+				{
+					nonce: 5n,
+					safeTxGas: 100000n,
+					baseGas: 30000n,
+					gasPrice: 1000000000n,
+					gasToken,
+					refundReceiver,
+				},
+			);
+
+			expect(swapOwnerTx.nonce).toBe(5n);
+			expect(swapOwnerTx.safeTxGas).toBe(100000n);
+			expect(swapOwnerTx.baseGas).toBe(30000n);
+			expect(swapOwnerTx.gasPrice).toBe(1000000000n);
+			expect(swapOwnerTx.gasToken).toBe(gasToken);
+			expect(swapOwnerTx.refundReceiver).toBe(refundReceiver);
+		});
+
+		it("should build identical transactions for checksum and lowercase owner addresses", async () => {
+			const safeAddress = randomAddress();
+			const oldOwnerLower = randomAddress();
+			const oldOwnerChecksum = Address.checksum(oldOwnerLower);
+			const newOwner = randomAddress();
+
+			// Build tx with lowercase input, explicit nonce and prevOwner to avoid reading from blockchain
+			const txLower = await getSwapOwnerTransaction(
+				walletClient,
+				safeAddress,
+				{
+					oldOwner: oldOwnerLower,
+					newOwner,
+					prevOwner: SENTINEL_NODE,
+				},
+				{ nonce: 0n },
+			);
+
+			// Build tx with checksum input, explicit nonce and prevOwner to avoid reading from blockchain
+			const txChecksum = await getSwapOwnerTransaction(
+				walletClient,
+				safeAddress,
+				{
+					oldOwner: oldOwnerChecksum,
+					newOwner,
+					prevOwner: SENTINEL_NODE,
+				},
+				{ nonce: 0n },
+			);
+
+			// Transactions should be identical
+			expect(txLower.data).toBe(txChecksum.data);
+			expect(txLower.to).toBe(txChecksum.to);
+			expect(txLower.nonce).toBe(txChecksum.nonce);
+		});
+
+		it("should handle explicit prevOwner parameter", async () => {
+			const owner1 = walletClient.account.address;
+			const owner2 = walletClients[1].account.address;
+			const owner3 = walletClients[2].account.address;
+			const newOwner = randomAddress();
+
+			const safeDeployment = await deploySafeAccount(walletClient, {
+				owners: [owner1, owner2, owner3],
+				threshold: 1n,
+			});
+			const deployTxHash = await safeDeployment.send();
+			await publicClient.waitForTransactionReceipt({ hash: deployTxHash });
+			const safeAddress = safeDeployment.data.safeAddress;
+
+			// Get owners to find the previous owner manually
+			const owners = await getOwners(walletClient, { safeAddress });
+			const ownerIndex = owners.indexOf(owner2);
+			const prevOwner = owners[ownerIndex - 1];
+			if (!prevOwner) {
+				throw new Error("No previous owner found");
+			}
+
+			// Build swap owner transaction with explicit prevOwner
+			const swapOwnerTx = await getSwapOwnerTransaction(
+				walletClient,
+				safeAddress,
+				{
+					oldOwner: owner2,
+					newOwner,
+					prevOwner,
+				},
+			);
+
+			// Verify the transaction uses the provided prevOwner
+			const expectedData = encodeFunctionData({
+				abi: SAFE_OWNER_ABI,
+				functionName: "swapOwner",
+				args: [prevOwner, owner2, newOwner],
+			});
+			expect(swapOwnerTx.data.toLowerCase()).toBe(expectedData.toLowerCase());
+		});
+	});
+
 	describe("getChangeThresholdTransaction", () => {
 		it("should build correct Safe transaction for changing threshold", async () => {
 			// Use random addresses - no need to deploy Safe for transaction building
@@ -463,6 +696,20 @@ describe("Safe Owner Management Functions - owners.ts", () => {
 				getRemoveOwnerTransaction(walletClient, invalidSafeAddress, {
 					ownerToRemove,
 					newThreshold: 1n,
+				}),
+			).rejects.toThrow();
+		});
+
+		it("should handle invalid Safe addresses for swap owner transactions", async () => {
+			const invalidSafeAddress = "0x0000000000000000000000000000000000000000";
+			const oldOwner = randomAddress();
+			const newOwner = randomAddress();
+
+			// getSwapOwnerTransaction should throw when trying to read owners from invalid address that doesn't contain Safe code
+			await expect(
+				getSwapOwnerTransaction(walletClient, invalidSafeAddress, {
+					oldOwner,
+					newOwner,
 				}),
 			).rejects.toThrow();
 		});

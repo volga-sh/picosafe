@@ -1,8 +1,16 @@
+import { AbiFunction } from "ox";
 import type { Address } from "./ox-types";
 import type { SecureSafeTransactionOptions } from "./transactions";
 import { buildSafeTransaction } from "./transactions";
 import type { EIP1193ProviderWithRequestFn } from "./types";
-import { encodeWithSelector } from "./utilities/encoding.js";
+
+/**
+ * Safe function ABI for setFallbackHandler(address)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/FallbackManager.sol#L50
+ */
+const SET_FALLBACK_HANDLER_FN = AbiFunction.from(
+	"function setFallbackHandler(address)",
+);
 
 /**
  * Builds an unsigned Safe transaction object to set a fallback handler for the Safe account.
@@ -61,10 +69,7 @@ function UNSAFE_getSetFallbackHandlerTransaction(
 	handler: Address,
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ) {
-	const data = encodeWithSelector(
-		"0xf08a0323", // setFallbackHandler selector
-		handler,
-	);
+	const data = AbiFunction.encodeData(SET_FALLBACK_HANDLER_FN, [handler]);
 
 	return buildSafeTransaction(
 		provider,
@@ -80,4 +85,4 @@ function UNSAFE_getSetFallbackHandlerTransaction(
 	);
 }
 
-export { UNSAFE_getSetFallbackHandlerTransaction };
+export { UNSAFE_getSetFallbackHandlerTransaction, SET_FALLBACK_HANDLER_FN };

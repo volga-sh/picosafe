@@ -1,4 +1,4 @@
-import { Address as OxAddress } from "ox";
+import { AbiFunction, Address as OxAddress } from "ox";
 import { getModulesPaginated } from "./account-state.js";
 import type { Address } from "./ox-types";
 import type { SecureSafeTransactionOptions } from "./transactions.js";
@@ -8,7 +8,20 @@ import type {
 	FullSafeTransaction,
 } from "./types.js";
 import { SENTINEL_NODE } from "./utilities/constants.js";
-import { encodeWithSelector } from "./utilities/encoding.js";
+
+/**
+ * Safe function ABI for enableModule(address)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L47
+ */
+const ENABLE_MODULE_FN = AbiFunction.from("function enableModule(address)");
+
+/**
+ * Safe function ABI for disableModule(address,address)
+ * @see https://github.com/safe-global/safe-smart-account/blob/v1.4.1/contracts/base/ModuleManager.sol#L63
+ */
+const DISABLE_MODULE_FN = AbiFunction.from(
+	"function disableModule(address,address)",
+);
 
 /**
  * Builds an unsigned Safe transaction object to enable a module for the Safe account.
@@ -80,7 +93,9 @@ async function UNSAFE_getEnableModuleTransaction(
 	moduleAddress: Address,
 	transactionOptions?: Readonly<SecureSafeTransactionOptions>,
 ): Promise<FullSafeTransaction> {
-	const enableModuleData = encodeWithSelector("0x610b5925", moduleAddress);
+	const enableModuleData = AbiFunction.encodeData(ENABLE_MODULE_FN, [
+		moduleAddress,
+	]);
 
 	return buildSafeTransaction(
 		provider,
@@ -207,11 +222,10 @@ async function getDisableModuleTransaction(
 		prevModule = prevModuleCandidate;
 	}
 
-	const disableModuleData = encodeWithSelector(
-		"0xe009cfde",
+	const disableModuleData = AbiFunction.encodeData(DISABLE_MODULE_FN, [
 		prevModule,
 		normalizedModuleAddress,
-	);
+	]);
 
 	return buildSafeTransaction(
 		provider,
@@ -227,4 +241,9 @@ async function getDisableModuleTransaction(
 	);
 }
 
-export { UNSAFE_getEnableModuleTransaction, getDisableModuleTransaction };
+export {
+	UNSAFE_getEnableModuleTransaction,
+	getDisableModuleTransaction,
+	ENABLE_MODULE_FN,
+	DISABLE_MODULE_FN,
+};
