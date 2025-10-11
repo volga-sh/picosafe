@@ -130,10 +130,8 @@ function encodeSafeSignaturesBytes(
 	let dynamicPart = "";
 
 	for (const signature of sortedSignatures) {
-		// Handle ApprovedHashSignature without data field
 		let signatureData: string;
 		if (!("data" in signature)) {
-			// This is an ApprovedHashSignature without data - generate the signature bytes
 			const approvedHashBytes = getApprovedHashSignatureBytes(signature.signer);
 			signatureData = approvedHashBytes.slice(2);
 		} else {
@@ -141,12 +139,10 @@ function encodeSafeSignaturesBytes(
 		}
 
 		if ("dynamic" in signature && signature.dynamic) {
-			// Calculate offset for dynamic data
 			const dynamicOffset =
 				sortedSignatures.length * ECDSA_SIGNATURE_LENGTH_BYTES +
 				dynamicPart.length / 2;
 
-			// Static part: signer address (32) + offset (32) + signature type (1)
 			const paddedSigner = HexUtils.padLeft(signature.signer, 32);
 			const offsetHex = HexUtils.padLeft(
 				HexUtils.fromNumber(dynamicOffset),
@@ -154,14 +150,12 @@ function encodeSafeSignaturesBytes(
 			);
 			staticPart += HexUtils.concat(paddedSigner, offsetHex, "0x00").slice(2);
 
-			// Dynamic part: length (32) + data
 			const dataLength = HexUtils.padLeft(
 				HexUtils.fromNumber(signatureData.length / 2),
 				32,
 			);
 			dynamicPart += HexUtils.concat(dataLength, `0x${signatureData}`).slice(2);
 		} else {
-			// Standard ECDSA signature - validate length
 			if (signatureData.length !== ECDSA_SIGNATURE_LENGTH_HEX) {
 				throw new Error(
 					`Invalid ECDSA signature length: expected ${ECDSA_SIGNATURE_LENGTH_BYTES} bytes (${ECDSA_SIGNATURE_LENGTH_HEX} hex chars), got ${signatureData.length / 2} bytes (${signatureData.length} hex chars)`,
@@ -183,8 +177,6 @@ function readDynamicData(
 	offset: number,
 ): { length: number; data: Hex } {
 	const lengthOffset = offset;
-
-	// Check if we can read the length (64 hex chars = 32 bytes)
 	if (lengthOffset + 64 > data.length) {
 		throw new Error(
 			`Invalid signature: cannot read length at offset ${lengthOffset}, data length is ${data.length}`,
@@ -194,7 +186,6 @@ function readDynamicData(
 	const dataLength =
 		Number.parseInt(data.slice(lengthOffset, lengthOffset + 64), 16) * 2;
 
-	// Check if the calculated data range is within bounds
 	if (lengthOffset + 64 + dataLength > data.length) {
 		throw new Error(
 			`Invalid signature: data range [${lengthOffset + 64}, ${lengthOffset + 64 + dataLength}] exceeds data length ${data.length}`,
@@ -293,7 +284,7 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 	signedHash: Hex,
 ): Promise<PicosafeSignature[]> {
 	const signatures: PicosafeSignature[] = [];
-	const data = encodedSignatures.slice(2); // Remove 0x prefix
+	const data = encodedSignatures.slice(2);
 
 	let offset = 0;
 	const staticLength = ECDSA_SIGNATURE_LENGTH_HEX;
@@ -305,21 +296,18 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 		const v = Number.parseInt(signatureData.slice(-2), 16);
 
 		if (v === SignatureTypeVByte.CONTRACT) {
-			// Dynamic signature - extract signer and offset
 			const signer = OxAddress.checksum(
 				`0x${signatureData.slice(24, 64)}` as Address,
 			);
 			const dynamicOffset =
 				Number.parseInt(signatureData.slice(64, 128), 16) * 2;
 
-			// Check that dynamicOffset is within bounds to read the length field (32 bytes)
 			if (dynamicOffset + 64 > data.length) {
 				throw new Error(
 					`Invalid signature: dynamicOffset ${dynamicOffset} is out of bounds to read length, data length is ${data.length}`,
 				);
 			}
 
-			// Read dynamic data using helper
 			const { data: dynamicData } = readDynamicData(data, dynamicOffset);
 
 			signatures.push({
@@ -328,7 +316,6 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 				dynamic: true,
 			});
 		} else if (v === SignatureTypeVByte.APPROVED_HASH) {
-			// Pre-approved hash signature - extract from position
 			signatures.push({
 				signer: OxAddress.checksum(
 					`0x${signatureData.slice(24, 64)}` as Address,
@@ -339,7 +326,6 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 			v === SignatureTypeVByte.EIP712_RECID_1 ||
 			v === SignatureTypeVByte.EIP712_RECID_2
 		) {
-			// Static signature - extract from position
 			const signature: Hex = `0x${signatureData}`;
 			const sig = Signature.fromHex(signature);
 			const recoveredAddress = Secp256k1.recoverAddress({
@@ -355,7 +341,6 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
 			v === SignatureTypeVByte.ETH_SIGN_RECID_1 ||
 			v === SignatureTypeVByte.ETH_SIGN_RECID_2
 		) {
-			// ECDSA signature - extract from position
 			const signature: Hex = `0x${signatureData}`;
 			const personalMessage = PersonalMessage.encode(signedHash);
 			const messageHash = Hash.keccak256(personalMessage);
@@ -420,7 +405,6 @@ async function decodeSafeSignatureBytesToPicosafeSignatures(
  */
 function getSignatureTypeVByte(signature: Hex): SignatureTypeVByte {
 	if (signature.length < ECDSA_SIGNATURE_LENGTH_HEX + 2) {
-		// +2 for '0x' prefix
 		throw new Error("Signature too short to determine v-byte");
 	}
 
@@ -576,13 +560,11 @@ async function validateSignaturesForSafe(
 		let result: SignatureValidationResult<PicosafeSignature>;
 
 		if (isApprovedHashSignature(signature)) {
-			// ApprovedHashSignature - requires dataHash and safeAddress
 			result = await validateSignature(provider, signature, {
 				dataHash: validationParams.dataHash,
 				safeAddress,
 			});
 		} else if (isDynamicSignature(signature)) {
-			// DynamicSignature - requires data or dataHash
 			if (validationParams.data) {
 				result = await validateSignature(provider, signature, {
 					data: validationParams.data,
@@ -593,7 +575,6 @@ async function validateSignaturesForSafe(
 				});
 			}
 		} else if (isECDSASignature(signature)) {
-			// ECDSASignature - requires only dataHash
 			result = await validateSignature(provider, signature, {
 				dataHash: validationParams.dataHash,
 			});

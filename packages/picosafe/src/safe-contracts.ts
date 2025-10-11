@@ -103,11 +103,8 @@ async function isSafeAccount(
 			return false;
 		}
 
-		// Convert storage value to address (remove padding)
-		// Storage values are 32 bytes (64 hex chars + "0x"), addresses are 20 bytes (40 hex chars)
-		const storageAddress = `0x${storageValue.slice(-40)}`; // Extract last 20 bytes as address
+		const storageAddress = `0x${storageValue.slice(-40)}`;
 
-		// Verify that owners[SENTINEL_NODE] points to the first owner
 		return firstOwner.toLowerCase() === storageAddress.toLowerCase();
 	} catch {
 		return false;

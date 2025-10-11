@@ -166,8 +166,6 @@ async function simulateWithSignatures(
 			],
 		})) as Hex;
 
-		// execTransaction returns a bool, encoded as 32 bytes
-		// true = 0x0000...0001, false = 0x0000...0000
 		const success = result !== "0x" && BigInt(result) !== 0n;
 
 		return {
@@ -175,7 +173,6 @@ async function simulateWithSignatures(
 			returnData: result,
 		};
 	} catch (error) {
-		// eth_call reverts on failure - extract error message
 		return {
 			success: false,
 			error:
@@ -193,8 +190,6 @@ async function simulateWithAccessor(
 	transaction: Readonly<FullSafeTransaction>,
 ): Promise<SimulationResult> {
 	try {
-		// Build the simulate call to SimulateTxAccessor
-		// Function signature: simulate(address to, uint256 value, bytes calldata data, Enum.Operation operation)
 		const simulateFunctionAbi = AbiFunction.from(
 			"function simulate(address to, uint256 value, bytes calldata data, uint8 operation) external returns (uint256 estimate, bool success, bytes memory returnData)",
 		);
@@ -206,8 +201,6 @@ async function simulateWithAccessor(
 			transaction.operation,
 		]);
 
-		// Use simulateAndRevert from StorageAccessible to call SimulateTxAccessor via delegatecall
-		// Function signature: simulateAndRevert(address targetContract, bytes calldataPayload)
 		const simulateAndRevertAbi = AbiFunction.from(
 			"function simulateAndRevert(address targetContract, bytes calldataPayload)",
 		);
@@ -220,7 +213,7 @@ async function simulateWithAccessor(
 			method: "eth_call",
 			params: [
 				{
-					from: transaction.safeAddress, // call from Safe so delegatecall-access checks inside accessor pass
+					from: transaction.safeAddress,
 					to: transaction.safeAddress,
 					data: simulateAndRevertData,
 				},
@@ -228,13 +221,11 @@ async function simulateWithAccessor(
 			],
 		});
 
-		// If we reach here, something unexpected happened
 		return {
 			success: false,
 			error: "Simulation did not revert as expected",
 		};
 	} catch (error) {
-		// The call should revert with the simulation result encoded as the canonical tuple
 		const revertData = extractRevertData(error);
 		if (!revertData) {
 			return { success: false, error: "Failed to extract simulation result" };
