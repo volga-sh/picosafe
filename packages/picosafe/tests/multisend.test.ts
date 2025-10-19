@@ -125,8 +125,18 @@ describe("encodeMultiSendCall", () => {
 			// Should be a multiSend function call with selector 0x8d80ff0a
 			expect(encoded.slice(0, 10)).toBe("0x8d80ff0a");
 
-			// Verify reasonable length (function selector + data offset + data length + packed transactions)
-			expect(encoded.length).toBeGreaterThan((4 + 32 + 32 + 170) * 2); // At least 238 bytes encoded
+			// Verify reasonable length:
+			// - function selector: 4 bytes
+			// - data offset: 32 bytes
+			// - data length: 32 bytes
+			// - packed transactions: at least 170 bytes (depends on input)
+			const FUNCTION_SELECTOR_BYTES = 4;
+			const DATA_OFFSET_BYTES = 32;
+			const DATA_LENGTH_BYTES = 32;
+			const MIN_PACKED_TRANSACTIONS_BYTES = 170; // minimum for these two transactions
+			const MIN_EXPECTED_BYTES = FUNCTION_SELECTOR_BYTES + DATA_OFFSET_BYTES + DATA_LENGTH_BYTES + MIN_PACKED_TRANSACTIONS_BYTES;
+			const MIN_EXPECTED_HEX_LENGTH = MIN_EXPECTED_BYTES * 2; // 2 hex chars per byte
+			expect(encoded.length).toBeGreaterThan(MIN_EXPECTED_HEX_LENGTH); // At least 238 bytes encoded
 
 			// Should contain both addresses within the encoded data
 			expect(encoded.toLowerCase()).toContain(
