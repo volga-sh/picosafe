@@ -123,26 +123,24 @@ import { createClients, snapshot } from "./fixtures/setup";
 import { randomAddress, randomBytesHex } from "./utils";
 
 describe("isValidECDSASignature", () => {
-	test("should validate correct ECDSA signature with v=27", async () => {
+	test("should validate correct ECDSA signatures with v=27 and v=28", async () => {
 		let foundV27 = false;
+		let foundV28 = false;
 		let attempts = 0;
 		const maxAttempts = 100;
 
-		while (!foundV27 && attempts < maxAttempts) {
+		while ((!foundV27 || !foundV28) && attempts < maxAttempts) {
 			attempts++;
 
 			const privateKey = generatePrivateKey();
 			const account = privateKeyToAccount(privateKey);
-			const dataHash = keccak256(toHex("test message"));
+			const dataHash = keccak256(toHex(`test message ${attempts}`));
 
 			const signature = await account.sign({
 				hash: dataHash,
 			});
 
 			const vByte = Number.parseInt(signature.slice(-2), 16);
-			if (vByte === 27) {
-				foundV27 = true;
-			}
 
 			const staticSignature: StaticSignature = {
 				signer: account.address,
@@ -155,44 +153,15 @@ describe("isValidECDSASignature", () => {
 			expect(result.validatedSigner).toBe(account.address);
 			expect(result.signature).toEqual(staticSignature);
 			expect(result.error).toBeUndefined();
-		}
 
-		expect(foundV27).toBe(true);
-	});
-
-	test("should validate correct ECDSA signature with v=28", async () => {
-		// Generate multiple signatures until we get one with v=28
-		let foundV28 = false;
-		let attempts = 0;
-		const maxAttempts = 100;
-
-		while (!foundV28 && attempts < maxAttempts) {
-			attempts++;
-			const privateKey = generatePrivateKey();
-			const account = privateKeyToAccount(privateKey);
-			const dataHash = keccak256(toHex(`test message ${attempts}`));
-
-			const signature = await account.sign({
-				hash: dataHash,
-			});
-
-			// Check if v=28 (last byte)
-			const vByte = Number.parseInt(signature.slice(-2), 16);
-			if (vByte === 28) {
+			if (vByte === 27) {
+				foundV27 = true;
+			} else if (vByte === 28) {
 				foundV28 = true;
-
-				const staticSignature: StaticSignature = {
-					signer: account.address,
-					data: signature,
-				};
-
-				const result = await isValidECDSASignature(staticSignature, dataHash);
-
-				expect(result.valid).toBe(true);
-				expect(result.validatedSigner).toBe(account.address);
 			}
 		}
 
+		expect(foundV27).toBe(true);
 		expect(foundV28).toBe(true);
 	});
 
@@ -869,50 +838,13 @@ describe("validateSignature", () => {
 	});
 
 	describe("ECDSA signatures (EIP-712)", () => {
-		test("should validate correct EIP-712 signature with v=27", async () => {
+		test("should validate correct EIP-712 signatures with v=27 and v=28", async () => {
 			let foundV27 = false;
-			let attempts = 0;
-			const maxAttempts = 100;
-
-			while (!foundV27 && attempts < maxAttempts) {
-				attempts++;
-				const privateKey = generatePrivateKey();
-				const account = privateKeyToAccount(privateKey);
-				const dataHash = keccak256(toHex(`test message ${attempts}`));
-
-				const signature = await account.sign({
-					hash: dataHash,
-				});
-
-				const vByte = Number.parseInt(signature.slice(-2), 16);
-				if (vByte === 27) {
-					foundV27 = true;
-
-					const ecdsaSignature: ECDSASignature = {
-						signer: account.address,
-						data: signature,
-					};
-
-					const result = await validateSignature(publicClient, ecdsaSignature, {
-						dataHash,
-					});
-
-					expect(result.valid).toBe(true);
-					expect(result.validatedSigner).toBe(account.address);
-					expect(result.signature).toEqual(ecdsaSignature);
-					expect(result.error).toBeUndefined();
-				}
-			}
-
-			expect(foundV27).toBe(true);
-		});
-
-		test("should validate correct EIP-712 signature with v=28", async () => {
 			let foundV28 = false;
 			let attempts = 0;
 			const maxAttempts = 100;
 
-			while (!foundV28 && attempts < maxAttempts) {
+			while ((!foundV27 || !foundV28) && attempts < maxAttempts) {
 				attempts++;
 				const privateKey = generatePrivateKey();
 				const account = privateKeyToAccount(privateKey);
@@ -923,25 +855,29 @@ describe("validateSignature", () => {
 				});
 
 				const vByte = Number.parseInt(signature.slice(-2), 16);
-				if (vByte === 28) {
+
+				const ecdsaSignature: ECDSASignature = {
+					signer: account.address,
+					data: signature,
+				};
+
+				const result = await validateSignature(publicClient, ecdsaSignature, {
+					dataHash,
+				});
+
+				expect(result.valid).toBe(true);
+				expect(result.validatedSigner).toBe(account.address);
+				expect(result.signature).toEqual(ecdsaSignature);
+				expect(result.error).toBeUndefined();
+
+				if (vByte === 27) {
+					foundV27 = true;
+				} else if (vByte === 28) {
 					foundV28 = true;
-
-					const ecdsaSignature: ECDSASignature = {
-						signer: account.address,
-						data: signature,
-					};
-
-					const result = await validateSignature(publicClient, ecdsaSignature, {
-						dataHash,
-					});
-
-					expect(result.valid).toBe(true);
-					expect(result.validatedSigner).toBe(account.address);
-					expect(result.signature).toEqual(ecdsaSignature);
-					expect(result.error).toBeUndefined();
 				}
 			}
 
+			expect(foundV27).toBe(true);
 			expect(foundV28).toBe(true);
 		});
 
