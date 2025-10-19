@@ -134,7 +134,11 @@ describe("encodeMultiSendCall", () => {
 			const DATA_OFFSET_BYTES = 32;
 			const DATA_LENGTH_BYTES = 32;
 			const MIN_PACKED_TRANSACTIONS_BYTES = 170; // minimum for these two transactions
-			const MIN_EXPECTED_BYTES = FUNCTION_SELECTOR_BYTES + DATA_OFFSET_BYTES + DATA_LENGTH_BYTES + MIN_PACKED_TRANSACTIONS_BYTES;
+			const MIN_EXPECTED_BYTES =
+				FUNCTION_SELECTOR_BYTES +
+				DATA_OFFSET_BYTES +
+				DATA_LENGTH_BYTES +
+				MIN_PACKED_TRANSACTIONS_BYTES;
 			const MIN_EXPECTED_HEX_LENGTH = MIN_EXPECTED_BYTES * 2; // 2 hex chars per byte
 			expect(encoded.length).toBeGreaterThan(MIN_EXPECTED_HEX_LENGTH); // At least 238 bytes encoded
 
