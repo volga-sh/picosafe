@@ -19,6 +19,9 @@
 		"check:write": "biome check --write"
 	},
 	"dependencies": {
+		"@hookform/resolvers": "^5.2.2",
+		"@radix-ui/react-label": "^2.1.8",
+		"@radix-ui/react-slot": "^1.2.4",
 		"@tailwindcss/vite": "^4.1.17",
 		"@tanstack/react-devtools": "^0.8.1",
 		"@tanstack/react-form": "^1.23.8",
@@ -27,10 +30,21 @@
 		"@tanstack/react-router": "^1.134.15",
 		"@tanstack/react-router-devtools": "^1.134.15",
 		"@tanstack/router-plugin": "^1.134.15",
+		"@tanstack/zod-adapter": "^1.134.15",
+		"@volga/picosafe": "^0.0.1",
+		"@web3-onboard/core": "^2.24.1",
+		"@web3-onboard/injected-wallets": "^2.11.3",
+		"@web3-onboard/react": "^2.11.0",
+		"class-variance-authority": "^0.7.1",
+		"clsx": "^2.1.1",
+		"lucide-react": "^0.553.0",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
+		"react-hook-form": "^7.66.0",
+		"tailwind-merge": "^3.3.1",
 		"tailwindcss": "^4.1.17",
-		"zod": "^4.1.12"
+		"viem": "^2.38.6",
+		"zod": "^3.25.76"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.56.1",
