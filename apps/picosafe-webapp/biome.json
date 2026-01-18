@@ -3,7 +3,6 @@
 	"extends": ["../../biome.json"],
 	"files": {
 		"includes": [
-			"**",
 			"!**/node_modules",
 			"!**/dist",
 			"!**/artifacts",
