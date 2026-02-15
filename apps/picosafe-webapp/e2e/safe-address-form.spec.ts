@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { withAnvil } from "@volga/anvil-manager";
 import { deploySafeAccount } from "@volga/picosafe";
 import { getSafeGenesisPath } from "@volga/safe-genesis";
@@ -7,26 +7,56 @@ import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 
 /**
- * E2E tests for Safe Address Form
- *
- * Tests the form that allows users to load a Safe by entering its address
- * Uses Anvil with pre-deployed Safe contracts and mocked wallet connection
+ * E2E tests for Safe loading and dashboard rendering.
  */
 
 /**
- * Anvil's first default test account
- * Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+ * Anvil's first default account.
  */
 const ANVIL_TEST_PRIVATE_KEY =
 	"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
-test.describe("Safe Address Form", () => {
-	test("should accept valid Safe address and navigate to dashboard", async ({
+const ANVIL_TEST_ACCOUNT =
+	"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+const INVALID_SAFE_ADDRESSES = [
+	"0x123", // too short
+	"123456", // missing 0x prefix
+	"0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", // invalid hex chars
+	"", // empty
+];
+
+async function installWalletMock(page: Page) {
+	await page.addInitScript(() => {
+		// @ts-expect-error - mocked wallet provider used in tests only
+		window.ethereum = {
+			request: async ({ method }: { method: string }) => {
+				switch (method) {
+					case "eth_requestAccounts":
+						return ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"];
+					case "eth_chainId":
+						return "0x1";
+					default:
+						return null;
+				}
+			},
+			on: () => {},
+			removeListener: () => {},
+		};
+	});
+}
+
+const safeAddressInput = (page: Page) => page.getByRole("textbox", { name: /safe address/i });
+const networkInput = (page: Page) => page.getByRole("textbox", { name: /network/i });
+const submitButton = (page: Page) =>
+	page.getByRole("button", { name: /open safe details/i });
+
+test.describe("Safe Address form", () => {
+	test("loads a valid Safe and shows expected dashboard sections", async ({
 		page,
 	}) => {
 		await withAnvil(
 			async (anvilInstance) => {
-				// Deploy a test Safe to get a valid address
 				const testAccount = privateKeyToAccount(ANVIL_TEST_PRIVATE_KEY);
 
 				const walletClient = createWalletClient({
@@ -40,7 +70,6 @@ test.describe("Safe Address Form", () => {
 					transport: http(anvilInstance.rpcUrl),
 				});
 
-				// Deploy Safe with 1 owner, threshold 1
 				const safe = await deploySafeAccount(walletClient, {
 					owners: [testAccount.address],
 					threshold: 1n,
@@ -48,54 +77,26 @@ test.describe("Safe Address Form", () => {
 
 				const txHash = await safe.send();
 				await publicClient.waitForTransactionReceipt({ hash: txHash });
-
 				const safeAddress = safe.data.safeAddress;
 
-				// Mock window.ethereum before page loads
-				await page.addInitScript(() => {
-					// @ts-expect-error - Mocking window.ethereum
-					window.ethereum = {
-						request: async ({ method }: { method: string }) => {
-							if (method === "eth_requestAccounts") {
-								return ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"];
-							}
-							if (method === "eth_chainId") {
-								return "0x1"; // Ethereum mainnet
-							}
-							// Return null for other methods
-							return null;
-						},
-						on: () => {},
-						removeListener: () => {},
-					};
-				});
-
-				// Navigate to homepage
+				await installWalletMock(page);
 				await page.goto("/");
 
-				// Wait for wallet connection to complete and form to load
-				await page.waitForSelector('input[id="safeAddress"]', {
-					state: "visible",
-					timeout: 10000,
-				});
+				await expect(safeAddressInput(page)).toBeVisible();
+				await safeAddressInput(page).fill(safeAddress);
+				await submitButton(page).click();
 
-				// Fill in Safe address
-				await page.fill('input[id="safeAddress"]', safeAddress);
+				await expect(page).toHaveURL(/\/dashboard\?/);
+				expect(page.url()).toContain(`safe=${safeAddress}`);
+				expect(page.url()).toContain("chainId=1");
 
-				// Submit form
-				await page.click('button:has-text("Load Safe")');
-
-				// Verify navigation to dashboard with correct search params
-				await page.waitForURL(
-					new RegExp(`/dashboard\\?safe=${safeAddress}&chainId=1`),
-					{ timeout: 5000 },
-				);
-
-				// Verify URL contains expected parameters
-				const url = page.url();
-				expect(url).toContain("/dashboard");
-				expect(url).toContain(`safe=${safeAddress}`);
-				expect(url).toContain("chainId=1");
+				await expect(page.getByRole("heading", { name: /safe configuration/i })).toBeVisible();
+				await expect(page.getByText("Version")).toBeVisible();
+				await expect(page.getByText("Threshold")).toBeVisible();
+				await expect(page.getByText("Owners")).toBeVisible();
+				await expect(page.getByRole("heading", { name: new RegExp(`^${safeAddress}$`) })).toBeVisible();
+				await expect(page.getByText("1 of 1")).toBeVisible();
+				await expect(page.getByText(ANVIL_TEST_ACCOUNT)).toBeVisible();
 			},
 			{
 				genesisPath: getSafeGenesisPath(),
@@ -103,109 +104,44 @@ test.describe("Safe Address Form", () => {
 		);
 	});
 
-	test("should show error for invalid address format", async ({ page }) => {
-		// Mock wallet connection
-		await page.addInitScript(() => {
-			// @ts-expect-error - Mocking window.ethereum
-			window.ethereum = {
-				request: async ({ method }: { method: string }) => {
-					if (method === "eth_requestAccounts") {
-						return ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"];
-					}
-					if (method === "eth_chainId") {
-						return "0x1";
-					}
-					return null;
-				},
-				on: () => {},
-				removeListener: () => {},
-			};
-		});
-
+	test("shows a validation error for invalid Safe addresses", async ({ page }) => {
+		await installWalletMock(page);
 		await page.goto("/");
+		await expect(safeAddressInput(page)).toBeVisible();
 
-		// Wait for form to load
-		await page.waitForSelector('input[id="safeAddress"]', {
-			state: "visible",
-			timeout: 10000,
-		});
+		for (const invalidAddress of INVALID_SAFE_ADDRESSES) {
+			await safeAddressInput(page).fill(invalidAddress);
+			await submitButton(page).click();
 
-		// Test various invalid address formats
-		const invalidAddresses = [
-			"0x123", // Too short
-			"123456", // Missing 0x prefix
-			"0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", // Invalid hex characters
-			"", // Empty
-		];
-
-		for (const invalidAddress of invalidAddresses) {
-			// Fill in invalid address
-			await page.fill('input[id="safeAddress"]', invalidAddress);
-
-			// Submit form
-			await page.click('button:has-text("Load Safe")');
-
-			// Verify error message appears
-			const errorMessage = page.locator("p.text-sm.text-red-600");
-			await expect(errorMessage).toBeVisible({ timeout: 2000 });
-			await expect(errorMessage).toContainText("Invalid");
-
-			// Clear the input for next iteration
-			await page.fill('input[id="safeAddress"]', "");
+			const error = page.getByRole("alert");
+			await expect(error).toBeVisible();
+			await expect(error).toContainText(/invalid/i);
+			await expect(page).not.toHaveURL(/\/dashboard\?/);
 		}
 	});
 
-	test("should display network as Ethereum Mainnet", async ({ page }) => {
-		// Mock wallet connection
-		await page.addInitScript(() => {
-			// @ts-expect-error - Mocking window.ethereum
-			window.ethereum = {
-				request: async ({ method }: { method: string }) => {
-					if (method === "eth_requestAccounts") {
-						return ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"];
-					}
-					if (method === "eth_chainId") {
-						return "0x1";
-					}
-					return null;
-				},
-				on: () => {},
-				removeListener: () => {},
-			};
-		});
-
+	test("shows the network as Ethereum mainnet and disables it", async ({ page }) => {
+		await installWalletMock(page);
 		await page.goto("/");
-
-		// Wait for form to load
-		await page.waitForSelector('input[id="safeAddress"]', {
-			state: "visible",
-			timeout: 10000,
-		});
-
-		// Verify network field shows Ethereum Mainnet
-		const networkInput = page.locator('input[id="network"]');
-		await expect(networkInput).toBeVisible();
-		await expect(networkInput).toHaveValue("Ethereum Mainnet (Chain ID: 1)");
-		await expect(networkInput).toBeDisabled();
+		await expect(networkInput(page)).toBeVisible();
+		await expect(networkInput(page)).toHaveValue("Ethereum Mainnet (Chain ID: 1)");
+		await expect(networkInput(page)).toBeDisabled();
 	});
 
-	test("should require wallet connection before showing form", async ({
-		page,
-	}) => {
-		// Navigate without mocking wallet
+	test("requires wallet connection before showing Safe form", async ({ page }) => {
 		await page.goto("/");
-
-		// Should see wallet connection prompt
-		await expect(
-			page.locator('h2:has-text("Connect Your Wallet")'),
-		).toBeVisible({ timeout: 5000 });
-
-		// Should see connect button
-		await expect(
-			page.locator('button:has-text("Connect Wallet")'),
-		).toBeVisible();
-
-		// Should NOT see the Safe address form yet
-		await expect(page.locator('input[id="safeAddress"]')).not.toBeVisible();
+		await expect(page.getByRole("button", { name: /connect wallet/i })).toBeVisible();
+		await expect(safeAddressInput(page)).not.toBeVisible();
+		await expect(networkInput(page)).not.toBeVisible();
 	});
+});
+
+test("shows dashboard failure state when safe address is not a Safe", async ({ page }) => {
+	await installWalletMock(page);
+	await page.goto("/dashboard?safe=0x0000000000000000000000000000000000000001&chainId=1");
+
+	await expect(page.getByRole("heading", { name: /failed to load safe/i })).toBeVisible();
+	await expect(
+		page.getByText(/could not fetch safe configuration/i),
+	).toBeVisible();
 });
