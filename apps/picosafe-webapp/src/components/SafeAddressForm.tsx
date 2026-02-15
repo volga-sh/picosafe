@@ -15,11 +15,6 @@ import { safeAddressSchema } from "@/lib/validators";
 
 /**
  * Form component for loading a Safe by entering its address
- *
- * Validates the address and navigates to the dashboard route with the Safe address
- * and chain ID as search parameters. Currently supports Ethereum mainnet only.
- *
- * @returns SafeAddressForm component
  */
 export function SafeAddressForm() {
 	const [safeAddress, setSafeAddress] = useState("");
@@ -30,7 +25,6 @@ export function SafeAddressForm() {
 		e.preventDefault();
 		setError(null);
 
-		// Validate the Safe address
 		const result = safeAddressSchema.safeParse(safeAddress);
 
 		if (!result.success) {
@@ -38,7 +32,6 @@ export function SafeAddressForm() {
 			return;
 		}
 
-		// Navigate to dashboard with the validated Safe address and chain ID
 		navigate({
 			to: "/dashboard",
 			search: {
@@ -49,14 +42,15 @@ export function SafeAddressForm() {
 	};
 
 	return (
-		<Card className="w-full max-w-md">
-			<CardHeader>
-				<CardTitle>Load Safe</CardTitle>
-				<CardDescription>
-					Enter your Safe address to view and manage your Safe account
+		<Card className="border-0 shadow-none">
+			<CardHeader className="pb-3">
+				<CardTitle className="text-2xl">Safe details query</CardTitle>
+				<CardDescription className="text-muted-foreground">
+					Enter a Safe address to inspect its on-chain owners, threshold, and
+					version.
 				</CardDescription>
 			</CardHeader>
-			<CardContent>
+			<CardContent className="space-y-4">
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div className="space-y-2">
 						<Label htmlFor="safeAddress">Safe Address</Label>
@@ -66,9 +60,13 @@ export function SafeAddressForm() {
 							placeholder="0x..."
 							value={safeAddress}
 							onChange={(e) => setSafeAddress(e.target.value)}
-							className={error ? "border-red-500" : ""}
+							className={error ? "border-destructive focus-visible:ring-destructive" : ""}
 						/>
-						{error && <p className="text-sm text-red-600">{error}</p>}
+						{error && (
+							<p className="text-sm text-destructive" role="alert">
+								{error}
+							</p>
+						)}
 					</div>
 
 					<div className="space-y-2">
@@ -81,12 +79,12 @@ export function SafeAddressForm() {
 							className="bg-muted"
 						/>
 						<p className="text-xs text-muted-foreground">
-							Currently supporting Ethereum mainnet only
+							Chain fixed to Ethereum mainnet.
 						</p>
 					</div>
 
 					<Button type="submit" className="w-full">
-						Load Safe
+						Open Safe details
 					</Button>
 				</form>
 			</CardContent>

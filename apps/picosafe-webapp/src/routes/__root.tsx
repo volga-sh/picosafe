@@ -8,9 +8,11 @@ export interface MyRouterContext {
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	component: () => (
-		<>
-			<Header />
-			<Outlet />
-		</>
+		<div className="min-h-screen bg-background text-foreground">
+			<div className="mx-auto w-full max-w-6xl px-4 py-8">
+				<Header />
+				<Outlet />
+			</div>
+		</div>
 	),
 });

@@ -3,42 +3,51 @@ import { createContext, use, useMemo } from "react";
 import { createWalletClient, custom, type WalletClient } from "viem";
 import { mainnet } from "viem/chains";
 import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 
 const WalletIllustration = () => (
 	<svg
-		width="240"
-		height="180"
-		viewBox="0 0 240 180"
+		width="220"
+		height="150"
+		viewBox="0 0 220 150"
 		fill="none"
 		xmlns="http://www.w3.org/2000/svg"
-		className="mx-auto mb-6"
+		className="mx-auto mb-6 block"
 		role="img"
-		aria-label="Wallet illustration"
+		aria-label="Wallet connection illustration"
 	>
-		<title>Wallet illustration</title>
-		<rect x="20" y="40" width="200" height="120" rx="8" fill="#f8f8f8" />
-		<rect x="40" y="20" width="160" height="40" rx="4" fill="#f0f0f0" />
-		<rect x="80" y="30" width="80" height="20" rx="2" fill="#d0d0d0" />
-		<rect x="60" y="90" width="120" height="8" rx="4" fill="#e0e0e0" />
-		<rect x="60" y="110" width="80" height="6" rx="3" fill="#f0f0f0" />
-		<rect x="170" y="90" width="80" height="40" rx="4" fill="#333333" />
-		<path d="M190 110H220V120H190V110Z" fill="white" />
-		<circle cx="205" cy="100" r="5" fill="white" />
+		<title>Wallet connection illustration</title>
+		<rect x="20" y="42" width="180" height="90" rx="10" fill="currentColor" opacity="0.09" />
+		<rect
+			x="40"
+			y="60"
+			width="140"
+			height="18"
+			rx="4"
+			fill="currentColor"
+			opacity="0.14"
+		/>
+		<rect x="42" y="92" width="80" height="9" rx="4" fill="currentColor" opacity="0.12" />
+		<rect x="130" y="92" width="32" height="26" rx="4" fill="currentColor" opacity="0.25" />
+		<rect x="48" y="28" width="120" height="24" rx="5" fill="currentColor" opacity="0.1" />
+		<circle cx="62" cy="40" r="5" fill="currentColor" opacity="0.32" />
 	</svg>
 );
 
 const WalletContext = createContext<WalletClient | null>(null);
 
 interface RequireWalletProps {
-	/** The child components to render once a wallet is connected and provider is available. */
 	children: React.ReactNode;
 }
 
 /**
- * Custom hook to get the Viem WalletClient from the connected wallet.
- * It memoizes the client instance.
- *
- * @returns The WalletClient instance, or undefined if no wallet is connected.
+ * Hook to get the Viem WalletClient from the connected wallet.
  */
 function useWalletClient(): WalletClient | undefined {
 	const [{ wallet }] = useConnectWallet();
@@ -52,51 +61,45 @@ function useWalletClient(): WalletClient | undefined {
 	}, [wallet]);
 }
 
-/**
- * A component that requires a wallet connection to render its children.
- * If no wallet is connected, it displays a connection prompt.
- * If a wallet is connected but the provider is not yet initialized, it shows a loading state.
- * Once connected and provider is ready, it makes the Viem WalletClient available via context.
- *
- * @param props - The component props
- * @returns JSX element, either a connection prompt, loading indicator, or children wrapped in WalletContext.Provider
- */
 export function RequireWallet({ children }: RequireWalletProps) {
 	const [{ wallet }, connect] = useConnectWallet();
 	const walletClient = useWalletClient();
 
 	if (!wallet) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
-				<div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center border border-gray-200">
-					<WalletIllustration />
-					<h2 className="text-2xl font-bold text-gray-900 mb-3">
-						Connect Your Wallet
-					</h2>
-					<p className="text-gray-700 mb-8">
-						To get started, connect your Ethereum wallet to access the
-						application
-					</p>
-					<Button onClick={() => connect()} className="w-full" size="lg">
-						<svg
-							className="w-5 h-5 mr-2"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							xmlns="http://www.w3.org/2000/svg"
-							role="img"
-							aria-label="Connect wallet"
-						>
-							<title>Connect wallet</title>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M13 10V3L4 14h7v7l9-11h-7z"
-							/>
-						</svg>
-						Connect Wallet
-					</Button>
+			<div className="flex min-h-[60vh] items-center">
+				<div className="mx-auto w-full max-w-lg">
+					<Card>
+						<CardHeader className="pb-4 text-center">
+							<WalletIllustration />
+							<CardTitle className="text-2xl">Connect wallet</CardTitle>
+							<CardDescription>
+								Connect a wallet to read Safe account state from chain.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<Button onClick={() => connect()} className="w-full py-6 text-base" size="lg">
+								<svg
+									className="w-5 h-5 mr-2"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									xmlns="http://www.w3.org/2000/svg"
+									role="img"
+									aria-label="Connect wallet"
+								>
+									<title>Connect wallet</title>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M13 10V3L4 14h7v7l9-11h-7z"
+									/>
+								</svg>
+								Connect Wallet
+							</Button>
+						</CardContent>
+					</Card>
 				</div>
 			</div>
 		);
@@ -104,34 +107,24 @@ export function RequireWallet({ children }: RequireWalletProps) {
 
 	if (!walletClient) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-gray-50">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4" />
-					<p className="text-gray-800 font-medium">
-						Initializing your wallet...
-					</p>
-					<p className="text-sm text-gray-600 mt-2">
-						This should only take a moment
-					</p>
-				</div>
+			<div className="flex min-h-[60vh] items-center justify-center">
+				<Card className="mx-auto w-full max-w-sm">
+					<CardContent className="flex min-h-32 flex-col items-center justify-center py-8">
+						<p className="text-sm font-medium text-muted-foreground">Preparing wallet</p>
+						<div className="mt-3 h-10 w-10 animate-spin rounded-full border-b-2 border-foreground" />
+						<p className="mt-3 text-sm text-muted-foreground">
+							Initializing wallet client...
+						</p>
+					</CardContent>
+				</Card>
 			</div>
 		);
 	}
 
-	return (
-		<WalletContext.Provider value={walletClient}>
-			{children}
-		</WalletContext.Provider>
-	);
+	return <WalletContext.Provider value={walletClient}>{children}</WalletContext.Provider>;
 }
 
-/**
- * Hook to access the WalletClient from context.
- * Must be used within a RequireWallet tree.
- *
- * @returns The WalletClient instance
- * @throws Error if used outside RequireWallet component
- */
+/** Hook to access the WalletClient from context. */
 export function useWalletProvider(): WalletClient {
 	const walletClient = use(WalletContext);
 	if (!walletClient) {

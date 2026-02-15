@@ -2,12 +2,17 @@ import { Link } from "@tanstack/react-router";
 
 export default function Header() {
 	return (
-		<header className="p-2 flex gap-2 bg-white text-black justify-between">
-			<nav className="flex flex-row">
-				<div className="px-2 font-bold">
-					<Link to="/">Home</Link>
-				</div>
-			</nav>
+		<header className="mb-6 rounded-xl border border-border bg-card px-4 py-4">
+			<div className="flex items-center justify-between gap-4">
+				<Link
+					to="/"
+					className="inline-flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground"
+				>
+					<span className="text-sm text-muted-foreground font-medium uppercase tracking-[0.15em]">
+						picosafe
+					</span>
+				</Link>
+			</div>
 		</header>
 	);
 }
