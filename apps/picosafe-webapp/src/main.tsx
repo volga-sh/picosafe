@@ -12,8 +12,6 @@ import "./styles.css";
 import { web3OnboardConfig } from "./lib/web3-onboard";
 import reportWebVitals from "./reportWebVitals.js";
 
-// Create a new router instance
-
 // Initialize Web3Onboard
 const web3Onboard = init(web3OnboardConfig);
 
