@@ -60,7 +60,9 @@ export function SafeAddressForm() {
 							placeholder="0x..."
 							value={safeAddress}
 							onChange={(e) => setSafeAddress(e.target.value)}
-							className={error ? "border-destructive focus-visible:ring-destructive" : ""}
+							className={
+								error ? "border-destructive focus-visible:ring-destructive" : ""
+							}
 						/>
 						{error && (
 							<p className="text-sm text-destructive" role="alert">

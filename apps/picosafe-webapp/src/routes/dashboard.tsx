@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { zodValidator } from "@tanstack/zod-adapter";
 import {
 	Card,
@@ -48,11 +48,15 @@ export function Dashboard() {
 			<div className="flex items-center justify-center min-h-[60vh]">
 				<Card className="w-full max-w-lg border-destructive/25">
 					<CardHeader>
-						<CardDescription className="font-medium text-destructive">Error</CardDescription>
-						<CardTitle className="text-destructive">Failed to load Safe</CardTitle>
+						<CardDescription className="font-medium text-destructive">
+							Error
+						</CardDescription>
+						<CardTitle className="text-destructive">
+							Failed to load Safe
+						</CardTitle>
 						<CardDescription>
-							Could not fetch Safe configuration. Verify the address and
-							the connected wallet/network.
+							Could not fetch Safe configuration. Verify the address and the
+							connected wallet/network.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>

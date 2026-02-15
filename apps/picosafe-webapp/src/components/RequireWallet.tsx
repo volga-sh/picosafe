@@ -23,7 +23,15 @@ const WalletIllustration = () => (
 		aria-label="Wallet connection illustration"
 	>
 		<title>Wallet connection illustration</title>
-		<rect x="20" y="42" width="180" height="90" rx="10" fill="currentColor" opacity="0.09" />
+		<rect
+			x="20"
+			y="42"
+			width="180"
+			height="90"
+			rx="10"
+			fill="currentColor"
+			opacity="0.09"
+		/>
 		<rect
 			x="40"
 			y="60"
@@ -33,9 +41,33 @@ const WalletIllustration = () => (
 			fill="currentColor"
 			opacity="0.14"
 		/>
-		<rect x="42" y="92" width="80" height="9" rx="4" fill="currentColor" opacity="0.12" />
-		<rect x="130" y="92" width="32" height="26" rx="4" fill="currentColor" opacity="0.25" />
-		<rect x="48" y="28" width="120" height="24" rx="5" fill="currentColor" opacity="0.1" />
+		<rect
+			x="42"
+			y="92"
+			width="80"
+			height="9"
+			rx="4"
+			fill="currentColor"
+			opacity="0.12"
+		/>
+		<rect
+			x="130"
+			y="92"
+			width="32"
+			height="26"
+			rx="4"
+			fill="currentColor"
+			opacity="0.25"
+		/>
+		<rect
+			x="48"
+			y="28"
+			width="120"
+			height="24"
+			rx="5"
+			fill="currentColor"
+			opacity="0.1"
+		/>
 		<circle cx="62" cy="40" r="5" fill="currentColor" opacity="0.32" />
 	</svg>
 );
@@ -78,7 +110,11 @@ export function RequireWallet({ children }: RequireWalletProps) {
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<Button onClick={() => connect()} className="w-full py-6 text-base" size="lg">
+							<Button
+								onClick={() => connect()}
+								className="w-full py-6 text-base"
+								size="lg"
+							>
 								<svg
 									className="w-5 h-5 mr-2"
 									fill="none"
@@ -110,7 +146,9 @@ export function RequireWallet({ children }: RequireWalletProps) {
 			<div className="flex min-h-[60vh] items-center justify-center">
 				<Card className="mx-auto w-full max-w-sm">
 					<CardContent className="flex min-h-32 flex-col items-center justify-center py-8">
-						<p className="text-sm font-medium text-muted-foreground">Preparing wallet</p>
+						<p className="text-sm font-medium text-muted-foreground">
+							Preparing wallet
+						</p>
 						<div className="mt-3 h-10 w-10 animate-spin rounded-full border-b-2 border-foreground" />
 						<p className="mt-3 text-sm text-muted-foreground">
 							Initializing wallet client...
@@ -121,7 +159,11 @@ export function RequireWallet({ children }: RequireWalletProps) {
 		);
 	}
 
-	return <WalletContext.Provider value={walletClient}>{children}</WalletContext.Provider>;
+	return (
+		<WalletContext.Provider value={walletClient}>
+			{children}
+		</WalletContext.Provider>
+	);
 }
 
 /** Hook to access the WalletClient from context. */

@@ -24,13 +24,13 @@ function AppInner() {
 					Inspect Safe accounts
 				</h1>
 				<p className="max-w-xl text-base sm:text-lg text-muted-foreground mt-4">
-					Enter a Safe address to load chain-resolved configuration:
-					owners, threshold, nonce, and version.
+					Enter a Safe address to load chain-resolved configuration: owners,
+					threshold, nonce, and version.
 				</p>
 			</section>
 
 			<aside>
-					<SafeAddressForm />
+				<SafeAddressForm />
 			</aside>
 		</div>
 	);
