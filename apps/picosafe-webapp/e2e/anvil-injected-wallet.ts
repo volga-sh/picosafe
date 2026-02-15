@@ -1,4 +1,4 @@
-import { type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 type RpcRequestParameters = {
 	method: string;
@@ -42,11 +42,6 @@ export async function installAnvilInjectedProvider(
 
 			const listenerMap = new Map<string, Set<(...args: unknown[]) => void>>();
 
-			const normalizeHexChainId = (rawChainId: unknown) => {
-				const chainId = String(rawChainId);
-				return chainId.startsWith("0x") ? chainId : `0x${BigInt(chainId).toString(16)}`;
-			};
-
 			// @ts-expect-error - Injected provider shape used only for tests
 			window.ethereum = {
 				isMetaMask: true,
@@ -88,7 +83,10 @@ export async function installAnvilInjectedProvider(
 					listenerMap.set(eventName, listeners);
 					return this as unknown;
 				},
-				removeListener(eventName: string, callback: (...args: unknown[]) => void) {
+				removeListener(
+					eventName: string,
+					callback: (...args: unknown[]) => void,
+				) {
 					const listeners = listenerMap.get(eventName);
 					if (!listeners) return this as unknown;
 

@@ -38,7 +38,11 @@ const detectedWalletButton = (page: Page) =>
 	page.getByRole("button", { name: /detected wallet/i });
 
 const ensureWalletConnected = async (page: Page) => {
-	if (await connectWalletButton(page).isVisible().catch(() => false)) {
+	if (
+		await connectWalletButton(page)
+			.isVisible()
+			.catch(() => false)
+	) {
 		await connectWalletButton(page).click();
 		await expect(detectedWalletButton(page)).toBeVisible({ timeout: 5000 });
 		await detectedWalletButton(page).click();
@@ -74,7 +78,11 @@ test.describe("Safe Address form", () => {
 				const txHash = await safe.send();
 				await publicClient.waitForTransactionReceipt({ hash: txHash });
 				const safeAddress = safe.data.safeAddress;
-				const [expectedOwner] = safe.data.deploymentConfig.owners;
+				const expectedOwner = safe.data.deploymentConfig.owners[0];
+
+				if (expectedOwner === undefined) {
+					throw new Error("Expected at least one owner for deployed Safe");
+				}
 
 				await installAnvilInjectedProvider(page, anvilInstance.rpcUrl);
 				await page.goto("/");
@@ -92,7 +100,9 @@ test.describe("Safe Address form", () => {
 				await expect(
 					page.getByRole("heading", { name: new RegExp(`^${safeAddress}$`) }),
 				).toBeVisible();
-				await expect(page.getByText("Current on-chain account state")).toBeVisible();
+				await expect(
+					page.getByText("Current on-chain account state"),
+				).toBeVisible();
 				await expect(page.getByText("1 of 1")).toBeVisible();
 				await expect(page.getByText(expectedOwner)).toBeVisible();
 			},
