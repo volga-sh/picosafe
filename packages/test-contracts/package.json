@@ -16,10 +16,10 @@
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "hardhat": "^2.26.0",
     "solady": "^0.1.26",
-    "tsup": "^8.5.0"
+    "tsup": "^8.5.1"
   },
   "dependencies": {
-    "ethers": "^6.15.0",
-    "viem": "^2.38.6"
+    "ethers": "^6.16.0",
+    "viem": "^2.46.0"
   }
 }
