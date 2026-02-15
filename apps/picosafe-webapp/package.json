@@ -19,16 +19,11 @@
 		"check:write": "biome check --write"
 	},
 	"dependencies": {
-		"@hookform/resolvers": "^5.2.2",
 		"@radix-ui/react-label": "^2.1.8",
 		"@radix-ui/react-slot": "^1.2.4",
 		"@tailwindcss/vite": "^4.1.18",
-		"@tanstack/react-devtools": "^0.9.5",
-		"@tanstack/react-form": "^1.28.3",
 		"@tanstack/react-query": "^5.90.21",
-		"@tanstack/react-query-devtools": "^5.91.3",
 		"@tanstack/react-router": "^1.160.0",
-		"@tanstack/react-router-devtools": "^1.160.0",
 		"@tanstack/router-plugin": "^1.160.0",
 		"@tanstack/zod-adapter": "^1.160.0",
 		"@volga/picosafe": "^0.0.1",
@@ -37,10 +32,8 @@
 		"@web3-onboard/react": "^2.11.0",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
-		"lucide-react": "^0.564.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
-		"react-hook-form": "^7.71.1",
 		"tailwind-merge": "^3.4.1",
 		"tailwindcss": "^4.1.18",
 		"viem": "^2.46.0",
@@ -56,7 +49,6 @@
 		"@vitejs/plugin-react": "^5.1.4",
 		"jsdom": "^28.1.0",
 		"vite": "^7.3.1",
-		"vitest": "^4.0.18",
-		"web-vitals": "^5.1.0"
+		"vitest": "^4.0.18"
 	}
 }

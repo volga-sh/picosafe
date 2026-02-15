@@ -50,30 +50,3 @@ export const ETHEREUM_MAINNET: Chain = {
 	],
 	infoURL: "https://ethereum.org",
 };
-
-/**
- * List of all supported chains
- * Currently Ethereum mainnet only
- */
-export const SUPPORTED_CHAINS: Chain[] = [ETHEREUM_MAINNET];
-
-/**
- * Get chain configuration by chain ID
- *
- * @param chainId - The chain ID to look up
- * @returns Chain configuration or undefined if not found
- */
-export function getChainById(chainId: number): Chain | undefined {
-	return SUPPORTED_CHAINS.find((chain) => chain.chainId === chainId);
-}
-
-/**
- * Get the first available RPC URL for a chain
- *
- * @param chainId - The chain ID
- * @returns RPC URL or undefined if chain not found
- */
-export function getRpcUrlByChainId(chainId: number): string | undefined {
-	const chain = getChainById(chainId);
-	return chain?.rpc[0]?.url;
-}
