@@ -25,7 +25,8 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        # Keep optional dependencies so Vite's LightningCSS optional native package is available on Linux runners.
+        run: npm ci --include=optional
 
       - name: Build webapp
         run: npm run build:webapp
@@ -47,7 +48,8 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        # Keep optional dependencies so Vite's LightningCSS optional native package is available on Linux runners.
+        run: npm ci --include=optional
 
       - name: Check code quality with Biome
         run: npm run check -w picosafe-webapp
@@ -66,7 +68,8 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        # Keep optional dependencies so Vite's LightningCSS optional native package is available on Linux runners.
+        run: npm ci --include=optional
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
