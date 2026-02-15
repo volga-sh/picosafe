@@ -65,6 +65,14 @@ jobs:
           node-version: "22"
           cache: "npm"
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Ensure anvil is available
+        run: |
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+          anvil --version
+
       - name: Install dependencies
         run: npm ci
 

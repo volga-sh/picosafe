@@ -34,15 +34,15 @@
 	"license": "Unlicense",
 	"devDependencies": {
 		"@types/node": "^24.10.0",
-		"@vitest/coverage-v8": "^4.0.17",
-		"@vitest/ui": "^4.0.17",
+		"@vitest/coverage-v8": "^4.0.18",
+		"@vitest/ui": "^4.0.18",
 		"@volga/anvil-manager": "*",
 		"@volga/safe-genesis": "*",
-		"rollup": "^4.55.1",
+		"rollup": "^4.57.1",
 		"tsup": "^8.5.1",
-		"vitest": "^4.0.17"
+		"vitest": "^4.0.18"
 	},
 	"dependencies": {
-		"ox": "^0.11.3"
+		"ox": "^0.12.1"
 	}
 }

@@ -1,9 +1,6 @@
-import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import Header from "../components/Header";
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export interface MyRouterContext {
 	queryClient: QueryClient;
@@ -11,21 +8,11 @@ export interface MyRouterContext {
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	component: () => (
-		<>
-			<Header />
-			<Outlet />
-			<TanStackDevtools
-				config={{
-					position: "bottom-left",
-				}}
-				plugins={[
-					{
-						name: "Tanstack Router",
-						render: <TanStackRouterDevtoolsPanel />,
-					},
-					TanStackQueryDevtools,
-				]}
-			/>
-		</>
+		<div className="min-h-screen bg-background text-foreground">
+			<div className="mx-auto w-full max-w-6xl px-4 py-8">
+				<Header />
+				<Outlet />
+			</div>
+		</div>
 	),
 });

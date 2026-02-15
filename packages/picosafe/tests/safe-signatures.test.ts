@@ -77,9 +77,7 @@ describe("encodeSafeSignaturesBytes", () => {
 			"1b"; // ECDSA signature
 
 		const expectedDynamic =
-			(130 / 2)
-				.toString(16)
-				.padStart(64, "0") + // length = 65 bytes
+			(130 / 2).toString(16).padStart(64, "0") + // length = 65 bytes
 			"c".repeat(130); // data
 
 		expect(encoded).toBe(expectedStatic + expectedDynamic);
@@ -122,9 +120,7 @@ describe("encodeSafeSignaturesBytes", () => {
 			"00";
 
 		const expectedDynamic =
-			(100)
-				.toString(16)
-				.padStart(64, "0") + // first signature length
+			(100).toString(16).padStart(64, "0") + // first signature length
 			"a".repeat(200) + // first signature data
 			(50).toString(16).padStart(64, "0") + // second signature length
 			"b".repeat(100); // second signature data

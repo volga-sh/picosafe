@@ -1,37 +1,39 @@
 # picosafe-webapp CLAUDE.md
 
-Web application for picosafe SDK. This file documents webapp-specific tech stack and commands. See the main [CLAUDE.md](../../CLAUDE.md) for general coding standards and guidelines.
+Web application for picosafe SDK. This file captures webapp-specific guidance. See the root [CLAUDE.md](../../CLAUDE.md) for all shared standards.
 
 ## Tech Stack
 
 - **React 19** - UI library
-- **TanStack Router** - File-based routing with automatic route generation
-- **TanStack Query** - Data fetching and state management
-- **TanStack Form** - Type-safe form handling with Zod validation
-- **Tailwind CSS v4** - Utility-first styling with Vite plugin
+- **TanStack Router** - File-based routing with type-safe generated route tree
+- **TanStack Query** - Server state and async data caching
+- **Tailwind CSS v4** - Utility-first styling
 - **Vite** - Build tool and dev server
 - **TypeScript** - Type safety
 - **Playwright** - End-to-end testing
-- **Vitest** - Unit testing (not currently used)
 - **Biome** - Linting and formatting
+- **Vitest** - Unit test runner (configured, currently no committed webapp unit tests)
 
 ## Key Commands
 
 ```bash
 # Development
-npm run dev              # Start dev server on port 3000
-npm run build            # Build for production
+npm run dev            # Start dev server on port 3000
+npm run start          # Alias for vite dev server on port 3000
+npm run build          # Production build (vite build && tsc)
 
 # Testing
-npm run test:e2e         # Run Playwright e2e tests
-npm run test:e2e:ui      # Run e2e tests with UI
-npm run test:e2e:debug   # Debug e2e tests
+npm run test:e2e       # Run Playwright end-to-end tests
+npm run test:e2e:ui    # Run Playwright with UI mode
+npm run test:e2e:debug # Debug Playwright tests in debug mode
 
-# Code Quality
-npm run typecheck        # TypeScript type checking
-npm run check            # Lint with Biome
-npm run check:write      # Lint and auto-fix with Biome
-npm run format           # Format code with Biome
+# Quality
+npm run test           # Prints guidance when no unit tests are present
+npm run typecheck      # TypeScript type check
+npm run lint           # Lint with Biome
+npm run check          # Biome lint + format checks
+npm run check:write    # Biome auto-fix checks
+npm run format         # Format only
 ```
 
 ## Project Structure
@@ -39,30 +41,37 @@ npm run format           # Format code with Biome
 ```
 apps/picosafe-webapp/
 ├── src/
-│   ├── routes/          # File-based routes (auto-generated routing)
-│   ├── components/      # React components
-│   ├── hooks/           # Custom React hooks
-│   ├── integrations/    # Third-party integrations
-│   └── main.tsx         # Entry point
-├── e2e/                 # Playwright e2e tests
+│   ├── components/      # Reusable React components
+│   ├── hooks/           # Custom hooks
+│   ├── integrations/    # External integrations (wallets, data clients)
+│   ├── lib/             # Shared validators and helpers
+│   ├── routes/          # TanStack Router route files
+│   ├── routeTree.gen.ts  # Generated route definitions
+│   └── main.tsx         # React app entrypoint
+├── e2e/                 # Playwright tests
 ├── public/              # Static assets
-└── index.html           # HTML entry point
+├── index.html           # HTML entry point
+└── README.md            # App-focused usage docs
 ```
 
 ## Important Notes
 
-- **Routes**: TanStack Router uses file-based routing. Routes in `src/routes/` are automatically discovered and type-safe
-- **Route Tree**: `src/routeTree.gen.ts` is auto-generated - do not edit manually
-- **Styling**: Uses Tailwind CSS v4 with the Vite plugin
-- **Port**: Dev server runs on port 3000
-- **Testing**: Focus on e2e tests with Playwright; unit tests are minimal
+- Routes in `src/routes/` are file-based and auto-discovered by TanStack Router.
+- `src/routeTree.gen.ts` is generated; do not edit manually.
+- The dev server is expected on `localhost:3000`.
+- Keep Playwright tests updated for key flows (connect wallet, input safe address, copy actions).
 
-## TanStack Router Patterns
+## Route Naming Pattern
 
-Routes are file-based and use naming conventions:
-- `index.tsx` → `/`
-- `about.tsx` → `/about`
-- `demo.form.simple.tsx` → `/demo/form/simple`
-- `__root.tsx` → Root layout wrapping all routes
+Routes are discovered by filename:
+- `index.tsx` -> `/`
+- `dashboard/index.tsx` -> `/dashboard`
+- `__root.tsx` -> Root route wrapper
 
-Each route file exports a Route object created with `createFileRoute()`.
+## Webapp-only Alignment (Universal CLAUDE Rules)
+
+- Prefer short, behavior-focused comments that explain **why**, not obvious restatements of the code.
+- Keep new helpers/components small and composable.
+- Keep data boundaries clear (UI state, query/cache state, blockchain interactions).
+- Prefer explicit interfaces/types for shared props and hook return values.
+- Keep file-level scope tight; keep route and integration files thin.

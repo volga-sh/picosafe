@@ -1,39 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
-import logo from "../logo.svg";
+import { RequireWallet } from "@/components/RequireWallet";
+import { SafeAddressForm } from "@/components/SafeAddressForm";
+
+/**
+ * Main app component wrapped with wallet requirement
+ */
+export function App() {
+	return (
+		<RequireWallet>
+			<AppInner />
+		</RequireWallet>
+	);
+}
+
+/**
+ * Home view shown after wallet connection
+ */
+function AppInner() {
+	return (
+		<div className="grid lg:grid-cols-[1.15fr_1fr] gap-8 items-start">
+			<section>
+				<h1 className="text-4xl sm:text-5xl font-semibold leading-tight text-foreground">
+					Inspect Safe accounts
+				</h1>
+				<p className="max-w-xl text-base sm:text-lg text-muted-foreground mt-4">
+					Enter a Safe address to load chain-resolved configuration: owners,
+					threshold, nonce, and version.
+				</p>
+			</section>
+
+			<aside>
+				<SafeAddressForm />
+			</aside>
+		</div>
+	);
+}
 
 export const Route = createFileRoute("/")({
 	component: App,
 });
-
-function App() {
-	return (
-		<div className="text-center">
-			<header className="min-h-screen flex flex-col items-center justify-center bg-[#282c34] text-white text-[calc(10px+2vmin)]">
-				<img
-					src={logo}
-					className="h-[40vmin] pointer-events-none animate-[spin_20s_linear_infinite]"
-					alt="logo"
-				/>
-				<p>
-					Edit <code>src/routes/index.tsx</code> and save to reload.
-				</p>
-				<a
-					className="text-[#61dafb] hover:underline"
-					href="https://reactjs.org"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					Learn React
-				</a>
-				<a
-					className="text-[#61dafb] hover:underline"
-					href="https://tanstack.com"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					Learn TanStack
-				</a>
-			</header>
-		</div>
-	);
-}
